@@ -3,7 +3,10 @@
 
 #include <stdint.h>
 
+#include <string_view>
+
 #include "sdk/event.hpp"
+#include "sdk/media.hpp"
 #include "sdk/result.hpp"
 #include "sdk/types.hpp"
 
@@ -29,6 +32,7 @@ struct AudioInfo final {
     // Audio 1.2: Guest PCM streams (0 when the Host predates them).
     uint16_t max_pcm_streams{};
     bool supports_pcm_stream{};
+    bool supports_url_media{};
 
     [[nodiscard]] constexpr bool Supports(Waveform waveform) const {
         const uint32_t bit = static_cast<uint32_t>(waveform);
@@ -198,6 +202,7 @@ class PcmStream final {
 // buffers stay Host-side; Guest apps deal only in source and playback handles.
 class Audio final {
    public:
+    [[nodiscard]] Result<MediaPlayback> OpenUrl(std::string_view url) const;
     [[nodiscard]] Result<AudioInfo> info() const;
     [[nodiscard]] Result<void> Play(const Tone& tone) const;
     [[nodiscard]] Result<AudioClip> Load(AssetId asset) const;

@@ -111,8 +111,8 @@ bool PreflightPng(const micropixel_bundle_asset_view_t& asset, uint32_t& width, 
     return ValidDecodedSize(width, height, 3U, minimum_output_size);
 }
 
-bool DecodeJpeg(const micropixel_bundle_asset_view_t& asset, uint32_t preferred_opaque_format,
-                device::BitmapView& view) {
+bool DecodeJpeg(const micropixel_bundle_asset_view_t& asset, uint32_t preferred_opaque_format, device::BitmapView& view,
+                uint32_t max_edge = UINT16_MAX) {
     const bool rgb565 = preferred_opaque_format == MICROPIXEL_PIXEL_FORMAT_RGB565;
     const uint32_t bytes_per_pixel = rgb565 ? 2U : 3U;
     jpeg_dec_config_t config = DEFAULT_JPEG_DEC_CONFIG();
@@ -129,7 +129,8 @@ bool DecodeJpeg(const micropixel_bundle_asset_view_t& asset, uint32_t preferred_
     bool succeeded = false;
     if (jpeg_dec_parse_header(decoder, &io, &header) == JPEG_ERR_OK) {
         const uint64_t output_size_64 = static_cast<uint64_t>(header.width) * header.height * bytes_per_pixel;
-        if (ValidDecodedSize(header.width, header.height, bytes_per_pixel, output_size_64)) {
+        if (header.width <= max_edge && header.height <= max_edge &&
+            ValidDecodedSize(header.width, header.height, bytes_per_pixel, output_size_64)) {
             const size_t output_size = static_cast<size_t>(output_size_64);
             auto* output = static_cast<uint8_t*>(heap_caps_aligned_alloc(64U, output_size, kBitmapPsramCapabilities));
             if (output != nullptr) {
@@ -367,6 +368,22 @@ bool AllocateBitmap(uint32_t width, uint32_t height, uint32_t pixel_format, Deco
     return true;
 }
 
+bool DecodeEncodedBitmap(std::span<const uint8_t> bytes, DecodedBitmap& decoded) {
+    if (decoded.valid() || bytes.size() < 24 || bytes.size() > MICROPIXEL_ENCODED_TEXTURE_MAX_BYTES) return false;
+    micropixel_bundle_asset_view_t asset{};
+    asset.data = bytes.data();
+    asset.size = bytes.size();
+    if (bytes[0] == 0xff && bytes[1] == 0xd8) {
+        asset.format = MICROPIXEL_BUNDLE_FORMAT_JPEG;
+        return DecodeJpeg(asset, MICROPIXEL_PIXEL_FORMAT_BGR888, decoded.view_, MICROPIXEL_ENCODED_TEXTURE_MAX_EDGE);
+    }
+    uint32_t width = 0, height = 0;
+    if (!PreflightPng(asset, width, height) || width > MICROPIXEL_ENCODED_TEXTURE_MAX_EDGE ||
+        height > MICROPIXEL_ENCODED_TEXTURE_MAX_EDGE)
+        return false;
+    asset.format = MICROPIXEL_BUNDLE_FORMAT_PNG;
+    return DecodeBitmap(asset, decoded);
+}
 bool DecodeBitmap(const micropixel_bundle_asset_view_t& asset, DecodedBitmap& decoded) {
     return DecodeBitmap(asset, MICROPIXEL_PIXEL_FORMAT_BGR888, decoded);
 }

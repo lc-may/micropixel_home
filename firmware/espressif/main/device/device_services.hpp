@@ -14,6 +14,7 @@
 #include "device/contracts/haptics.hpp"
 #include "device/contracts/input.hpp"
 #include "device/contracts/random.hpp"
+#include "device/contracts/remote.hpp"
 #include "device/contracts/sensors.hpp"
 
 namespace micropixel::device {
@@ -129,6 +130,8 @@ class GraphicsService final {
 class InputService final {
    public:
     explicit InputService(Input& implementation) : implementation_(implementation) {}
+    int32_t EnableText(bool enabled) { return implementation_.EnableText(enabled); }
+    int32_t ReadText(micropixel_text_response_t& text) { return implementation_.ReadText(text); }
 
     [[nodiscard]] DeviceResult<micropixel_input_info_t> GetInfo() const;
     void BindTouchSink(TouchSink sink, void* context) const;
@@ -180,7 +183,8 @@ class RandomService final {
 class DeviceServices final {
    public:
     DeviceServices(Graphics& graphics, DisplayInfo display, Input& input, Audio& audio, Random& random,
-                   DeviceCatalog& devices, Sensors& sensors, Gpio& gpio, Haptics& haptics, Battery& battery)
+                   DeviceCatalog& devices, Sensors& sensors, Gpio& gpio, Haptics& haptics, Battery& battery,
+                   HttpClient* http = nullptr, UrlMedia* media = nullptr)
         : graphics_(graphics, display),
           input_(input),
           audio_(audio),
@@ -189,7 +193,9 @@ class DeviceServices final {
           sensors_(sensors),
           gpio_(gpio),
           haptics_(haptics),
-          power_info_(devices, battery) {}
+          power_info_(devices, battery),
+          http_(http),
+          media_(media) {}
     DeviceServices(const DeviceServices&) = delete;
     DeviceServices& operator=(const DeviceServices&) = delete;
 
@@ -221,6 +227,9 @@ class DeviceServices final {
         return power_info_;
     }
 
+    [[nodiscard]] HttpClient* http() { return http_; }
+    [[nodiscard]] UrlMedia* media() { return media_; }
+
    private:
     GraphicsService graphics_;
     InputService input_;
@@ -231,6 +240,8 @@ class DeviceServices final {
     GpioService gpio_;
     HapticsService haptics_;
     PowerInfoService power_info_;
+    HttpClient* http_{};
+    UrlMedia* media_{};
 };
 
 }  // namespace micropixel::device

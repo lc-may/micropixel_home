@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "app_id": "micropixel.netease-music",
+  "version": "0.4.2",
+  "threading": "none",
+  "title": {
+    "default": "zh-CN",
+    "values": {
+      "zh-CN": "网易云音乐",
+      "en": "NetEase Music"
+    }
+  },
+  "sources": [
+    "main.cpp",
+    "weapi.cpp"
+  ],
+  "requirements": {
+    "schema_version": 1,
+    "display": {
+      "layouts": [
+        "square"
+      ],
+      "min_width": 720,
+      "min_height": 720
+    },
+    "required": [
+      "input.touch",
+      "audio.output"
+    ],
+    "optional": [
+      "input.keys"
+    ],
+    "any_of": [],
+    "services": {
+      "network": 65538,
+      "audio": 65537,
+      "input": 65538,
+      "resource": 65537
+    },
+    "system_font": "zh-CN"
+  }
+}

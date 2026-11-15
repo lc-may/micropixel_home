@@ -1,0 +1,7 @@
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_PROCESSOR riscv32)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(CMAKE_C_COMPILER "$ENV{MICROPIXEL_RV32_CC}")
+set(CMAKE_ASM_COMPILER "$ENV{MICROPIXEL_RV32_CC}")
+set(CMAKE_C_FLAGS_INIT "-march=rv32imafc_zicsr_zifencei -mabi=ilp32f -mcmodel=medany -mno-relax")
+set(CMAKE_ASM_FLAGS_INIT "-march=rv32imafc_zicsr_zifencei -mabi=ilp32f -mcmodel=medany -mno-relax")

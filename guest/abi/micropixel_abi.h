@@ -13,7 +13,21 @@
 #define MICROPIXEL_GRAPHICS_INTERFACE_MAJOR 1U
 #define MICROPIXEL_GRAPHICS_INTERFACE_MINOR 0U
 #define MICROPIXEL_INPUT_INTERFACE_MAJOR 1U
-#define MICROPIXEL_INPUT_INTERFACE_MINOR 1U
+#define MICROPIXEL_INPUT_INTERFACE_MINOR 2U
+/* Input 1.2: opt-in UTF-8 text entry; READ drains complete codepoints.
+ * Host discards queued text when disabled or the session ends. */
+#define MICROPIXEL_INPUT_METHOD_TEXT_ENABLE 2U
+#define MICROPIXEL_INPUT_METHOD_TEXT_READ 3U
+#define MICROPIXEL_INPUT_CAP_TEXT (1U << 3U)
+typedef struct micropixel_text_enable_request {
+    uint16_t size;
+    uint16_t enabled;
+} micropixel_text_enable_request_t;
+typedef struct micropixel_text_response {
+    uint16_t size;
+    uint16_t length;
+    char bytes[32];
+} micropixel_text_response_t;
 /* Scene channel messages: 'MPGS'. */
 #define MICROPIXEL_GRAPHICS_SCENE_MAGIC 0x5347504dU
 /* Raster channel draw lists: 'MPRS'. Warp entries carry 5 light bits and
@@ -27,9 +41,9 @@
 /* Direct Surface: full-frame buffers presented in place. */
 #define MICROPIXEL_SURFACE_BUFFER_ALIGNMENT 64U
 #define MICROPIXEL_RESOURCE_INTERFACE_MAJOR 1U
-#define MICROPIXEL_RESOURCE_INTERFACE_MINOR 0U
+#define MICROPIXEL_RESOURCE_INTERFACE_MINOR 1U
 #define MICROPIXEL_AUDIO_INTERFACE_MAJOR 1U
-#define MICROPIXEL_AUDIO_INTERFACE_MINOR 0U
+#define MICROPIXEL_AUDIO_INTERFACE_MINOR 1U
 #define MICROPIXEL_RANDOM_INTERFACE_MAJOR 1U
 #define MICROPIXEL_RANDOM_INTERFACE_MINOR 0U
 /* Upper bound of one PCM_STREAM_WRITE request, header plus interleaved int16 samples. */
@@ -54,6 +68,98 @@
 #define MICROPIXEL_POWER_INTERFACE_MINOR 0U
 #define MICROPIXEL_DEVICES_LIST_PAGE_SIZE 16U
 #define MICROPIXEL_DEVICE_NAME_MAX_BYTES 39U
+
+/* Network 1.0: one bounded asynchronous HTTP request per AppSession.
+ * START payload is url, header lines (name: value\r\n), then body, without NULs.
+ * READ uses absolute offsets. Handles remain valid until CLOSE, including failures. */
+#define MICROPIXEL_NETWORK_INTERFACE_MAJOR 1U
+#define MICROPIXEL_NETWORK_INTERFACE_MINOR 2U
+#define MICROPIXEL_HTTP_MAX_REQUEST_BYTES 8192U
+#define MICROPIXEL_HTTP_MAX_RESPONSE_BYTES 262144U
+#define MICROPIXEL_HTTP_READ_BYTES 4096U
+#define MICROPIXEL_NETWORK_METHOD_HTTP_START 1U
+#define MICROPIXEL_NETWORK_METHOD_HTTP_STATE 2U
+#define MICROPIXEL_NETWORK_METHOD_HTTP_READ 3U
+#define MICROPIXEL_NETWORK_METHOD_HTTP_CLOSE 4U
+/* Network 1.1: EXCHANGE uses the START header; it accepts GET headers and
+ * returns all HTTP statuses without redirects. Header bytes preserve repeats. */
+#define MICROPIXEL_NETWORK_METHOD_HTTP_EXCHANGE 5U
+#define MICROPIXEL_NETWORK_METHOD_HTTP_METADATA 6U
+#define MICROPIXEL_NETWORK_METHOD_HTTP_HEADERS 7U
+/* Network 1.2: explicit per-request receive idle deadline. */
+#define MICROPIXEL_NETWORK_METHOD_HTTP_TIMED_EXCHANGE 8U
+#define MICROPIXEL_HTTP_DEFAULT_RECEIVE_TIMEOUT_MS 10000U
+#define MICROPIXEL_HTTP_MIN_RECEIVE_TIMEOUT_MS 100U
+#define MICROPIXEL_HTTP_MAX_RECEIVE_TIMEOUT_MS 60000U
+#define MICROPIXEL_HTTP_MAX_HEADER_BYTES 8192U
+typedef struct micropixel_http_metadata {
+    uint16_t size;
+    uint16_t status_code;
+    uint32_t headers_length;
+} micropixel_http_metadata_t;
+#define MICROPIXEL_HTTP_GET 1U
+#define MICROPIXEL_HTTP_POST 2U
+#define MICROPIXEL_HTTP_PENDING 1U
+#define MICROPIXEL_HTTP_COMPLETE 2U
+#define MICROPIXEL_HTTP_FAILED 3U
+/* Audio 1.1: URL playback uses a separate handle space from clips/PCM. */
+#define MICROPIXEL_AUDIO_METHOD_MEDIA_OPEN 15U
+#define MICROPIXEL_AUDIO_METHOD_MEDIA_STATE 16U
+#define MICROPIXEL_AUDIO_METHOD_MEDIA_PAUSE 17U
+#define MICROPIXEL_AUDIO_METHOD_MEDIA_RESUME 18U
+#define MICROPIXEL_AUDIO_METHOD_MEDIA_SEEK 19U
+#define MICROPIXEL_AUDIO_METHOD_MEDIA_CLOSE 20U
+#define MICROPIXEL_AUDIO_CAPABILITY_URL_MEDIA (1U << 2U)
+#define MICROPIXEL_MEDIA_LOADING 1U
+#define MICROPIXEL_MEDIA_PLAYING 2U
+#define MICROPIXEL_MEDIA_PAUSED 3U
+#define MICROPIXEL_MEDIA_FINISHED 4U
+#define MICROPIXEL_MEDIA_FAILED 5U
+#define MICROPIXEL_MEDIA_MAX_URL_BYTES 2048U
+typedef struct micropixel_http_start_request {
+    uint16_t size;
+    uint16_t method;
+    uint32_t url_length;
+    uint32_t headers_length;
+    uint32_t body_length;
+    uint32_t response_limit;
+} micropixel_http_start_request_t;
+typedef struct micropixel_http_timed_start_request {
+    micropixel_http_start_request_t request;
+    uint32_t receive_timeout_ms;
+} micropixel_http_timed_start_request_t;
+typedef struct micropixel_http_state {
+    uint16_t size;
+    uint16_t state;
+    uint32_t body_length;
+    int32_t error;
+    char message[128];
+} micropixel_http_state_t;
+typedef struct micropixel_http_read_request {
+    uint16_t size;
+    uint16_t reserved0;
+    uint32_t handle;
+    uint32_t offset;
+    uint32_t capacity;
+} micropixel_http_read_request_t;
+typedef struct micropixel_media_open_request {
+    uint16_t size;
+    uint16_t reserved0;
+    uint32_t url_length;
+} micropixel_media_open_request_t;
+typedef struct micropixel_media_seek_request {
+    uint16_t size;
+    uint16_t reserved0;
+    uint32_t handle;
+    uint32_t position_ms;
+} micropixel_media_seek_request_t;
+typedef struct micropixel_media_state {
+    uint16_t size;
+    uint16_t state;
+    uint32_t position_ms;
+    uint32_t duration_ms;
+    char message[128];
+} micropixel_media_state_t;
 
 typedef enum micropixel_status {
     MICROPIXEL_STATUS_OK = 0,
@@ -140,6 +246,14 @@ typedef enum micropixel_storage_method {
     MICROPIXEL_STORAGE_METHOD_REMOVE = 3,
 } micropixel_storage_method_t;
 
+#define MICROPIXEL_ENCODED_TEXTURE_MAX_BYTES 65536U
+#define MICROPIXEL_ENCODED_TEXTURE_MAX_EDGE 512U
+typedef struct micropixel_texture_decode_request {
+    uint16_t size;
+    uint16_t reserved0;
+    uint32_t bytes;
+    uint32_t length;
+} micropixel_texture_decode_request_t;
 typedef enum micropixel_resource_method {
     /* micropixel_texture_load_request_t -> micropixel_texture_info_t */
     MICROPIXEL_RESOURCE_METHOD_TEXTURE_LOAD = 1,
@@ -153,6 +267,8 @@ typedef enum micropixel_resource_method {
     MICROPIXEL_RESOURCE_METHOD_DYNAMIC_TEXTURE_CREATE = 5,
     /* micropixel_dynamic_texture_update_request_t -> micropixel_texture_info_t */
     MICROPIXEL_RESOURCE_METHOD_DYNAMIC_TEXTURE_UPDATE = 6,
+    /* Resource 1.1: synchronous bounded PNG/JPEG decode, Host-owned Texture. */
+    MICROPIXEL_RESOURCE_METHOD_TEXTURE_DECODE = 7,
 } micropixel_resource_method_t;
 
 /* Loads a Bundle bitmap asset. `scale_numerator / scale_denominator` is applied
@@ -1707,6 +1823,17 @@ typedef struct micropixel_event {
 #define MICROPIXEL_ABI_STATIC_ASSERT(condition, message) _Static_assert(condition, message)
 #endif
 
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_texture_decode_request_t) == 12U, "Texture decode layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_http_timed_start_request_t) == 24U, "HTTP timed start layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_http_metadata_t) == 8U, "HTTP metadata layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_http_start_request_t) == 20U, "HTTP start layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_http_state_t) == 140U, "HTTP state layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_http_read_request_t) == 16U, "HTTP read layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_media_open_request_t) == 8U, "media open layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_media_seek_request_t) == 12U, "media seek layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_media_state_t) == 140U, "media state layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_text_enable_request_t) == 4U, "text enable layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_text_response_t) == 36U, "text response layout");
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_event_t) == 48U, "micropixel_event_t ABI size changed");
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_system_launch_arguments_response_t) == 552U,
                              "micropixel_system_launch_arguments_response_t ABI size changed");
@@ -1787,7 +1914,8 @@ MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_raster_triangle_t) == 36U,
                              "micropixel_raster_triangle_t ABI size changed");
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_raster_quad_t) == 44U, "micropixel_raster_quad_t ABI size changed");
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_raster_span_t) == 28U, "micropixel_raster_span_t ABI size changed");
-MICROPIXEL_ABI_STATIC_ASSERT(offsetof(micropixel_raster_span_t, s) == 12U, "micropixel_raster_span_t.s ABI offset changed");
+MICROPIXEL_ABI_STATIC_ASSERT(offsetof(micropixel_raster_span_t, s) == 12U,
+                             "micropixel_raster_span_t.s ABI offset changed");
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_raster_text_t) == 16U, "micropixel_raster_text_t ABI size changed");
 MICROPIXEL_ABI_STATIC_ASSERT(offsetof(micropixel_raster_text_t, font_handle) == 12U,
                              "micropixel_raster_text_t.font_handle ABI offset changed");

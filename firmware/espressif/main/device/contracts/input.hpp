@@ -63,6 +63,8 @@ using InputActivitySink = void (*)(void* context);
 class Input {
    public:
     virtual ~Input() = default;
+    virtual int32_t EnableText(bool) { return MICROPIXEL_STATUS_UNSUPPORTED; }
+    virtual int32_t ReadText(micropixel_text_response_t&) { return MICROPIXEL_STATUS_UNSUPPORTED; }
 
     [[nodiscard]] virtual int32_t GetInfo(micropixel_input_info_t& info) = 0;
     virtual void BindTouchSink(TouchSink sink, void* context) = 0;

@@ -471,6 +471,16 @@ int32_t ResourceServiceEndpoint::Call(uint32_t method_id, const uint8_t* request
         return WriteResult<micropixel_font_info_t>(context_.LoadFont(wire.asset_id), response, response_capacity,
                                                    response_size_out);
     }
+    if (method_id == MICROPIXEL_RESOURCE_METHOD_TEXTURE_DECODE) {
+        micropixel_texture_decode_request_t wire{};
+        if (!ReadRequest(request, request_size, wire)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        if (!response || response_capacity < sizeof(micropixel_texture_info_t)) {
+            response_size_out = sizeof(micropixel_texture_info_t);
+            return MICROPIXEL_STATUS_BUFFER_TOO_SMALL;
+        }
+        return WriteResult<micropixel_texture_info_t>(context_.DecodeTexture(wire), response, response_capacity,
+                                                      response_size_out);
+    }
     if (method_id == MICROPIXEL_RESOURCE_METHOD_DYNAMIC_TEXTURE_CREATE) {
         micropixel_dynamic_texture_create_request_t wire{};
         if (!ReadRequest(request, request_size, wire) || wire.size != sizeof(wire) || request_size != sizeof(wire) ||
@@ -640,12 +650,28 @@ ServiceDescriptor InputServiceEndpoint::Describe() const {
         .interface_major = MICROPIXEL_INPUT_INTERFACE_MAJOR,
         .interface_minor = MICROPIXEL_INPUT_INTERFACE_MINOR,
         .flags = MICROPIXEL_SERVICE_FLAG_CALL | MICROPIXEL_SERVICE_FLAG_EVENTS,
-        .max_response_bytes = sizeof(micropixel_input_info_t),
+        .max_request_bytes = sizeof(micropixel_text_enable_request_t),
+        .max_response_bytes = sizeof(micropixel_text_response_t),
     };
 }
 
-int32_t InputServiceEndpoint::Call(uint32_t method_id, const uint8_t*, uint32_t request_size, uint8_t* response,
+int32_t InputServiceEndpoint::Call(uint32_t method_id, const uint8_t* request, uint32_t request_size, uint8_t* response,
                                    uint32_t response_capacity, uint32_t& response_size_out) {
+    if (method_id == MICROPIXEL_INPUT_METHOD_TEXT_ENABLE) {
+        micropixel_text_enable_request_t wire{};
+        if (!ReadRequest(request, request_size, wire) || wire.enabled > 1) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        return context_.text_input().EnableText(wire.enabled != 0);
+    }
+    if (method_id == MICROPIXEL_INPUT_METHOD_TEXT_READ) {
+        if (request_size) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        if (!response || response_capacity < sizeof(micropixel_text_response_t)) {
+            response_size_out = sizeof(micropixel_text_response_t);
+            return MICROPIXEL_STATUS_BUFFER_TOO_SMALL;
+        }
+        micropixel_text_response_t text{};
+        auto status = context_.text_input().ReadText(text);
+        return status ? status : WriteValue(text, response, response_capacity, response_size_out);
+    }
     if (method_id != MICROPIXEL_INPUT_METHOD_GET_INFO) {
         return MICROPIXEL_STATUS_UNSUPPORTED;
     }
@@ -657,7 +683,8 @@ int32_t InputServiceEndpoint::Call(uint32_t method_id, const uint8_t*, uint32_t 
 
 ServiceDescriptor AudioServiceEndpoint::Describe() const {
     auto result = context_.AudioInfo();
-    const uint64_t capabilities = result ? result->capabilities : 0U;
+    const uint64_t capabilities = (result ? result->capabilities : 0U) |
+                                  (context_.url_media().Available() ? MICROPIXEL_AUDIO_CAPABILITY_URL_MEDIA : 0U);
     return ServiceDescriptor{
         .service_id = MICROPIXEL_SERVICE_AUDIO,
         .interface_major = MICROPIXEL_AUDIO_INTERFACE_MAJOR,
@@ -665,12 +692,15 @@ ServiceDescriptor AudioServiceEndpoint::Describe() const {
         .flags = MICROPIXEL_SERVICE_FLAG_CALL | MICROPIXEL_SERVICE_FLAG_EVENTS,
         .capabilities = capabilities,
         .max_request_bytes = MICROPIXEL_AUDIO_PCM_MAX_WRITE_BYTES,
-        .max_response_bytes = sizeof(micropixel_audio_info_t),
+        .max_response_bytes = std::max(sizeof(micropixel_audio_info_t), sizeof(micropixel_media_state_t)),
     };
 }
 
 int32_t AudioServiceEndpoint::Call(uint32_t method_id, const uint8_t* request, uint32_t request_size, uint8_t* response,
                                    uint32_t response_capacity, uint32_t& response_size_out) {
+    if (method_id >= MICROPIXEL_AUDIO_METHOD_MEDIA_OPEN && method_id <= MICROPIXEL_AUDIO_METHOD_MEDIA_CLOSE)
+        return context_.url_media().Call(method_id, request, request_size, response, response_capacity,
+                                         response_size_out);
     if (method_id == MICROPIXEL_AUDIO_METHOD_GET_INFO) {
         if (!EmptyRequest(request_size)) {
             return MICROPIXEL_STATUS_INVALID_ARGUMENT;
@@ -758,6 +788,170 @@ int32_t AudioServiceEndpoint::Call(uint32_t method_id, const uint8_t* request, u
     }
     if (method_id == MICROPIXEL_AUDIO_METHOD_PCM_STREAM_CLOSE) {
         return ResultStatus(context_.AudioClosePcmStream(handle));
+    }
+    return MICROPIXEL_STATUS_UNSUPPORTED;
+}
+
+namespace {
+template <class T>
+bool Read(const uint8_t* p, uint32_t n, T& out) {
+    if (!p || n != sizeof(T)) return false;
+    std::memcpy(&out, p, sizeof(T));
+    if (out.size != n) return false;
+    if constexpr (requires { out.reserved0; })
+        if (out.reserved0) return false;
+    return true;
+}
+template <class T>
+int32_t Write(const T& value, uint8_t* p, uint32_t n, uint32_t& size) {
+    size = sizeof(T);
+    if (!p || n < size) return MICROPIXEL_STATUS_BUFFER_TOO_SMALL;
+    std::memcpy(p, &value, size);
+    return MICROPIXEL_STATUS_OK;
+}
+bool Text(std::string_view s) {
+    for (unsigned char c : s)
+        if (c == 0 || c == '\r' || c == '\n') return false;
+    return true;
+}
+}  // namespace
+ServiceDescriptor NetworkServiceEndpoint::Describe() const {
+    return {.service_id = MICROPIXEL_SERVICE_NETWORK,
+            .interface_major = 1,
+            .interface_minor = MICROPIXEL_NETWORK_INTERFACE_MINOR,
+            .flags = MICROPIXEL_SERVICE_FLAG_CALL,
+            .capabilities = backend_ ? 1U : 0U,
+            .max_request_bytes = MICROPIXEL_HTTP_MAX_REQUEST_BYTES,
+            .max_response_bytes = MICROPIXEL_HTTP_READ_BYTES};
+}
+int32_t NetworkServiceEndpoint::Call(uint32_t method, const uint8_t* req, uint32_t size, uint8_t* out,
+                                     uint32_t capacity, uint32_t& length) {
+    length = 0;
+    if (!backend_) return MICROPIXEL_STATUS_UNSUPPORTED;
+    if (method == MICROPIXEL_NETWORK_METHOD_HTTP_START || method == MICROPIXEL_NETWORK_METHOD_HTTP_EXCHANGE ||
+        method == MICROPIXEL_NETWORK_METHOD_HTTP_TIMED_EXCHANGE) {
+        micropixel_http_start_request_t w{};
+        if (!req || size < sizeof(w) || size > MICROPIXEL_HTTP_MAX_REQUEST_BYTES)
+            return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        std::memcpy(&w, req, sizeof(w));
+        const bool timed = method == MICROPIXEL_NETWORK_METHOD_HTTP_TIMED_EXCHANGE;
+        const uint32_t header_bytes = timed ? sizeof(micropixel_http_timed_start_request_t) : sizeof(w);
+        uint32_t receive_timeout_ms = MICROPIXEL_HTTP_DEFAULT_RECEIVE_TIMEOUT_MS;
+        if (size < header_bytes) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        if (timed) std::memcpy(&receive_timeout_ms, req + sizeof(w), sizeof(receive_timeout_ms));
+        if (receive_timeout_ms < MICROPIXEL_HTTP_MIN_RECEIVE_TIMEOUT_MS ||
+            receive_timeout_ms > MICROPIXEL_HTTP_MAX_RECEIVE_TIMEOUT_MS)
+            return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        const uint64_t total = uint64_t(header_bytes) + w.url_length + w.headers_length + w.body_length;
+        if (w.size != header_bytes || total != size || !w.url_length || w.url_length > 2048 ||
+            w.headers_length > 4096 || !w.response_limit || w.response_limit > MICROPIXEL_HTTP_MAX_RESPONSE_BYTES ||
+            (w.method != MICROPIXEL_HTTP_GET && w.method != MICROPIXEL_HTTP_POST) ||
+            (w.method == MICROPIXEL_HTTP_GET &&
+             (w.body_length || (method == MICROPIXEL_NETWORK_METHOD_HTTP_START && w.headers_length))))
+            return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        if (!out || capacity < sizeof(micropixel_handle_response_t)) {
+            length = sizeof(micropixel_handle_response_t);
+            return MICROPIXEL_STATUS_BUFFER_TOO_SMALL;
+        }
+        if (handle_) return MICROPIXEL_STATUS_RESOURCE_EXHAUSTED;
+        const std::string_view url(reinterpret_cast<const char*>(req + header_bytes), w.url_length);
+        const std::string_view headers(reinterpret_cast<const char*>(req + header_bytes + w.url_length),
+                                       w.headers_length);
+        if (!Text(url) || (!url.starts_with("https://") && !url.starts_with("http://")))
+            return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        const std::span<const uint8_t> body{req + header_bytes + w.url_length + w.headers_length, w.body_length};
+        auto status =
+            timed ? backend_->TimedExchange(w.method, url, headers, body, w.response_limit, receive_timeout_ms, handle_)
+            : method == MICROPIXEL_NETWORK_METHOD_HTTP_EXCHANGE
+                ? backend_->Exchange(w.method, url, headers, body, w.response_limit, handle_)
+                : backend_->Start(w.method, url, headers, body, w.response_limit, handle_);
+        if (status) {
+            handle_ = 0;
+            return status;
+        }
+        return Write(micropixel_handle_response_t{sizeof(micropixel_handle_response_t), 0, handle_}, out, capacity,
+                     length);
+    }
+    if (method == MICROPIXEL_NETWORK_METHOD_HTTP_READ || method == MICROPIXEL_NETWORK_METHOD_HTTP_HEADERS) {
+        micropixel_http_read_request_t w{};
+        if (!Read(req, size, w) || !handle_ || w.handle != handle_ || w.capacity > MICROPIXEL_HTTP_READ_BYTES)
+            return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        if (capacity < w.capacity || (!out && w.capacity)) {
+            length = w.capacity;
+            return MICROPIXEL_STATUS_BUFFER_TOO_SMALL;
+        }
+        return method == MICROPIXEL_NETWORK_METHOD_HTTP_HEADERS
+                   ? backend_->Headers(handle_, w.offset, {out, w.capacity}, length)
+                   : backend_->Read(handle_, w.offset, {out, w.capacity}, length);
+    }
+    micropixel_handle_request_t w{};
+    if (!Read(req, size, w) || !handle_ || w.handle != handle_) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+    if (method == MICROPIXEL_NETWORK_METHOD_HTTP_METADATA) {
+        micropixel_http_metadata_t meta{};
+        auto status = backend_->Metadata(handle_, meta);
+        return status ? status : Write(meta, out, capacity, length);
+    }
+    if (method == MICROPIXEL_NETWORK_METHOD_HTTP_STATE) {
+        micropixel_http_state_t state{};
+        auto s = backend_->State(handle_, state);
+        return s ? s : Write(state, out, capacity, length);
+    }
+    if (method == MICROPIXEL_NETWORK_METHOD_HTTP_CLOSE) {
+        auto s = backend_->Close(handle_);
+        if (!s) handle_ = 0;
+        return s;
+    }
+    return MICROPIXEL_STATUS_UNSUPPORTED;
+}
+int32_t UrlMediaEndpoint::Call(uint32_t method, const uint8_t* req, uint32_t size, uint8_t* out, uint32_t capacity,
+                               uint32_t& length) {
+    length = 0;
+    if (!backend_) return MICROPIXEL_STATUS_UNSUPPORTED;
+    if (method == MICROPIXEL_AUDIO_METHOD_MEDIA_OPEN) {
+        micropixel_media_open_request_t w{};
+        if (!req || size < sizeof(w)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        std::memcpy(&w, req, sizeof(w));
+        if (w.size != sizeof(w) || w.reserved0 || !w.url_length || w.url_length > MICROPIXEL_MEDIA_MAX_URL_BYTES ||
+            uint64_t(w.url_length) + sizeof(w) != size)
+            return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        const std::string_view url(reinterpret_cast<const char*>(req + sizeof(w)), w.url_length);
+        if (!Text(url) || (!url.starts_with("https://") && !url.starts_with("http://")))
+            return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        if (!out || capacity < sizeof(micropixel_handle_response_t)) {
+            length = sizeof(micropixel_handle_response_t);
+            return MICROPIXEL_STATUS_BUFFER_TOO_SMALL;
+        }
+        if (handle_) return MICROPIXEL_STATUS_RESOURCE_EXHAUSTED;
+        auto s = backend_->Open(url, handle_);
+        if (s) {
+            handle_ = 0;
+            return s;
+        }
+        return Write(micropixel_handle_response_t{sizeof(micropixel_handle_response_t), 0, handle_}, out, capacity,
+                     length);
+    }
+    uint32_t handle = 0;
+    micropixel_media_seek_request_t seek{};
+    if (method == MICROPIXEL_AUDIO_METHOD_MEDIA_SEEK) {
+        if (!Read(req, size, seek)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        handle = seek.handle;
+    } else {
+        micropixel_handle_request_t w{};
+        if (!Read(req, size, w)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        handle = w.handle;
+    }
+    if (!handle_ || handle != handle_) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+    if (method == MICROPIXEL_AUDIO_METHOD_MEDIA_STATE) {
+        micropixel_media_state_t state{};
+        auto s = backend_->State(handle_, state);
+        return s ? s : Write(state, out, capacity, length);
+    }
+    if (method == MICROPIXEL_AUDIO_METHOD_MEDIA_PAUSE || method == MICROPIXEL_AUDIO_METHOD_MEDIA_RESUME)
+        return backend_->Pause(handle_, method == MICROPIXEL_AUDIO_METHOD_MEDIA_PAUSE);
+    if (method == MICROPIXEL_AUDIO_METHOD_MEDIA_SEEK) return backend_->Seek(handle_, seek.position_ms);
+    if (method == MICROPIXEL_AUDIO_METHOD_MEDIA_CLOSE) {
+        Close();
+        return MICROPIXEL_STATUS_OK;
     }
     return MICROPIXEL_STATUS_UNSUPPORTED;
 }

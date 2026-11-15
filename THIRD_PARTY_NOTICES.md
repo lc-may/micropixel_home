@@ -1,5 +1,36 @@
 # Third-party notices
 
+## Linux PC Host dependencies
+
+`firmware/pc/` links the following additional libraries. Source dependencies are downloaded into the ignored
+`build/pc-deps/` directory by `tools/pc.sh deps`; their source and license files remain there, without vendoring.
+
+| Library | Version or origin | License |
+|---|---|---|
+| [SDL](https://github.com/libsdl-org/SDL) | Ubuntu SDL2 development package | zlib |
+| [coreHTTP](https://github.com/FreeRTOS/coreHTTP) | v3.1.1, `12adee81ddef588abada91672b34fd997b2a27ac` | MIT |
+| [llhttp](https://github.com/nodejs/llhttp) | coreHTTP's pinned submodule | MIT |
+| [coreMQTT](https://github.com/FreeRTOS/coreMQTT) | v2.3.1, `2beef04725328923e05e576b884212d53ec97af7` | MIT |
+| [SQLite](https://sqlite.org/copyright.html) | Ubuntu development package | Public domain |
+| [libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo) | Ubuntu development package | IJG, BSD-3-Clause and zlib; see package notices |
+| [opusfile](https://github.com/xiph/opusfile) | Ubuntu development package | BSD-3-Clause |
+| [mpg123](https://www.mpg123.de/) | Ubuntu libmpg123 1.29.3 development/runtime packages | LGPL-2.1-or-later |
+
+The PC target also uses the already-declared WAMR, LVGL, libpng, cJSON, Mbed TLS, Opus and micro-opus dependencies.
+micro-opus v0.4.1 is pinned to `8354085908683c6130e32a832aeec8a7ca115c51`, including its micro-ogg-demuxer submodule.
+The local Ubuntu compiler packages retain their license files under the extracted `usr/share/doc/` directories.
+PC market text uses LVGL's existing Tiny TTF/stb renderer and locally installed system fonts. Fonts are not
+redistributed by this target; Noto CJK installations retain their SIL OFL notices in the system package.
+The optional RV32 runner uses an externally installed [QEMU](https://www.qemu.org/) (GPL-2.0) and a
+RISC-V GCC/Newlib toolchain. Its ELF links Newlib/libm and libgcc; retain the toolchain's Newlib component
+notices and GCC Runtime Library Exception when redistributing that ELF. No emulator or toolchain source is vendored.
+
+The Guest music client's weapi AES/RSA request format and endpoint definitions are adapted from
+[NeteaseCloudMusicApiEnhanced/api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced),
+commit `75bf2e5ca209f4f1b3f822fa65d9f7b67e4b53ec`, under MIT, copyright (c) 2013-2022 Binaryify.
+The full permission notice is retained in [LICENSE.api-enhanced.txt](guest/apps/netease-music/LICENSE.api-enhanced.txt).
+The Node.js server and third-party music-source modules are not included or run by this client.
+
 Unless otherwise noted, project-authored source code, documentation, and assets are licensed under the
 [Apache License 2.0](LICENSE).
 

@@ -15,6 +15,7 @@
 #include "sdk/launch_arguments.hpp"
 #include "sdk/localization.hpp"
 #include "sdk/log.hpp"
+#include "sdk/network.hpp"
 #include "sdk/power_info.hpp"
 #include "sdk/random.hpp"
 #include "sdk/resources.hpp"
@@ -48,6 +49,7 @@ class Application final {
     [[nodiscard]] constexpr Timers timers() const noexcept { return Timers{Timers::CapabilityToken{}}; }
     [[nodiscard]] constexpr Renderer renderer() const noexcept { return Renderer{Renderer::CapabilityToken{}}; }
     [[nodiscard]] constexpr Audio audio() const noexcept { return Audio{Audio::CapabilityToken{}}; }
+    [[nodiscard]] constexpr Network network() const noexcept { return Network{Network::CapabilityToken{}}; }
     [[nodiscard]] constexpr Input input() const noexcept { return Input{Input::CapabilityToken{}}; }
     // Runtime-owned on-screen/physical gamepad; see Gamepad.
     [[nodiscard]] constexpr Gamepad gamepad() const noexcept { return Gamepad{Gamepad::CapabilityToken{}}; }

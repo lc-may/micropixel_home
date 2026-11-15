@@ -46,6 +46,7 @@ inline micropixel_app_environment_t AppEnvironment(device::DeviceServices& devic
     result.services[8] = (MICROPIXEL_SENSORS_INTERFACE_MAJOR << 16U) | MICROPIXEL_SENSORS_INTERFACE_MINOR;
     result.services[9] = (MICROPIXEL_GPIO_INTERFACE_MAJOR << 16U) | MICROPIXEL_GPIO_INTERFACE_MINOR;
     result.services[10] = (MICROPIXEL_HAPTICS_INTERFACE_MAJOR << 16U) | MICROPIXEL_HAPTICS_INTERFACE_MINOR;
+    result.services[11] = devices.http() ? MICROPIXEL_INTERFACE_VERSION(1U, MICROPIXEL_NETWORK_INTERFACE_MINOR) : 0U;
     return result;
 }
 }  // namespace micropixel::runtime

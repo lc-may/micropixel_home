@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "${1:-}" == "--pc" ]]; then
+    shift
+    exec bash "$(dirname "$0")/test_pc_host.sh" "$@"
+fi
+
 workspace_root="$(cd "$(dirname "$0")/../.." && pwd)"
 test_output_dir="$workspace_root/build/host-tests"
 cxx="${CXX:-/usr/bin/clang++}"

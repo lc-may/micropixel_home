@@ -395,6 +395,11 @@ Guest 不自行修改 Texture 字节序。
 
 ### 组合控件
 
+音乐等列表应用可用 `CreateIconButton`（选中/等待）、`CreateListItem`（双行/尾部独立操作）、
+`CreateScrollView`（拖动裁剪）和 `CreateSlider`（预览/松手提交）。这些控件组合已有 Scene/input，
+不新增 ABI。滚动时重置列表项交互，进度跳转只响应 `SliderUpdate::committed`。
+完整契约与示例结构见[Guest UI 控件](../../docs/design/guest-ui-widgets.zh-CN.md)。
+
 普通页面优先用 Flex/Grid 容器描述布局，使用 TextButton 或 ImageButton 组合显示与点击行为。
 Flex/Grid 按子项的固有尺寸在创建时的 bounds 内排布：内容（子项固有尺寸 + 间隔 + padding）装不下时返回
 `kResourceExhausted`，且不改变已有几何，应用应改用更短的内容，而不是把它当作不可恢复的错误。
@@ -527,7 +532,12 @@ Result 提供 expected 风格的值/错误访问；读取错误状态的 value �
 Public 方法不与 Wasm import 一一对应，SDK/Runtime 隐藏 service ID、wire 与 handle。
 新能力通过 Service 版本和 capability 演进，应用对可选能力明确回退。当前 Bundle requirements 与
 完整的启动前能力预检尚未实现，不能假定构造 Application 已检查应用全部需求。
-Network、Camera 和网络资源加载尚未定义公开接口。
+Network 1.0 提供异步 HTTP GET/POST，Network 1.1 增加状态、响应头和显式跳转处理；
+Network 1.2 的 `HttpOptions::receive_timeout_ms` 支持长轮询，范围 100–60000 ms，默认 10000 ms；
+取消仍异步完成，连接和 TLS 时限独立。
+Resource 1.1 增加内存 PNG/JPEG 解码。Audio 1.1 提供 URL media，Input 1.2 提供 UTF-8 文本输入；
+当前仅 PC 有对应平台适配器。API 及容量约束见 [SDK 入口](README.md#pc-network-and-url-audio) 和
+[网易云 Guest 设计](../../docs/design/pc-music.zh-CN.md)。Camera 尚未定义公开接口。
 
 实现规则见 [代码风格](../../docs/development/code-style.zh-CN.md)，边界验收见
 [conformance](../tests/conformance/)。

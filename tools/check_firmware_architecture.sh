@@ -187,7 +187,7 @@ for legacy_file in "${legacy_files[@]}"; do
 done
 
 guest_hardware_dependencies="$(rg -n \
-    '^[[:space:]]*#include[[:space:]]+[<\"](esp_|driver/|freertos/|lvgl|src/)' \
+    '^[[:space:]]*#include[[:space:]]+[<"](esp_|driver/|freertos/|lvgl|src/)' \
     "$workspace_root/guest/sdk" "$workspace_root/guest/runtime" "$workspace_root/guest/abi" \
     --glob '*.{c,cc,cpp,h,hpp}' || true)"
 if [[ -n "$guest_hardware_dependencies" ]]; then

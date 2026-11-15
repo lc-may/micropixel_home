@@ -283,8 +283,8 @@ bool ClampRasterRect(Rect rect, int16_t& x, int16_t& y, uint16_t& width, uint16_
     }
     x = static_cast<int16_t>(rect.x);
     y = static_cast<int16_t>(rect.y);
-    width = static_cast<uint16_t>(rect.width > UINT16_MAX ? UINT16_MAX : rect.width);
-    height = static_cast<uint16_t>(rect.height > UINT16_MAX ? UINT16_MAX : rect.height);
+    width = static_cast<uint16_t>(rect.width > static_cast<int32_t>(UINT16_MAX) ? UINT16_MAX : rect.width);
+    height = static_cast<uint16_t>(rect.height > static_cast<int32_t>(UINT16_MAX) ? UINT16_MAX : rect.height);
     return true;
 }
 
@@ -377,7 +377,8 @@ bool RasterDrawList::Warp(Point origin, uint8_t warp_slot, uint8_t texture_slot,
 
 bool RasterDrawList::Image(const Texture& texture, Rect destination, Rect source, uint8_t opacity) {
     micropixel_raster_image_t record{};
-    if (!texture.valid() || destination.width > UINT16_MAX || destination.height > UINT16_MAX ||
+    if (!texture.valid() || destination.width > static_cast<int32_t>(UINT16_MAX) ||
+        destination.height > static_cast<int32_t>(UINT16_MAX) ||
         !ClampRasterRect(destination, record.x, record.y, record.width, record.height) || source.x < 0 ||
         source.y < 0 || source.width <= 0 || source.height <= 0 ||
         static_cast<uint64_t>(source.x) + source.width > texture.width_ ||

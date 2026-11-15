@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+#include "sdk/fixed_string.hpp"
+#include "sdk/result.hpp"
+
 namespace micropixel {
 
 class Application;
@@ -12,6 +15,7 @@ class InputInfo final {
     [[nodiscard]] constexpr uint16_t max_touch_points() const { return max_touch_points_; }
     [[nodiscard]] constexpr bool supports_pressure() const { return (capabilities_ & kPressureCapability) != 0U; }
     [[nodiscard]] constexpr bool supports_key_events() const { return (capabilities_ & kKeyEventsCapability) != 0U; }
+    [[nodiscard]] constexpr bool supports_text() const { return (capabilities_ & (1U << 3U)) != 0U; }
     // Input 1.1: the Host delivers analog gamepad axes (EventType::kAxis).
     [[nodiscard]] constexpr bool supports_axis_events() const { return (capabilities_ & kAxisEventsCapability) != 0U; }
 
@@ -34,6 +38,8 @@ class Input final {
     constexpr Input& operator=(const Input&) noexcept = default;
 
     [[nodiscard]] InputInfo info() const;
+    [[nodiscard]] Result<void> EnableText(bool enabled) const;
+    [[nodiscard]] Result<FixedString<33>> ReadText() const;
 
    private:
     struct CapabilityToken {};

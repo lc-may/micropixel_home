@@ -152,6 +152,23 @@ ServiceResult<device::FontResourceView> ResourceService::FindFont(uint32_t resou
     return device::FontResourceView{slot.mapping.font.data, slot.mapping.font.size};
 }
 
+ServiceResult<micropixel_texture_info_t> ResourceService::DecodeTexture(
+    const micropixel_texture_decode_request_t& request) {
+    if (stopping_.load(std::memory_order_acquire) || request.size != sizeof(request) || request.reserved0 ||
+        !request.bytes || !request.length || request.length > MICROPIXEL_ENCODED_TEXTURE_MAX_BYTES)
+        return FailService<micropixel_texture_info_t>(MICROPIXEL_STATUS_INVALID_ARGUMENT);
+    uint8_t* bytes = nullptr;
+    if (!memory_.resolve || !memory_.resolve(memory_.context, request.bytes, request.length, &bytes) || !bytes)
+        return FailService<micropixel_texture_info_t>(MICROPIXEL_STATUS_INVALID_MEMORY);
+    DecodedBitmap decoded;
+    if (!DecodeEncodedBitmap({bytes, request.length}, decoded))
+        return FailService<micropixel_texture_info_t>(MICROPIXEL_STATUS_INVALID_ARGUMENT);
+    const auto handle = bitmaps_.Add(decoded.view(), true);
+    if (!handle) return FailService<micropixel_texture_info_t>(MICROPIXEL_STATUS_RESOURCE_EXHAUSTED);
+    auto info = TextureInfo(handle, decoded.view());
+    decoded.ReleaseOwnership();
+    return info;
+}
 ServiceResult<micropixel_texture_info_t> ResourceService::CreateDynamicTexture(
     const micropixel_dynamic_texture_create_request_t& request) {
     if (stopping_.load(std::memory_order_acquire) || request.size != sizeof(request) || request.reserved0)

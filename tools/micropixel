@@ -1787,14 +1787,16 @@ def _run_build_sources(args: argparse.Namespace) -> None:
         wamrc = shutil.which("wamrc") or ""
     if wamrc:
         wamrc = str(tool_executable(wamrc))
-    if not wamrc or not os.access(Path(wamrc).expanduser(), os.X_OK):
+    wasm_only = bool(getattr(args, "wasm_only", False))
+    if not wasm_only and (not wamrc or not os.access(Path(wamrc).expanduser(), os.X_OK)):
         raise EnvironmentFailure("Set WAMRC to the locked wamrc 2.4.3 executable; see https://micropixel.ai/docs/environment/")
     wamrc = str(Path(wamrc).expanduser())
-    version = _run_process(
-        [wamrc, "--version"], check=True, capture_output=True, text=True
-    ).stdout.strip()
-    if version != "wamrc 2.4.3":
-        raise EnvironmentFailure(f"WAMRC must report 'wamrc 2.4.3', got {version!r}")
+    if not wasm_only:
+        version = _run_process(
+            [wamrc, "--version"], check=True, capture_output=True, text=True
+        ).stdout.strip()
+        if version != "wamrc 2.4.3":
+            raise EnvironmentFailure(f"WAMRC must report 'wamrc 2.4.3', got {version!r}")
 
     generated_include_override = getattr(args, "generated_include_override", None)
     generated_include = (
@@ -1851,6 +1853,7 @@ def _run_build_sources(args: argparse.Namespace) -> None:
             root / "guest/runtime/system.cpp",
             root / "guest/runtime/storage.cpp",
             root / "guest/runtime/audio.cpp",
+            root / "guest/runtime/network.cpp",
             root / "guest/runtime/timers.cpp",
             root / "guest/runtime/devices.cpp",
             root / "guest/runtime/display_context.cpp",
@@ -1895,6 +1898,14 @@ def _run_build_sources(args: argparse.Namespace) -> None:
         ],
         check=True,
     )
+    if wasm_only:
+        _write_guest_cache_json(
+            _guest_build_inputs_path(output_dir, name),
+            [str(path) for path in sorted(set(object_inputs))],
+        )
+        _record_artifact(wasm_output, "wasm", None)
+        print(f"Portable Guest built ({args.profile}):\n{wasm_output}")
+        return
     _run_aot_compiler(
         [
             wamrc,

@@ -31,9 +31,13 @@
 #include "sdk/ui/button.hpp"
 #include "sdk/ui/flex_container.hpp"
 #include "sdk/ui/grid_container.hpp"
+#include "sdk/ui/icon_button.hpp"
 #include "sdk/ui/image_button.hpp"
 #include "sdk/ui/label.hpp"
 #include "sdk/ui/layout.hpp"
+#include "sdk/ui/list_item.hpp"
+#include "sdk/ui/scroll_view.hpp"
+#include "sdk/ui/slider.hpp"
 #include "sdk/ui/text_button.hpp"
 
 #endif

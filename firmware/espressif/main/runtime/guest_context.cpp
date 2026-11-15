@@ -55,9 +55,11 @@ GuestContext::GuestContext(const micropixel_aot_package_t& package, device::Devi
       gpio_endpoint_(*this),
       haptics_endpoint_(*this),
       power_info_endpoint_(*this),
+      network_endpoint_(devices.http()),
+      url_media_(devices.media()),
       service_registry_(timer_endpoint_, system_endpoint_, storage_endpoint_, resource_endpoint_, random_endpoint_,
                         graphics_endpoint_, input_endpoint_, audio_endpoint_, devices_endpoint_, sensors_endpoint_,
-                        gpio_endpoint_, haptics_endpoint_, power_info_endpoint_) {
+                        gpio_endpoint_, haptics_endpoint_, power_info_endpoint_, network_endpoint_) {
     (void)std::snprintf(app_id_.data(), app_id_.size(), "%s", reinterpret_cast<const char*>(package.app_id));
     const auto audio_result = devices_.audio().ResumeAll();
     audio_foreground_ready_ = audio_result || audio_result.error().status == MICROPIXEL_STATUS_UNSUPPORTED;
@@ -80,11 +82,13 @@ GuestContext::~GuestContext() {
     raster_.Shutdown();
     micropixel_check_heap("direct surface and raster shutdown");
     events_.Close();
+    (void)devices_.input().EnableText(false);
     key_events_.Shutdown();
     touch_events_.Shutdown();
     sensors_.Shutdown();
     gpio_.Shutdown();
     haptics_.Shutdown();
+    url_media_.Close();
     audio_playback_.Shutdown();
     pcm_stream_.Shutdown();
     (void)devices_.audio().StopAll();

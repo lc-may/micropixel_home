@@ -396,3 +396,20 @@ Haptics finished 和 Core host wake。新增事件不会扩大 Core import 表�
 
 新增 import 必须同时给出无法用现有 Core/Service transport 表达的真机性能证据，并更新 C ABI、
 Host 注册、Guest lowering、allowlist、内存安全负向测试和兼容性 fixture。
+
+## PC 通用服务扩展
+
+Network 1.0 使用已保留的 service ID 19，方法 1–4 为 HTTP START/STATE/READ/CLOSE。
+Audio 1.1 在原有方法后追加 URL media 方法 15–20；Input 1.2 追加 TEXT_ENABLE/TEXT_READ。
+原有 Core imports、事件信封和方法 ID 不变。结构布局见 `micropixel_abi.h`，容量、handle 生命周期
+及平台支持见 [服务契约](../../docs/design/pc-music.zh-CN.md)。所有变长 payload 使用长度和字节串，
+不包含 Guest/Host 指针；Host 独立校验总长、保留字段、响应容量与 Session 所有权。
+
+Network 1.1 追加 EXCHANGE(5)、METADATA(6)、HEADERS(7)，旧方法语义保持不变。
+EXCHANGE 不跟随跳转并暴露原始 HTTP 状态，响应头保留重复 Set-Cookie，累计最多 8192 字节，
+每次读取不超过 4096 字节。Resource 1.1 追加 TEXTURE_DECODE(7)，使用有界 Guest 地址和长度，
+同步解码最多 64 KiB PNG/JPEG，分配前拒绝超过 512×512 的图片；返回普通 Texture handle。
+
+Network 1.2 追加 TIMED_EXCHANGE(8)：固定头为原 20 字节 HTTP 请求头加 uint32 接收空闲时限，
+`size=24`，变长 URL/header/body 紧随其后。Host 与 SDK 均校验 100–60000 ms；默认值为 10000 ms。
+旧方法与结构布局不变。时限只作用于该请求接收，连接/TLS 限制独立，CLOSE 可中断长轮询。

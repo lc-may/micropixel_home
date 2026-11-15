@@ -26,6 +26,13 @@ class ImageButton;
 struct ImageButtonProperties;
 class TextButton;
 struct TextButtonProperties;
+class IconButton;
+struct IconButtonProperties;
+class Slider;
+struct SliderProperties;
+class ScrollView;
+class ListItem;
+struct ListItemStyle;
 }  // namespace ui
 
 struct SceneDescriptor final {
@@ -109,6 +116,11 @@ class Container {
     [[nodiscard]] ui::FlexContainer CreateFlexContainer(const ui::FlexContainerProperties& properties);
     [[nodiscard]] ui::GridContainer CreateGridContainer(const ui::GridContainerProperties& properties);
     [[nodiscard]] ui::TextButton CreateTextButton(const ui::TextButtonProperties& properties);
+    [[nodiscard]] ui::IconButton CreateIconButton(const ui::IconButtonProperties& properties);
+    [[nodiscard]] ui::Slider CreateSlider(const ui::SliderProperties& properties);
+    [[nodiscard]] ui::ScrollView CreateScrollView(Rect bounds);
+    [[nodiscard]] ui::ListItem CreateListItem(Rect bounds);
+    [[nodiscard]] ui::ListItem CreateListItem(Rect bounds, const ui::ListItemStyle& style);
 
    protected:
     constexpr Container(SceneState* state, uint16_t id, uint32_t generation)

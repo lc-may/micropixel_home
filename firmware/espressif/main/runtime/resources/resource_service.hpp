@@ -29,6 +29,8 @@ class ResourceService final {
     ~ResourceService();
 
     void BindGuestMemory(const GuestMemoryAccess& access) { memory_ = access; }
+    [[nodiscard]] ServiceResult<micropixel_texture_info_t> DecodeTexture(
+        const micropixel_texture_decode_request_t& request);
     [[nodiscard]] ServiceResult<micropixel_texture_info_t> CreateDynamicTexture(
         const micropixel_dynamic_texture_create_request_t& request);
     [[nodiscard]] ServiceResult<micropixel_texture_info_t> UpdateDynamicTexture(

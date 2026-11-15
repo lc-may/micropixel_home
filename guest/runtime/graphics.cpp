@@ -24,14 +24,12 @@ namespace {
 
 ServiceCache resource_service;
 int32_t OpenResourceService() {
-    const int32_t status = OpenService(resource_service, MICROPIXEL_SERVICE_RESOURCE,
-                                       MICROPIXEL_RESOURCE_INTERFACE_MAJOR, MICROPIXEL_RESOURCE_INTERFACE_MINOR);
+    const int32_t status =
+        OpenService(resource_service, MICROPIXEL_SERVICE_RESOURCE, MICROPIXEL_RESOURCE_INTERFACE_MAJOR, 0U);
     if (status != MICROPIXEL_STATUS_OK) {
         return status;
     }
-    return resource_service.info.interface_minor >= MICROPIXEL_RESOURCE_INTERFACE_MINOR
-               ? MICROPIXEL_STATUS_OK
-               : MICROPIXEL_STATUS_VERSION_MISMATCH;
+    return MICROPIXEL_STATUS_OK;
 }
 
 }  // namespace
@@ -268,6 +266,27 @@ void ReleaseTextureSnapshot(uint32_t handle) {
 }
 }  // namespace
 
+Result<Texture> Resources::DecodeTexture(std::span<const uint8_t> bytes) const {
+    if (bytes.empty() || bytes.size() > MICROPIXEL_ENCODED_TEXTURE_MAX_BYTES)
+        return unexpected(Error{ErrorCode::kInvalidArgument});
+    auto status = OpenResourceService();
+    if (status) return unexpected(ErrorFromStatus(status));
+    if (resource_service.info.interface_minor < 1) return unexpected(Error{ErrorCode::kUnsupported});
+    micropixel_texture_decode_request_t request{sizeof(request), 0,
+                                                static_cast<uint32_t>(reinterpret_cast<uintptr_t>(bytes.data())),
+                                                static_cast<uint32_t>(bytes.size())};
+    micropixel_texture_info_t response{};
+    uint32_t size = 0;
+    status = CallService(resource_service, MICROPIXEL_RESOURCE_METHOD_TEXTURE_DECODE, &request, sizeof(request),
+                         &response, sizeof(response), size);
+    if (status) return unexpected(ErrorFromStatus(status));
+    if (size != sizeof(response) || response.size != sizeof(response) || !response.texture_handle || !response.width ||
+        !response.height || response.width > MICROPIXEL_ENCODED_TEXTURE_MAX_EDGE ||
+        response.height > MICROPIXEL_ENCODED_TEXTURE_MAX_EDGE)
+        return unexpected(Error{ErrorCode::kInternal});
+    return Texture(response.texture_handle, response.width, response.height, response.physical_width,
+                   response.physical_height, false);
+}
 Result<Texture> Resources::CreateDynamicTexture(Size size, PixelFormat format, std::span<const uint8_t> pixels,
                                                 uint32_t pitch) const {
     const uint32_t wire_format = static_cast<uint32_t>(format);

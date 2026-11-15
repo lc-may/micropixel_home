@@ -61,6 +61,26 @@ laying out rather than from the failure.
 
 [ABI reference (中文)](../abi/README.zh-CN.md)
 
+## PC network and URL audio
+
+`Application::network()` exposes bounded asynchronous HTTP GET/POST through Network 1.0.
+`Network::Exchange()` (Network 1.1) exposes raw statuses and repeated response headers through
+`HttpRequest::Metadata()` / `ReadHeaders()`. It accepts custom GET headers and never follows redirects.
+Cookies and redirect policy belong to the Guest; the Host does not retain a cookie jar.
+Network 1.2 adds `HttpOptions::receive_timeout_ms` to `Exchange()` for long polling
+(100–60000 ms, default 10000). Cancellation remains asynchronous; connection/TLS limits are separate.
+`Resources::DecodeTexture()` (Resource 1.1) accepts up to 64 KiB PNG/JPEG and 512×512 decoded pixels.
+The call consumes Guest bytes synchronously and returns a normal Host-owned `Texture`.
+
+`HttpRequest` is move-only: `State()`, `Read(offset, bytes)`, and `Close()`; destruction cancels it.
+`Audio::OpenUrl()` returns a move-only `MediaPlayback` with `State()`, `Pause(bool)`, `Seek(ms)`, and `Close()`.
+Check `AudioInfo::supports_url_media`; platforms without an adapter return `kUnsupported`.
+Input 1.2 adds opt-in UTF-8 text with `EnableText(bool)` and `ReadText()`; check `InputInfo::supports_text()`.
+Poll these APIs from the single event loop, using a timer. Do not add Guest threads or platform includes.
+
+See the [NetEase Music app](../apps/netease-music/README.zh-CN.md) and
+[wire/lifecycle contract](../../docs/design/pc-music.zh-CN.md). The current adapters are PC-only.
+
 ## Capability catalog
 
 Check this table before writing a helper inside an app. Every row is a header under `guest/sdk/` that
@@ -68,6 +88,11 @@ already covers the need; apps must not re-implement these locally.
 
 | Need | Use | Header |
 |---|---|---|
+| Asynchronous HTTP GET/POST | `Network`, `HttpRequest` | `network.hpp` |
+| Raw HTTP status/headers, explicit redirects | `Network::Exchange`, `HttpRequest::Metadata/ReadHeaders` | `network.hpp` |
+| Bounded PNG/JPEG decode from memory | `Resources::DecodeTexture` | `resources.hpp` |
+| URL audio playback | `Audio::OpenUrl`, `MediaPlayback` | `audio.hpp`, `media.hpp` |
+| Opt-in UTF-8 text input | `Input::EnableText/ReadText` | `input.hpp` |
 | Event loop, service views, `Result<T>` | `Application`, `app.xxx()` | `application.hpp`, `result.hpp` |
 | Retained 2D UI, sprites, labels, layout | `Scene`, `SpriteBatch`, `ui::FlexContainer`, `ui::TextButton` | `scene.hpp`, `ui/*.hpp` |
 | Host-rasterized frames, INDEX8 textures, palettes | `HostSurface`, `RasterDrawList`, `RasterResources` | `graphics.hpp` |
@@ -76,6 +101,10 @@ already covers the need; apps must not re-implement these locally.
 | Logical/buffer coordinate mapping for surfaces | `DirectSurface::ToBuffer/ToLogical` | `graphics.hpp` |
 | On-screen stick, look pad and buttons; physical gamepad keys and axes | `app.gamepad()`, `GamepadSkin` | `gamepad.hpp`, `gamepad_skin.hpp` |
 | Button press/release with hit padding | `ui::Button` | `ui/button.hpp` |
+| Icon selection and pending actions | `Container::CreateIconButton`, `ui::IconButton` | `ui/icon_button.hpp` |
+| Two-line rows with independent trailing actions | `Container::CreateListItem`, `ui::ListItem` | `ui/list_item.hpp` |
+| Clipped touch scrolling and a reusable row pool | `Container::CreateScrollView`, `ui::ScrollView` | `ui/scroll_view.hpp` |
+| Seek preview, release commit and cancellation | `Container::CreateSlider`, `ui::Slider` | `ui/slider.hpp` |
 | Multi-note sound effects from `audio/sfx.json` | `ToneSequencer<N>`, `ToneSpec::ToTone` | `tone_sequencer.hpp`, `audio.hpp` |
 | Clips, PCM streams, tones | `Audio::Play/Load/OpenPcmStream` | `audio.hpp` |
 | Sin/Cos/Atan2 without libm, clamp, lerp, smoothstep, deadzone | `math::*` | `math.hpp` |
@@ -91,6 +120,13 @@ already covers the need; apps must not re-implement these locally.
 | Launch flags and numeric options | `LaunchArguments::HasFlag/GetUnsigned/FindValue` | `launch_arguments.hpp` |
 | Locale-aware strings | `Localization::CurrentLocale` + generated string tables | `localization.hpp` |
 | Haptics, GPIO, power, device discovery | `Haptics`, `Gpio`, `PowerInfo`, `Devices` | `haptics.hpp`, `gpio.hpp`, `power_info.hpp`, `devices.hpp` |
+
+## Retained UI widgets
+
+The [Guest UI widget guide](../../docs/design/guest-ui-widgets.zh-CN.md) documents gesture ownership,
+bounded text, confirmed selection, and the music player's fixed row pool. These widgets use existing Scene/input
+services and require no new Host ABI. Follow `SliderUpdate::committed` when issuing a seek;
+reset row interactions when `ScrollUpdate::dragging` is true, including the release event.
 
 ## Game helpers
 

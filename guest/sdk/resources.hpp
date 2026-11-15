@@ -123,6 +123,8 @@ class Resources final {
     [[nodiscard]] Result<Texture> LoadTexture(AssetId asset, TextureScale scale = TextureScale::kConfigured) const;
     [[nodiscard]] Result<Texture> LoadTexture(AssetId asset, TextureLoadOptions options) const;
     [[nodiscard]] Result<Font> LoadFont(AssetId asset) const;
+    // Resource 1.1: decode <=64 KiB PNG/JPEG, <=512 pixels on each edge.
+    [[nodiscard]] Result<Texture> DecodeTexture(std::span<const uint8_t> encoded) const;
     [[nodiscard]] Result<Texture> CreateDynamicTexture(Size size, PixelFormat format,
                                                        std::span<const uint8_t> pixels = {}, uint32_t pitch = 0) const;
 

@@ -14,6 +14,7 @@
 | 设计 | 开发 |
 |---|---|
 | [架构](design/architecture.zh-CN.md) | [构建与烧录](development/flashing.zh-CN.md) |
+| [AppManager、Activity 与 App Service（HTML 提案）](design/app-manager.zh-CN.html) | — |
 | — | [C/C++ 风格](development/code-style.zh-CN.md) |
 | [Service ABI](../guest/abi/README.zh-CN.md) | [图形性能](development/graphics-performance.zh-CN.md) |
 | [BundleFS](design/bundlefs.zh-CN.md) | [音频](development/game-audio.zh-CN.md) |

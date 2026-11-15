@@ -103,6 +103,10 @@ class GuestContext final {
     [[nodiscard]] ServiceResult<void> ReleaseFont(micropixel_font_handle_t font_handle);
     [[nodiscard]] ServiceResult<micropixel_text_metrics_t> MeasureText(micropixel_font_handle_t font_handle,
                                                                        const char* text, uint32_t text_length);
+    [[nodiscard]] ServiceResult<micropixel_texture_info_t> DecodeTexture(
+        const micropixel_texture_decode_request_t& request) {
+        return resources_.DecodeTexture(request);
+    }
     [[nodiscard]] ServiceResult<micropixel_texture_info_t> CreateDynamicTexture(
         const micropixel_dynamic_texture_create_request_t& request) {
         return resources_.CreateDynamicTexture(request);
@@ -197,7 +201,11 @@ class GuestContext final {
             this, text, copy);
     }
     [[nodiscard]] device::DeviceResult<micropixel_input_info_t> InputInfo() const { return devices_.input().GetInfo(); }
-    [[nodiscard]] device::DeviceResult<micropixel_audio_info_t> AudioInfo() const { return devices_.audio().GetInfo(); }
+    [[nodiscard]] device::DeviceResult<micropixel_audio_info_t> AudioInfo() const {
+        auto info = devices_.audio().GetInfo();
+        if (info && url_media_.Available()) info->capabilities |= MICROPIXEL_AUDIO_CAPABILITY_URL_MEDIA;
+        return info;
+    }
     [[nodiscard]] device::DeviceResult<uint32_t> RandomU32() const { return devices_.random().U32(); }
     [[nodiscard]] device::DeviceResult<micropixel_devices_list_response_t> DevicesList(uint16_t kind,
                                                                                        uint16_t first_index) const {
@@ -290,7 +298,10 @@ class GuestContext final {
         micropixel_audio_playback_handle_t playback_handle) {
         return audio_playback_.State(playback_handle);
     }
+    device::InputService& text_input() { return devices_.input(); }
+    UrlMediaEndpoint& url_media() { return url_media_; }
     [[nodiscard]] ServiceResult<void> AudioStopAll() {
+        url_media_.Close();
         pcm_stream_.CloseAll();
         return audio_playback_.StopAll();
     }
@@ -367,6 +378,8 @@ class GuestContext final {
     GpioServiceEndpoint gpio_endpoint_;
     HapticsServiceEndpoint haptics_endpoint_;
     PowerInfoServiceEndpoint power_info_endpoint_;
+    NetworkServiceEndpoint network_endpoint_;
+    UrlMediaEndpoint url_media_;
     ServiceRegistry service_registry_;
     uint32_t core_sequence_{};
     bool suspended_{};

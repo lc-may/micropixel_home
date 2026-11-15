@@ -20,8 +20,7 @@ namespace micropixel {
 
 Result<AudioInfo> Audio::info() const {
     micropixel_audio_info_t raw{};
-    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR,
-                                 MICROPIXEL_AUDIO_INTERFACE_MINOR);
+    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR, 0U);
     uint32_t response_size = 0U;
     if (status == MICROPIXEL_STATUS_OK) {
         status =
@@ -44,6 +43,7 @@ Result<AudioInfo> Audio::info() const {
         (raw.capabilities & MICROPIXEL_AUDIO_CAPABILITY_OGG_OPUS) != 0U,
         pcm_streams ? raw.max_pcm_streams : static_cast<uint16_t>(0U),
         pcm_streams,
+        (raw.capabilities & MICROPIXEL_AUDIO_CAPABILITY_URL_MEDIA) != 0U,
     };
 }
 
@@ -71,8 +71,7 @@ Result<void> Audio::Play(const Tone& tone) const {
     raw.duration_ms = static_cast<uint32_t>((duration_us + 999U) / 1000U);
     raw.attack_ms = static_cast<uint16_t>((attack_us + 999U) / 1000U);
     raw.release_ms = static_cast<uint16_t>((release_us + 999U) / 1000U);
-    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR,
-                                 MICROPIXEL_AUDIO_INTERFACE_MINOR);
+    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR, 0U);
     if (status == MICROPIXEL_STATUS_OK) {
         status = CallVoid(audio_service, MICROPIXEL_AUDIO_METHOD_TONE_PLAY, &raw, sizeof(raw));
     }
@@ -83,8 +82,7 @@ Result<void> Audio::Play(const Tone& tone) const {
 }
 
 Result<void> Audio::StopAll() const {
-    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR,
-                                 MICROPIXEL_AUDIO_INTERFACE_MINOR);
+    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR, 0U);
     if (status == MICROPIXEL_STATUS_OK) {
         status = CallVoid(audio_service, MICROPIXEL_AUDIO_METHOD_STOP_ALL, nullptr, 0U);
     }
@@ -137,8 +135,7 @@ Result<void> Playback::Pause() {
         return unexpected(Error{ErrorCode::kInvalidState});
     }
     micropixel_handle_request_t request{static_cast<uint16_t>(sizeof(request)), 0U, handle_};
-    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR,
-                                 MICROPIXEL_AUDIO_INTERFACE_MINOR);
+    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR, 0U);
     if (status == MICROPIXEL_STATUS_OK) {
         status = CallVoid(audio_service, MICROPIXEL_AUDIO_METHOD_PLAYBACK_PAUSE, &request, sizeof(request));
     }
@@ -150,8 +147,7 @@ Result<void> Playback::Resume() {
         return unexpected(Error{ErrorCode::kInvalidState});
     }
     micropixel_handle_request_t request{static_cast<uint16_t>(sizeof(request)), 0U, handle_};
-    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR,
-                                 MICROPIXEL_AUDIO_INTERFACE_MINOR);
+    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR, 0U);
     if (status == MICROPIXEL_STATUS_OK) {
         status = CallVoid(audio_service, MICROPIXEL_AUDIO_METHOD_PLAYBACK_RESUME, &request, sizeof(request));
     }
@@ -166,8 +162,7 @@ Result<void> Playback::SetVolume(uint16_t volume_per_mille) {
     request.size = sizeof(request);
     request.playback_handle = handle_;
     request.volume_per_mille = volume_per_mille;
-    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR,
-                                 MICROPIXEL_AUDIO_INTERFACE_MINOR);
+    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR, 0U);
     if (status == MICROPIXEL_STATUS_OK) {
         status = CallVoid(audio_service, MICROPIXEL_AUDIO_METHOD_PLAYBACK_SET_VOLUME, &request, sizeof(request));
     }
@@ -181,8 +176,7 @@ Result<PlaybackState> Playback::state() const {
     micropixel_handle_request_t request{static_cast<uint16_t>(sizeof(request)), 0U, handle_};
     micropixel_audio_playback_state_response_t response{};
     uint32_t response_size = 0U;
-    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR,
-                                 MICROPIXEL_AUDIO_INTERFACE_MINOR);
+    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR, 0U);
     if (status == MICROPIXEL_STATUS_OK) {
         status = CallService(audio_service, MICROPIXEL_AUDIO_METHOD_PLAYBACK_GET_STATE, &request, sizeof(request),
                              &response, sizeof(response), response_size);
@@ -203,8 +197,7 @@ Result<void> Playback::Stop() {
         return {};
     }
     micropixel_handle_request_t request{static_cast<uint16_t>(sizeof(request)), 0U, handle_};
-    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR,
-                                 MICROPIXEL_AUDIO_INTERFACE_MINOR);
+    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR, 0U);
     if (status == MICROPIXEL_STATUS_OK) {
         status = CallVoid(audio_service, MICROPIXEL_AUDIO_METHOD_PLAYBACK_STOP, &request, sizeof(request));
     }
@@ -226,8 +219,7 @@ Result<AudioClip> Audio::Load(AssetId asset) const {
     micropixel_audio_clip_load_request_t request{static_cast<uint16_t>(sizeof(request)), 0U, asset.value()};
     micropixel_audio_clip_info_t response{};
     uint32_t response_size = 0U;
-    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR,
-                                 MICROPIXEL_AUDIO_INTERFACE_MINOR);
+    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR, 0U);
     if (status == MICROPIXEL_STATUS_OK) {
         status = CallService(audio_service, MICROPIXEL_AUDIO_METHOD_CLIP_LOAD, &request, sizeof(request), &response,
                              sizeof(response), response_size);
@@ -253,8 +245,7 @@ Result<Playback> Audio::Play(const AudioClip& clip, PlaybackOptions options) con
     request.volume_per_mille = options.volume_per_mille;
     micropixel_handle_response_t response{};
     uint32_t response_size = 0U;
-    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR,
-                                 MICROPIXEL_AUDIO_INTERFACE_MINOR);
+    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR, 0U);
     if (status == MICROPIXEL_STATUS_OK) {
         status = CallService(audio_service, MICROPIXEL_AUDIO_METHOD_PLAYBACK_START, &request, sizeof(request),
                              &response, sizeof(response), response_size);
@@ -292,8 +283,7 @@ Result<PcmStream> Audio::OpenPcmStream(const PcmStreamOptions& options) const {
     request.low_water_frames = options.low_water_frames;
     micropixel_audio_pcm_stream_open_response_t response{};
     uint32_t response_size = 0U;
-    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR,
-                                 MICROPIXEL_AUDIO_INTERFACE_MINOR);
+    int32_t status = OpenService(audio_service, MICROPIXEL_SERVICE_AUDIO, MICROPIXEL_AUDIO_INTERFACE_MAJOR, 0U);
     if (status == MICROPIXEL_STATUS_OK) {
         status = CallService(audio_service, MICROPIXEL_AUDIO_METHOD_PCM_STREAM_OPEN, &request, sizeof(request),
                              &response, sizeof(response), response_size);

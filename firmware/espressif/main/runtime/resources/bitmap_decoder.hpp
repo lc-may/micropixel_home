@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 
 #include "device/contracts/graphics.hpp"
 #include "runtime/bundle/bundle_reader.h"
@@ -31,6 +32,7 @@ class DecodedBitmap final {
     [[nodiscard]] const char* FailureDetail() const { return failure_detail_.data(); }
 
    private:
+    friend bool DecodeEncodedBitmap(std::span<const uint8_t>, DecodedBitmap&);
     friend bool DecodeBitmap(const micropixel_bundle_asset_view_t& asset, uint32_t preferred_opaque_format,
                              DecodedBitmap& decoded);
     friend bool DecodePngBitmap(const micropixel_bundle_asset_view_t& asset, const PngDecodeOptions& options,
@@ -42,6 +44,8 @@ class DecodedBitmap final {
     std::array<char, 96U> failure_detail_{};
 };
 
+// Untrusted encoded input: bounds are checked before allocating decoded pixels.
+[[nodiscard]] bool DecodeEncodedBitmap(std::span<const uint8_t> bytes, DecodedBitmap& decoded);
 [[nodiscard]] bool DecodeBitmap(const micropixel_bundle_asset_view_t& asset, DecodedBitmap& decoded);
 [[nodiscard]] bool DecodeBitmap(const micropixel_bundle_asset_view_t& asset, uint32_t preferred_opaque_format,
                                 DecodedBitmap& decoded);

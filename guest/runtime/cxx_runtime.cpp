@@ -289,7 +289,7 @@ extern "C" [[noreturn]] void __cxa_deleted_virtual() {
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-[[noreturn]] void __libcpp_verbose_abort(const char*, ...) noexcept {
+[[noreturn]] void __libcpp_verbose_abort(const char*, ...) {
     micropixel::runtime::Panic("cxx.libcpp.abort", MICROPIXEL_STATUS_INVALID_ARGUMENT);
 }
 

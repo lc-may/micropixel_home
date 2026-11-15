@@ -1,0 +1,1082 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>MicroPixel 多应用与 AppManager 详细设计</title>
+<style>
+:root{--ink:#182b3d;--muted:#586b7c;--line:#dce5ec;--paper:#fff;--bg:#f4f7fa;--accent:#126e79;--soft:#e9f4f3;--blue:#235db0;--amber:#965b08;--red:#a73838;--purple:#6950a0}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.8 system-ui,-apple-system,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif}a{color:var(--blue);text-underline-offset:3px}a:hover{color:var(--accent)}button{font:inherit;cursor:pointer}button:focus-visible,a:focus-visible{outline:3px solid #30a4b3;outline-offset:3px}aside{position:fixed;inset:0 auto 0 0;width:244px;padding:30px 22px;overflow:auto;border-right:1px solid var(--line);background:#fff}.brand{font-size:23px;font-weight:750;letter-spacing:-.6px}.aside-note{font-size:12px;color:var(--muted);margin:2px 0 25px}nav a{display:block;padding:6px 9px;margin:2px 0;color:var(--muted);text-decoration:none;font-size:13px;border-left:2px solid transparent}nav a:hover,nav a[aria-current="location"]{color:var(--accent);background:var(--soft);border-left-color:var(--accent)}main{margin-left:244px;max-width:1440px;padding:42px 52px 80px}.hero{padding:35px 40px;background:var(--paper);border:1px solid var(--line);border-top:5px solid var(--accent);border-radius:14px}.eyebrow{font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--accent)}h1{font-size:clamp(27px,3vw,39px);line-height:1.35;letter-spacing:-.8px;margin:12px 0 14px}h2{font-size:25px;margin:0 0 20px;letter-spacing:-.4px;line-height:1.45}h2 .num{display:inline-block;color:var(--accent);font-size:15px;margin-right:12px}h3{font-size:18px;margin:27px 0 11px}p{margin:12px 0}ul,ol{padding-left:23px;margin:12px 0}li{margin:6px 0}.lead{font-size:17px;color:#3d556a;max-width:900px}.meta{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 0}.badge,.pill{display:inline-block;font-size:12px;font-weight:650;padding:3px 10px;border-radius:5px;white-space:nowrap;background:#edf1f5;color:#4a5c6c}.badge.proposal{background:#fff0d9;color:#855100}.muted{color:var(--muted)}.small{font-size:13px}section{margin-top:24px;padding:30px 35px;background:#fff;border:1px solid var(--line);border-radius:12px}.callout{padding:15px 19px;border-left:4px solid var(--accent);background:var(--soft);margin:19px 0}.callout.warn{border-color:#b77c24;background:#fff7e9}.callout.danger{border-color:#bf5555;background:#fff2f1}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:20px 0}.card{border:1px solid var(--line);border-radius:10px;padding:17px 19px;background:#fcfdff}.card h3{margin:0 0 7px}.card p{margin:5px 0}.card strong{color:var(--accent)}.table-wrap{overflow-x:auto;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.7}th,td{padding:11px 13px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#edf3f6;font-weight:650}td:first-child{font-weight:550}tbody tr:nth-child(even){background:#fafcfd}code{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:.9em;background:#edf2f6;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}pre{background:#102535;color:#e5f1f8;border-radius:9px;padding:20px;overflow:auto;font-size:12px;line-height:1.7}pre code{padding:0;background:none;color:inherit;overflow-wrap:normal}.running{background:#e2f3eb;color:#176442}.starting{background:#fff1d6;color:#8d5907}.suspended{background:#eee8f9;color:#63458f}.stopping{background:#ffe5e1;color:#9f3632}.stopped{background:#eaf0f4;color:#5a6a78}.diagram{overflow:auto;border:1px solid var(--line);border-radius:10px;background:#fafcfe;padding:14px;margin:20px 0}.diagram svg{display:block;width:100%;min-width:680px;height:auto}.flow{display:flex;align-items:stretch;gap:10px;margin:17px 0;flex-wrap:wrap}.flow .step{flex:1;min-width:145px;padding:12px;border:1px solid var(--line);border-radius:7px;background:#f6fafc}.flow .arrow{align-self:center;color:var(--accent);font-size:21px}.arch{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:12px;margin:22px 0}.arch>div{padding:16px;border-radius:9px;border:1px solid var(--line);background:#f5fafc}.arch .central{background:#e9f4f3;border-color:#9bc6c8}.arch strong{display:block}.arch small{display:block;margin-top:5px;color:var(--muted)}.arch .guests{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:13px;background:#fff}.guests>div{padding:12px;border-left:3px solid #8aa6bd;background:#f6f8fb}.source-list li{font-size:13px}.btn{padding:8px 13px;border:1px solid #c4d4e0;border-radius:7px;background:#fff;color:var(--ink);line-height:1.5}.btn:hover{background:#edf5fa}.btn.primary{color:#fff;background:var(--accent);border-color:var(--accent)}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.sim-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.sim-widget{padding:17px;border:1px solid var(--line);border-radius:10px;background:#f8fbfd}.sim-widget .value{font-size:24px;font-weight:700;margin:8px 0}.sim-widget h3{margin:0;font-size:15px}.sim-info{display:flex;flex-wrap:wrap;gap:12px;padding:13px;background:var(--soft);border-radius:8px}.sim-log{max-height:230px;overflow:auto;font:12px/1.8 ui-monospace,Consolas,monospace;background:#102535;color:#e5f1f8;padding:13px;border-radius:8px;white-space:pre-wrap}.sim-state td{font-family:ui-monospace,Consolas,monospace;font-size:12px}.ref{font-size:12px}.footer{padding:25px 4px;color:var(--muted);font-size:13px}.backtop{margin-left:auto}.invariant{counter-reset:rule}.invariant li{padding-left:4px}.nowrap{white-space:nowrap}
+@media(max-width:1050px){aside{width:215px;padding:25px 15px}main{margin-left:215px;padding:28px 24px}.hero,section{padding:25px}.grid{grid-template-columns:1fr}.arch{grid-template-columns:1fr}.arch .guests{grid-column:1;grid-template-columns:1fr}}
+@media(max-width:760px){aside{position:static;width:auto;border-right:0;border-bottom:1px solid var(--line);padding:20px}.aside-note{margin-bottom:12px}nav{display:grid;grid-template-columns:1fr 1fr}nav a{font-size:12px;padding:4px}main{margin-left:0;padding:18px 12px 45px}.hero,section{padding:21px 18px}h2{font-size:21px}.sim-grid{grid-template-columns:1fr}.flow .arrow{display:none}th,td{padding:9px;min-width:105px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media print{body{background:#fff;font-size:10pt;color:#000}aside,.no-print{display:none!important}main{margin:0;max-width:none;padding:0}.hero,section{border:0;border-radius:0;padding:12px 0;margin:0 0 16px}.hero{border-bottom:2px solid #126e79}h1{font-size:25pt}h2{font-size:17pt;break-after:avoid}h3{break-after:avoid}table{font-size:8pt}thead{display:table-header-group}tr,.card,.sim-widget{break-inside:avoid}pre{white-space:pre-wrap;overflow-wrap:anywhere;color:#000;background:#f4f6f8;border:1px solid #ddd;font-size:8pt}.table-wrap,.diagram{overflow:visible}.diagram svg{min-width:0}.grid,.sim-grid{grid-template-columns:repeat(3,1fr)}a{color:#123f65}.sim-log{max-height:none;color:#000;background:#f6f8fa}.toolbar{display:none}.callout{break-inside:avoid}.footer{border-top:1px solid #ccc}@page{size:A4;margin:15mm}}
+</style>
+</head>
+<body id="top">
+<aside aria-label="文档目录">
+  <div class="brand">MicroPixel</div>
+  <p class="aside-note">多应用运行 · AppManager 设计</p>
+  <nav>
+    <a href="#decision">01 目标与最小设计</a>
+    <a href="#android">02 Android 概念裁剪</a>
+    <a href="#rtos-review">03 RTOS 与 HMI 适用范围</a>
+    <a href="#components">04 App、Activity 与 Service</a>
+    <a href="#architecture">05 模块与职责</a>
+    <a href="#identity">06 实例身份与数据模型</a>
+    <a href="#states">07 每个 App 的状态机</a>
+    <a href="#manager">08 AppManager 命令与调度</a>
+    <a href="#sequences">09 启动与切换时序</a>
+    <a href="#background">10 后台工作与回收</a>
+    <a href="#messages">11 定时唤醒与消息路由</a>
+    <a href="#isolation">12 服务与资源隔离</a>
+    <a href="#fault-containment">13 故障边界与容器要求</a>
+    <a href="#aot-profile">14 AOT 安全运行条件</a>
+    <a href="#widgets">15 Home Widget 协议</a>
+    <a href="#alarm">16 时间、闹钟与音频</a>
+    <a href="#sdk">17 SDK、ABI 与兼容</a>
+    <a href="#limits">18 容量、超时与错误</a>
+    <a href="#invariants">19 必须保持的不变量</a>
+    <a href="#migration">20 代码结构与迁移边界</a>
+    <a href="#simulator">21 状态交互示例</a>
+    <a href="#references">22 来源与术语</a>
+  </nav>
+</aside>
+<main>
+<header class="hero">
+  <div class="eyebrow">SYSTEM DESIGN · PROPOSAL 0.3</div>
+  <h1>多应用运行与<br>AppManager 详细设计</h1>
+  <p class="lead">App 包含可选的 Activity 与 App Service；两者默认共用一个 Guest 实例和串行事件循环。Activity 承载完整界面，Service 由定时任务和消息驱动，Home 汇总桌面卡片。</p>
+  <div class="meta"><span class="badge proposal">设计提案，尚未实现</span><span class="badge">2026-11-15 · Asia/Shanghai</span><span class="badge">PC 优先，MCU 复用契约</span><span class="badge">独立 HTML · 无外部脚本依赖</span></div>
+  <div class="toolbar no-print"><button class="btn primary" id="print-doc" type="button">打印 / 另存为 PDF</button><a class="btn" href="#simulator">查看状态交互示例</a></div>
+</header>
+
+<section id="decision">
+  <h2><span class="num">01</span>目标与最小设计</h2>
+  <p>当前实现仍是一个 Guest Session：PC Home 与市场由 Host 承载，音乐可以在这两个系统页面后继续执行；启动另一 Guest 会停止旧会话。本文提出下一阶段的架构，不表示现有运行程序已经具备多会话能力。基线见 <a href="pc-home.zh-CN.md">PC Home 设计</a>。</p>
+  <div class="callout"><strong>最小模型：一个 AppId 对应至多一个 Guest；App 可含 0–1 个 Activity、0–1 个 App Service。组件有各自生命周期，共用实例而不创建 Guest 线程。多个 App 的 Guest 独立运行，屏幕至多属于一个 Activity。</strong></div>
+  <div class="grid">
+    <div class="card"><h3>实例生命周期</h3><p><strong>5 种状态</strong></p><p>STOPPED、STARTING、RUNNING、SUSPENDED、STOPPING。</p></div>
+    <div class="card"><h3>Activity 与 Service</h3><p><strong>独立的组件生命周期</strong></p><p>Activity 停止或销毁不等于 Service 停止；组件也不等于独立 Guest。</p></div>
+    <div class="card"><h3>后台执行资格</h3><p><strong>有原因、有期限、有归属</strong></p><p>音乐播放、有限任务和 Widget 操作可获得执行租约；注册 Widget 本身不保证常驻。</p></div>
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>应用</th><th>用户要求</th><th>最小实现</th><th>Home 显示</th></tr></thead><tbody>
+    <tr><td>天气</td><td>自动更新，不影响音乐</td><td>WeatherActivity 展示详情；WeatherService 被 Host 定时唤醒，执行有期限的刷新并发布卡片</td><td>城市、温度、描述、最后成功更新时间</td></tr>
+    <tr><td>时钟闹钟</td><td>时间持续显示，页面关闭也会响铃</td><td>ClockActivity 管理配置；可选 ClockService 处理事件；Host 持久调度闹钟并驱动时钟卡片</td><td>Host 实时绘制时间、日期与下一闹钟</td></tr>
+    <tr><td>音乐</td><td>离开页面仍播放，自动下一首</td><td>MusicActivity 承载界面；PlaybackService 拥有队列与播放控制；共享 AppModel 保存账号</td><td>曲目、艺术家、播放状态、进度与控制按钮</td></tr>
+  </tbody></table></div>
+  <p>“同时在运行”指三个应用的功能同时有效，不要求三个界面持续绘制。PC 首版可以保留三个实例；天气和时钟无工作时进入 SUSPENDED，音乐继续 RUNNING。MCU 可在相同契约下回收闲置实例。</p>
+  <p>V1 不引入 Activity 栈、多窗口、多实例 App、Guest 线程、Binder、动态组件解析或可编程桌面布局。Home 直接调用 Host AppManager，普通 Guest 不开放任意跨 App 启动。</p>
+</section>
+
+<section id="android">
+  <h2><span class="num">02</span>参考 Android，但分清三个层次</h2>
+  <p>Android 区分页面生命周期、应用进程存活和后台组件。MicroPixel 借鉴这种分工，裁剪为“一个 App 包＋一个可选 Activity＋一个可选 App Service；默认一个 Guest 承载”。下面的对应关系是本项目设计，不是 Android 状态机的复刻。</p>
+  <div class="table-wrap"><table><thead><tr><th>Android 概念</th><th>保留的思想</th><th>MicroPixel 简化</th></tr></thead><tbody>
+    <tr><td>Activity 生命周期</td><td>界面与后台业务分离，离开 / 返回有明确回调</td><td>仅 NONE、CREATED、RESUMED、STOPPED；不设多 Activity 栈和部分可见状态。<a class="ref" href="https://developer.android.com/guide/components/activities/activity-lifecycle">官方来源</a></td></tr>
+    <tr><td>Service 组件</td><td>无界面，能独立于页面处理后台工作；默认不等于另一线程 / 进程</td><td>显式 Start / Stop 与有界消息；默认同 Guest 串行分发，不实现 Binder 或绑定引用计数。<a class="ref" href="https://developer.android.com/develop/background-work/services">官方来源</a></td></tr>
+    <tr><td>进程重要性</td><td>系统按用户价值和资源压力管理存活</td><td>实例分为前台、有效媒体、有限任务、闲置四种回收优先级。<a class="ref" href="https://developer.android.com/guide/components/activities/process-lifecycle">官方来源</a></td></tr>
+    <tr><td>Foreground service</td><td>用户可感知的持续工作可以在页面不可见时继续</td><td>PlaybackService 持有受 Host 核验的 media 租约；不额外创建 Guest。Home 展示当前播放工作。<a class="ref" href="https://developer.android.com/develop/background-work/services/fgs">官方来源</a></td></tr>
+    <tr><td>App Widget</td><td>桌面提供摘要与有限操作，点击可进入应用</td><td>Host 模板＋状态快照＋操作事件；不嵌入另一个 Guest 的完整画面。<a class="ref" href="https://developer.android.com/develop/ui/views/appwidgets/overview">官方来源</a></td></tr>
+    <tr><td>AlarmManager / 后台调度</td><td>定时工作可独立于应用实例存活</td><td>闹钟与周期任务分别由 Host 保存和触发，不依赖页面 Timer。<a class="ref" href="https://developer.android.com/develop/background-work/services/alarms">官方来源</a></td></tr>
+  </tbody></table></div>
+  <div class="callout warn"><strong>术语边界：</strong>Android 的 foreground service 不代表界面在前台；Android Activity 的 onStop 也不等于销毁进程。本文 STOPPED 专指“没有 Guest 实例”，不表示停用应用、删除数据或自动取消已经登记的闹钟。</div>
+  <p>保存配置应发生在业务修改提交时。不能把持久化依赖于最后一次退出回调；异常、强停和掉电路径不保证 Guest 有机会执行该回调。</p>
+</section>
+
+<section id="rtos-review">
+  <h2><span class="num">03</span>Android 差异与 RTOS / HMI 适用范围</h2>
+  <div class="callout"><strong>适用结论：</strong>一个 App 一个 Guest、组件串行、Host 独占硬件的模型，能够承载天气刷新、闹钟和后台音乐共存。它提供的是精简应用框架；AppManager 的生命周期模型本身不提供内存保护。多实例准入、执行预算和故障边界必须同时成立。</div>
+  <div class="table-wrap"><table><thead><tr><th>维度</th><th>Android</th><th>MicroPixel / no-MMU 契约</th></tr></thead><tbody>
+    <tr><td>内存与故障边界</td><td>以 Linux 进程、UID 和内核沙箱隔离应用，原生代码也在进程边界内。<a class="ref" href="https://source.android.com/docs/security/app-sandbox">官方来源</a></td><td>独立线性内存＋Wasm 检查＋Host ABI 校验；RTOS 任务不是受保护进程。没有 MPU / PMP 等硬件保护时，Host 原生错误仍可能破坏整机。</td></tr>
+    <tr><td>组件与执行单元</td><td>Activity / Service 是组件，Service 默认不另建线程，也可以配置独立进程。<a class="ref" href="https://developer.android.com/develop/background-work/services">官方来源</a></td><td>V1 一个 App 内组件共享 Guest 和串行事件循环；Activity Trap 会连带结束本 App 的 Service，其他 App 应继续。</td></tr>
+    <tr><td>UI 与后台调度</td><td>完整窗口系统、页面栈、进程重要性和多种后台调度策略</td><td>一个前台 Activity；后台 Service 只处理事件。Host 定时器、闹钟和音频设备独立运行；不追求所有应用持续占用 CPU。</td></tr>
+    <tr><td>通信</td><td>Binder、系统服务和权限检查</td><td>小消息复制、owner / epoch 校验、有界邮箱；不跨 Guest 共享指针、对象或任意可写内存。</td></tr>
+    <tr><td>绘制与桌面卡片</td><td>应用窗口和 App Widget 由系统宿主展示</td><td>Guest SDK 构建 Scene / Raster，Host 校验并呈现；Home 使用模板快照，不执行其他 Guest 的 UI 代码。</td></tr>
+    <tr><td>故障恢复</td><td>可以结束独立应用进程，内核继续运行；也不保证内核或驱动缺陷无影响</td><td>只对约定的 Guest 故障提供局部恢复；取消必须被运行代码观察到，不能把强删 RTOS 任务当作安全进程终止。</td></tr>
+  </tbody></table></div>
+  <h3>3.1 满足基本 HMI 的必要补充</h3>
+  <p>现有 <a href="../../guest/sdk/ui/">Guest UI 控件</a>已有布局、文字、按钮、图像、列表行、滚动容器和 Slider，可覆盖简单天气页、闹钟配置页、音乐列表与播放页。组件框架需要统一页面创建 / 恢复 / 隐藏 / 销毁入口，不能由每个 App 自行管理显示租约。控件层与 AppManager 是两层契约。</p>
+  <ul>
+    <li><strong>交互：</strong>唯一输入目标，页面切换取消按压与拖动；统一焦点、按键 / 编码器、文本输入和系统弹窗优先级。列表滚动触底与异步加载应由 SDK 统一表达。</li>
+    <li><strong>状态：</strong>加载、失败、空列表、重试与失效数据有明确显示；列表数据和播放队列归 AppModel，不能因页面销毁而丢失。长列表需窗口化或虚拟列表，避免为每首歌常驻创建全部节点。</li>
+    <li><strong>绘制预算：</strong>限制每 App 的节点、命令、纹理像素、解码尺寸、帧提交频率及处理时间；隐藏 Activity 不继续提交动画帧。Host 自己的 Home、系统弹窗和闹钟预留资源及调度时间。</li>
+    <li><strong>跨边界数据：</strong>Widget 文本 / 图片、绘图命令和资源包均作为不可信输入校验。图像解码器、字体解析器、网络协议栈属于 Host 可信计算基，不因输入来自 Wasm 就自动安全。</li>
+    <li><strong>无阻塞界面：</strong>HTTP、媒体解析和大资源读取走可取消的异步服务；LVGL 所在线程不运行 Guest 业务，不等待 Guest 回调，不持有跨 Guest 执行的全局锁。</li>
+  </ul>
+  <h3>3.2 MCU 资源与执行方式</h3>
+  <p>RTOS 可为每个存活 Guest 配置一个受控执行任务，Guest 自身仍是单事件循环；Host UI、音频和管理任务独立调度。若要改为少量执行任务轮转多个 Guest，必须先把目前长驻 Guest main 改成有界 step / 可恢复执行模型，不能把可能永不返回的入口直接放进共享工作池。</p>
+  <p>MCU 的实例数、线性内存、任务栈、图形与媒体窗口按目标 profile 计费；PC 的四槽、每 Guest 16 MiB 和整曲解码缓存不能下放为 MCU 默认值。闹钟关键路径放在 Host 后，天气 / 时钟 Guest 可按需唤醒或回收，音乐只保留必要的 Service 与流式窗口。</p>
+</section>
+
+<section id="components">
+  <h2><span class="num">04</span>App、Activity、App Service 与 Guest 的关系</h2>
+  <pre><code>App / Bundle：安装、权限、配额、私有数据的边界
+└── AppInstance：默认一个 Guest，一个串行事件循环
+    ├── AppModel：共享的账号、设置与业务状态
+    ├── Activity main（可选）：完整界面与用户输入
+    └── Service main（可选）：后台事件与消息处理
+
+Host：AppManager、MessageBroker、Scheduler、WidgetStore、
+      AudioFocus、Time、Alarm，以及版本化能力接口</code></pre>
+  <p>Activity-only、Service-only、两者同时具备都合法。普通 App 的 Activity / Service 不必分成两个 Wasm；一个 Bundle 中的静态组件注册表足够。V1 每 App 至多一个 Activity 和一个 App Service，后续扩展多个组件时再增加明确的容量。</p>
+  <div class="callout"><strong>App Service ≠ Host Service ABI。</strong>PlaybackService / WeatherService 是 Guest 内的业务组件；Network / Audio / Time Service 是 Host 提供的能力接口。前者调用后者。Service 也不等于一个操作系统线程，阻塞和解码工作仍交给 Host 异步能力。</div>
+  <h3>4.1 Activity 的最小状态机</h3>
+  <div class="flow"><div class="step">NONE<br>没有界面组件对象</div><span class="arrow">→</span><div class="step">CREATED<br>初始化 UI / staging</div><span class="arrow">→</span><div class="step">RESUMED<br>前台显示与交互</div><span class="arrow">⇄</span><div class="step">STOPPED<br>隐藏，可保留 UI 状态</div></div>
+  <div class="table-wrap"><table><thead><tr><th>迁移</th><th>回调 / Host 动作</th><th>对 Service 的影响</th></tr></thead><tbody>
+    <tr><td>NONE → CREATED</td><td>OnCreate(savedUiState)；创建组件 epoch 与 UI 子资源域；准备首帧</td><td>已有 Service 复用；不能重复启动 Guest main</td></tr>
+    <tr><td>CREATED / STOPPED → RESUMED</td><td>App 可运行、首帧准备好后提交唯一显示权；OnResume</td><td>不改变服务状态或播放资格</td></tr>
+    <tr><td>RESUMED → STOPPED</td><td>返回 Home / 打开其他 App；撤销输入和显示，OnStop；合并 Android 的 pause / stop</td><td>Service 继续处理合法后台工作</td></tr>
+    <tr><td>CREATED / STOPPED → NONE</td><td>OnDestroy（尽力）；释放 Activity 作用域资源，保存已提交的 UI 恢复信息</td><td>不关闭 Service 的网络、媒体或共享 AppModel</td></tr>
+    <tr><td>RESUMED → NONE</td><td>先撤销前台、经过 STOPPED，再销毁；不能绕过显示与手势回收</td><td>只销毁界面；显式 StopApp 才终止整个 App</td></tr>
+  </tbody></table></div>
+  <p>Activity STOPPED 与 Guest STOPPED 含义完全不同。前者是“界面已隐藏”；后者是“整个执行实例不存在”。V1 不区分 onPause / onStop，不引入 Fragment 或返回栈。</p>
+  <h3>4.2 App Service 的最小状态机</h3>
+  <div class="flow"><div class="step">STOPPED<br>组件已声明但未启动</div><span class="arrow">→</span><div class="step">STARTING<br>创建并等待服务就绪</div><span class="arrow">→</span><div class="step">RUNNING<br>可接收消息 / 定时事件</div><span class="arrow">→</span><div class="step">STOPPING<br>排空自身任务与资源</div><span class="arrow">→</span><div class="step">STOPPED</div></div>
+  <ul>
+    <li><code>OnCreate</code>：本次组件对象的一次性初始化；随后 <code>OnStart</code>。Ready 后才交付首条业务消息。</li>
+    <li><code>OnMessage / OnScheduledWork / OnMediaEvent</code>：按单一 Guest 事件循环串行处理；无事件时等待，回调不能自行阻塞网络或开线程。</li>
+    <li><code>OnStop</code>：取消该组件任务并配合停止；完成后关闭子资源域并释放对象。Guest 强停不能保证回调一定执行。</li>
+    <li>重复 StartService 幂等；若带新的初始命令，只新增一个已去重的业务消息，不重复 OnCreate。</li>
+    <li>StopSelf 必须核对当前组件 epoch、消息队列和在途 work_id；旧任务完成不能顺带停止刚收到的新工作。</li>
+  </ul>
+  <p>Service RUNNING 表示组件已启动、可以接收事件，不表示永久占 CPU 或永久保活。暂停的 PlaybackService 可以在 Guest SUSPENDED 时保留对象；有实际媒体或任务资格时，Guest 必须保持 RUNNING。Guest 被回收后组件对象消失，Service 状态变 STOPPED，Host 的任务登记仍可在下次启动它。</p>
+  <p>可恢复的组件初始化失败只清理该组件：Service 启动失败不能销毁已在前台的 Activity；Activity 创建失败也不能停止正在播放的 Service。只有 Guest Trap、执行器故障或显式 StopApp 才走整个实例的停止路径。</p>
+  <h3>4.3 三层状态组合</h3>
+  <div class="table-wrap"><table><thead><tr><th>场景</th><th>Guest</th><th>Activity</th><th>App Service</th></tr></thead><tbody>
+    <tr><td>前台播放音乐</td><td>RUNNING</td><td>RESUMED</td><td>RUNNING＋MEDIA</td></tr>
+    <tr><td>回 Home，音乐继续</td><td>RUNNING</td><td>STOPPED</td><td>RUNNING＋MEDIA</td></tr>
+    <tr><td>销毁音乐界面，继续播放</td><td>RUNNING</td><td>NONE</td><td>RUNNING＋MEDIA</td></tr>
+    <tr><td>暂停音乐且宽限结束</td><td>SUSPENDED（若无其他工作）</td><td>STOPPED / NONE</td><td>RUNNING，但无有效执行租约</td></tr>
+    <tr><td>只启动天气刷新</td><td>RUNNING</td><td>NONE</td><td>RUNNING＋JOB；完成后可 StopWhenIdle</td></tr>
+    <tr><td>停止播放服务，音乐页面仍打开</td><td>RUNNING</td><td>RESUMED</td><td>STOPPED</td></tr>
+    <tr><td>停止整个 App</td><td>STOPPED</td><td>NONE</td><td>STOPPED；Host 已登记闹钟按既定产品规则保留</td></tr>
+  </tbody></table></div>
+  <h3>4.4 AppManager 增加组件记录，而不是增加组件线程</h3>
+  <p>AppManager 仍是唯一状态写入者；ActivityController 与 ServiceController 是它内部的逻辑控制块，共用同一个命令循环。前者处理界面对象与显示事务，后者处理 Start / Stop、组件 ready、工作计数与空闲策略。MessageBroker 管理有界投递；Scheduler 生成合法的唤醒票据。</p>
+  <p>同 App 已处于 STARTING 时，新的 Activity / Service 请求只合并为有界的组件启动意图，不再创建 Guest。实例 Ready 后分别推进组件；实例 Resume 只恢复执行，不自动对隐藏 Activity 调用 OnResume，消息唤醒也不创建界面。</p>
+  <p>同 App 组件共享内存与异常边界：Activity 的 Trap 可能终止同 Guest 的 Service。V1 以 App 为隔离单位；不能声称逻辑 Service 已实现进程级容错。将 Service 单独放到 Guest 是未来可选部署方式，需要显式预算和通信契约，不作为默认。</p>
+</section>
+
+<section id="architecture">
+  <h2><span class="num">05</span>模块与职责</h2>
+  <div class="arch" role="img" aria-label="Home 经 AppManager 控制多个 Guest；Guest 发布 Widget 数据；Host 的时间、闹钟和音频服务独立运行">
+    <div><strong>Home / System UI</strong><small>应用目录、桌面卡片、操作入口、系统弹窗</small></div>
+    <div class="central"><strong>AppManager</strong><small>唯一状态写入者：启动、切换、挂起、停止、配额、故障与回收策略</small></div>
+    <div><strong>WidgetStore</strong><small>状态快照、版本、数据新鲜度、操作绑定</small></div>
+    <div class="guests"><div><strong>Weather Guest</strong><small>WeatherActivity＋WeatherService</small></div><div><strong>Clock / Alarm Guest</strong><small>ClockActivity＋可选 ClockService</small></div><div><strong>Music Guest</strong><small>MusicActivity＋PlaybackService</small></div></div>
+    <div><strong>SessionRunner</strong><small>WAMR / RV32 执行器、加载、停止、安全点与退出通知</small></div>
+    <div><strong>Scoped Services</strong><small>每实例的图形、输入、HTTP、音频、资源与异步回调归属</small></div>
+    <div><strong>Host Services</strong><small>Time、JobScheduler、AlarmScheduler、AudioFocus、物理设备</small></div>
+  </div>
+  <p class="small muted">控制流：Home → AppManager → Session。数据流：Guest → WidgetStore → Home。闹钟流：AlarmScheduler → AudioFocus / Host 铃声；Guest 通知不在响铃的关键路径上。</p>
+  <div class="table-wrap"><table><thead><tr><th>模块</th><th>负责</th><th>不承担</th></tr></thead><tbody>
+    <tr><td>AppManager</td><td>维护 AppRecord 与组件记录、UiTarget、实例槽位、后台资格和回收；统一协调 ActivityController / ServiceController</td><td>不解析天气/网易云业务；不在控制循环执行网络、Wasm 或同步等待线程结束</td></tr>
+    <tr><td>SessionRunner</td><td>创建独立模块实例和 GuestContext，运行入口，报告 READY / QUIESCED / EXITED</td><td>不自行抢占前台，不决定其他应用的生死</td></tr>
+    <tr><td>ServiceRouter</td><td>从调用上下文获取实例身份，验证归属与配额，映射到物理服务</td><td>不信任 Guest 提交的 AppId 或其他应用句柄</td></tr>
+    <tr><td>MessageBroker</td><td>校验来源、目标组件、导出策略、大小与时限；按消息票据取得短暂执行资格</td><td>不直接调用 Guest 对象，不承诺任意消息跨崩溃可靠送达</td></tr>
+    <tr><td>Home</td><td>读取不可变管理快照与 Widget 快照，提交用户操作</td><td>不调用 Guest 函数，不持有 Guest 内存，不保存音乐 Cookie</td></tr>
+    <tr><td>Job / Alarm / AudioFocus</td><td>分别管理可延迟任务、持久闹钟、音频优先级</td><td>不把周期天气刷新当精确闹钟；不把音频暂停当实例挂起</td></tr>
+  </tbody></table></div>
+  <p>PC 的主循环控制段可以作为 AppManager 的单一执行者；MCU 由 Host controller 任务承载同一个 <code>ProcessOne()</code>。LVGL 回调、服务线程和 ISR 只提交命令或完成通知。加载、取消等待、线程回收由有界执行器执行。</p>
+</section>
+
+<section id="identity">
+  <h2><span class="num">06</span>实例身份与数据模型</h2>
+  <p><code>AppId</code> 是安装身份；<code>InstanceKey = (boot_nonce, slot, epoch)</code> 是一次运行的身份；<code>request_id</code> 标识操作；<code>transition_seq</code> 标识当前迁移。停止后重启同一 AppId，必须产生新 InstanceKey。</p>
+  <p><code>ComponentKey = (InstanceKey, kind, component_id, component_epoch)</code> 标识 Activity 或 Service 的本次创建。销毁 Activity 再创建时，Guest 可完全不变，但 Activity epoch 必须变化，旧帧、输入与回复不能进入新界面。组件 token 用于路由与资源生命周期，不是同一 Guest 内的安全沙箱。</p>
+  <pre><code>// Host 内部示意类型，不是 C ABI 的直接内存布局。
+struct AppRecord {
+    AppId app_id;
+    PackageRevision package_revision;
+    Lifecycle life;                 // 五种状态
+    Optional&lt;InstanceKey&gt; instance;
+    uint64_t transition_seq;
+    Optional&lt;PendingTransition&gt; pending;
+    ActivityRecord activity;        // NONE / CREATED / RESUMED / STOPPED
+    ServiceRecord service;          // STOPPED / STARTING / RUNNING / STOPPING
+    BackgroundLeases work;          // 固定容量，含原因、期限、所有者
+    ResourceAccount resources;      // 内存、请求、流、句柄、包映射
+    ExitReason last_exit;           // 失败是原因，不增设 CRASHED 状态
+    bool user_stopped;              // 阻止非用户触发的自动重启
+};
+
+struct ManagerState {
+    AppRecord catalog[64];
+    InstanceSlot slots[4];          // STARTING / SUSPENDED / STOPPING 也占槽
+    UiTarget ui;                   // Home 或有效 ComponentKey 指向的 Activity
+    Optional&lt;ForegroundRequest&gt; pending_foreground;
+};</code></pre>
+  <div class="table-wrap"><table><thead><tr><th>身份 / 状态</th><th>生命周期</th><th>用途</th></tr></thead><tbody>
+    <tr><td>AppId 与安装策略</td><td>跨实例；可持久化</td><td>私有 KV、任务配置、闹钟、Widget 声明、权限</td></tr>
+    <tr><td>InstanceKey</td><td>本次运行</td><td>服务句柄、HTTP、音频流、运行线程、回调所有者</td></tr>
+    <tr><td>ComponentKey</td><td>本次组件对象</td><td>Activity 显示 / 输入 / 图形子资源；Service 消息、媒体、网络与回复地址</td></tr>
+    <tr><td>transition_seq</td><td>每次迁移递增</td><td>丢弃迟到 READY / SUSPEND ACK / RESUME ACK</td></tr>
+    <tr><td>ForegroundRequest token</td><td>每次用户切换递增</td><td>加载 B 时又点击 C，B 完成后不得夺取 C 的前台</td></tr>
+    <tr><td>Widget revision</td><td>Host 对该 Widget 单调递增</td><td>快照替换和过期操作识别；Guest 重启不会让旧卡片操作落到错误实例</td></tr>
+  </tbody></table></div>
+  <p>Guest 调用身份由 GuestContext 注入，不能通过填写 AppId 冒充其他应用。持久配置按 AppId 保存，运行句柄按 InstanceKey 校验；两者不能混用。AppRecord 常驻不代表 Wasm 实例常驻。</p>
+  <p>ServiceRecord 至少保存 component_epoch、组件状态、空闲策略、未完成 work_id 与消息序列水位。有界消息存储只在存活实例槽内分配，不能为64个安装记录各预留一个完整邮箱。Activity 与 Service 可共享 AppModel，但不相互长期持有可销毁组件对象的裸地址。</p>
+  <p>Host 重启后所有实例状态从 STOPPED 开始，生成新的 boot_nonce；从策略库恢复 user_stopped、任务和闹钟登记，不恢复旧句柄或迁移请求。未被用户停止的天气可以按计划唤醒；闹钟由 Host 恢复；V1 默认不自动恢复音乐播放。</p>
+</section>
+
+<section id="states">
+  <h2><span class="num">07</span>每个 App 的状态机</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 1000 410" role="img" aria-labelledby="fsm-title fsm-desc">
+      <title id="fsm-title">五状态实例生命周期</title><desc id="fsm-desc">停止态经启动进入运行，隐藏且无工作时可挂起，再唤醒回运行。启动、运行与挂起均可进入停止中，清理结束后才回停止态。</desc>
+      <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#59748a"/></marker></defs>
+      <g fill="none" stroke="#59748a" stroke-width="2" marker-end="url(#arrow)">
+        <path d="M190 193H260"/><path d="M420 193H490"/>
+        <path d="M650 177L738 97"/><path d="M738 127L650 207"/>
+        <path d="M650 215L738 303"/><path d="M820 134V270"/>
+        <path d="M340 230V320H736"/><path d="M738 340H114V230"/>
+      </g>
+      <g font-family="'Noto Sans CJK SC','Microsoft YaHei',sans-serif" font-size="14" fill="#476175">
+        <text x="207" y="174">Start</text><text x="433" y="174">Ready</text>
+        <text x="625" y="102">安全点确认挂起</text><text x="679" y="198">Resume ACK</text>
+        <text x="500" y="274">Stop / Exit / Fault</text><text x="834" y="218">Stop / 回收</text>
+        <text x="373" y="307">启动失败 / 取消</text><text x="325" y="362">EXITED ＋ 回调排空 ＋ 所有租约清理</text>
+      </g>
+      <g font-family="ui-monospace,monospace" font-size="18" font-weight="650" text-anchor="middle">
+        <rect x="30" y="157" width="160" height="73" rx="11" fill="#eaf0f4" stroke="#adbfcd"/><text x="110" y="201" fill="#526473">STOPPED</text>
+        <rect x="260" y="157" width="160" height="73" rx="11" fill="#fff1d6" stroke="#dfbd7b"/><text x="340" y="201" fill="#8d5907">STARTING</text>
+        <rect x="490" y="157" width="160" height="73" rx="11" fill="#e2f3eb" stroke="#83b99c"/><text x="570" y="201" fill="#176442">RUNNING</text>
+        <rect x="738" y="61" width="170" height="73" rx="11" fill="#eee8f9" stroke="#b5a2d4"/><text x="823" y="105" fill="#63458f">SUSPENDED</text>
+        <rect x="738" y="270" width="170" height="73" rx="11" fill="#ffe5e1" stroke="#dca19b"/><text x="823" y="314" fill="#9f3632">STOPPING</text>
+      </g>
+      <text x="491" y="28" font-size="15" fill="#176442" font-family="'Noto Sans CJK SC','Microsoft YaHei',sans-serif">RUNNING 可以是前台，也可以是有合法工作的后台</text>
+      <text x="32" y="394" font-size="13" fill="#586b7c" font-family="'Noto Sans CJK SC','Microsoft YaHei',sans-serif">前台 / 后台不是第六、第七种实例状态；失败原因记录在 last_exit 中。</text>
+    </svg>
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>状态</th><th>Guest / 资源</th><th>允许行为</th><th>离开条件</th></tr></thead><tbody>
+    <tr><td><span class="pill stopped">STOPPED</span></td><td>没有执行实例；保留安装信息、配置与允许缓存的快照</td><td>接收显式启动或符合策略的 Host 唤醒</td><td>通过准入与预算预留后 → STARTING</td></tr>
+    <tr><td><span class="pill starting">STARTING</span></td><td>已占实例槽与预算；创建执行器、上下文、服务视图</td><td>有界初始化；为当前前台请求准备不可见 staging 帧；不接收用户输入</td><td>RuntimeReady → RUNNING；失败 / 取消 → STOPPING</td></tr>
+    <tr><td><span class="pill running">RUNNING</span></td><td>实例存活，事件循环可被调度；无事件时仍阻塞等待</td><td>前台：完整 UI；后台：仅有资格的任务、媒体、Widget 更新</td><td>隐藏且无有效工作，经安全点确认 → SUSPENDED；退出 / 强停 / 故障 → STOPPING</td></tr>
+    <tr><td><span class="pill suspended">SUSPENDED</span></td><td>内存、逻辑状态保留；Guest 停在安全点；没有前台权或有效媒体执行租约</td><td>Host 更新时钟 Widget、闹钟、任务计划；Guest 不处理普通事件</td><td>用户操作 / 到期任务经 Resume ACK → RUNNING；回收 / 停止 → STOPPING</td></tr>
+    <tr><td><span class="pill stopping">STOPPING</span></td><td>拒绝新工作，撤销归属，取消 I/O，等待执行线程退出并排空回调</td><td>只处理停止与清理完成通知；不可恢复旧实例</td><td>确认所有清理结束 → STOPPED，才可复用槽位</td></tr>
+  </tbody></table></div>
+  <h3>7.1 可见性与播放状态分开</h3>
+  <p><code>effective_visibility(app)</code> 仅在 Guest 为 RUNNING、其 Activity 为 RESUMED 且 UiTarget 匹配当前 Activity ComponentKey 时为前台，其余为后台。Home 可见时 UiTarget = Home。系统弹窗可暂时抑制输入与直接扫描输出，不增加 App 生命周期状态。</p>
+  <p>音频的 Loading / Playing / Paused / Finished 属于媒体服务状态。音乐暂停后可以有短暂后台宽限；宽限到期且无其他工作时，实例才可能挂起。返回 Home 不会直接暂停音频，也不会调用旧的全局 SuspendAll。</p>
+  <h3>7.2 正式迁移表</h3>
+  <div class="table-wrap"><table><thead><tr><th>当前状态</th><th>事件</th><th>守卫与 Host 动作</th><th>结果</th></tr></thead><tbody>
+    <tr><td>STOPPED</td><td>UserActivate / JobDue / WidgetAction</td><td>检查安装、用户停止标记、来源、权限与配额；生成新 InstanceKey；提交加载任务</td><td>STARTING；失败不占槽，返回具体错误</td></tr>
+    <tr><td>STARTING</td><td>RuntimeReady(key, seq)</td><td>身份与序列匹配；绑定已验证的服务；释放启动临时资格</td><td>RUNNING；是否显示仍由前台请求决定</td></tr>
+    <tr><td>STARTING</td><td>LoadFailed / Deadline / Stop</td><td>取消加载或等待加载返回；统一进入清理，不直接复用内存</td><td>STOPPING → STOPPED</td></tr>
+    <tr><td>RUNNING</td><td>Activate 同一实例 / Home</td><td>执行显示权切换；发送 VisibilityChanged；不重新运行 main</td><td>仍为 RUNNING；可能开始空闲挂起流程</td></tr>
+    <tr><td>RUNNING</td><td>Idle / 最后租约释放</td><td>必须后台、无工作、无待投递操作、不是最新前台准备目标；发送 PrepareSuspend，等待 event_wait 安全点确认</td><td>确认后 SUSPENDED；等待期间仍是 RUNNING＋pending</td></tr>
+    <tr><td>RUNNING＋挂起待确认</td><td>新的工作 / 用户激活</td><td>增加迁移序列，取消挂起意图；必要时解除已到达的停车门</td><td>保持 RUNNING；旧 ACK 不得使实例再次挂起</td></tr>
+    <tr><td>SUSPENDED</td><td>UserActivate / WorkDue / Action</td><td>先获得合法工作或前台请求；唤醒控制门；确认恢复后再投递业务事件</td><td>Resume ACK 后 RUNNING；InstanceKey 不变</td></tr>
+    <tr><td>任意存活状态</td><td>Stop / main 返回 / Trap / Watchdog</td><td>撤销输入与呈现权，停止本实例工作；保存退出原因，异步完成清理</td><td>STOPPING；完成后 STOPPED</td></tr>
+    <tr><td>STOPPING</td><td>重复 Stop / 迟到 ACK</td><td>重复 Stop 幂等；旧序列、旧实例回调丢弃；不复活旧实例</td><td>仍为 STOPPING</td></tr>
+    <tr><td>STOPPING</td><td>RuntimeExited ＋ CleanupDone</td><td>线程 / 子进程已结束，DMA 与借用内存排空，包租约和预算释放</td><td>STOPPED；用户更新的启动意图才可创建新实例</td></tr>
+  </tbody></table></div>
+  <div class="callout danger"><strong>超时不是内存可释放的证明。</strong>强停请求超时后，若仍无法确认执行线程退出，实例继续占用 STOPPING 槽与预算，并上报 Host 健康故障。禁止在 Guest 仍执行时析构上下文或把槽交给新应用。</div>
+</section>
+
+<section id="manager">
+  <h2><span class="num">08</span>AppManager 命令、调度与并发规则</h2>
+  <h3>8.1 一个状态写入者，异步执行慢操作</h3>
+  <p>所有状态迁移都在 AppManager 控制循环串行决定。接收请求只返回 <code>Accepted(request_id)</code> 或拒绝原因；成功加载、显示、停止分别通过结果事件确认。不得把“成功入队”当作“应用已经在前台”。</p>
+  <pre><code>LVGL / Host 用户操作 ─┐
+Guest Service 请求 ──┼─&gt; 有界命令入口 ─&gt; AppManager.ProcessOne()
+Job / Alarm 通知 ────┘                         │
+                            状态与快照更新      ├─&gt; UI 通知
+                            慢操作描述          └─&gt; 有界执行器
+                                                  │
+                                  READY / QUIESCED / EXITED
+                                                  └─&gt; 控制通知入口</code></pre>
+  <div class="table-wrap"><table><thead><tr><th>命令 / 通知</th><th>主要规则</th><th>结果</th></tr></thead><tbody>
+    <tr><td>Activate(appId, userOrigin, requestId)</td><td>验证用户来源；复用存活实例；需要时冷启动；更新最新前台意图</td><td>ForegroundCommitted 或拒绝 / 启动失败</td></tr>
+    <tr><td>ShowHome(requestId)</td><td>撤销当前输入与显示租约，UiTarget = Home；清除待提交的前台意图</td><td>幂等；媒体和有效后台工作继续</td></tr>
+    <tr><td>StopApp(appId, reason)</td><td>只作用于目标实例；用户停止同时设置 user_stopped；不在调用线程等待</td><td>StopRequested，随后 Stopped</td></tr>
+    <tr><td>EnsureWork(appId, ticket)</td><td>校验任务登记、停止标记和预算；复用 RUNNING，恢复 SUSPENDED 或冷启动 STOPPED</td><td>业务事件仅在实例可运行后投递</td></tr>
+    <tr><td>StartService / StopService</td><td>自身 Activity、可信 Home 或 Scheduler 发起；先保证 Guest 可运行，再推进组件状态；不改变 UiTarget</td><td>ServiceReady / ServiceStopped；重复启动复用对象</td></tr>
+    <tr><td>SendMessage / CompleteWork</td><td>Broker 校验并登记接收端工作票据；完成只释放对应 work_id；空闲策略再决定是否停止服务</td><td>Accepted 与业务完成分离；不得因一个旧任务结束而停止后来的消息</td></tr>
+    <tr><td>DestroyActivity</td><td>撤销对应 Activity 的显示 / 输入并关闭 UI 子资源；不关闭 Service 子资源域</td><td>Activity → NONE，Guest 与 Service 可继续</td></tr>
+    <tr><td>Ready / Quiesced / Resumed</td><td>必须匹配 InstanceKey 和该次 transition_seq</td><td>推进对应生命周期迁移</td></tr>
+    <tr><td>RuntimeExited</td><td>匹配当前实例与执行器；即使迁移序列已更新，也不能忽略真实退出</td><td>进入 / 继续 STOPPING；启动清理</td></tr>
+    <tr><td>CleanupDone</td><td>匹配实例与独立 cleanup token，确认执行器、回调、包租约均结束</td><td>STOPPED，释放槽位与预算</td></tr>
+    <tr><td>Tick(monotonicNow)</td><td>处理工作到期、迁移超时、空闲和回收策略</td><td>提交新的控制意图，不直接执行 Guest</td></tr>
+  </tbody></table></div>
+  <h3>8.2 有界队列与关键通知</h3>
+  <ul>
+    <li>普通命令队列有容量限制，满时返回 BUSY；不在实时路径扩容。</li>
+    <li>停止意图与 RuntimeExited 使用每实例控制邮箱，不能被普通刷新命令挤掉。停止意图可合并，退出通知必须最终被消费。</li>
+    <li>同一 App 的周期唤醒可合并为一次，记录 missed_count；不补跑几十次过期天气刷新。</li>
+    <li>前台意图只保留最新一个 token；Widget 快照采用最后一份有效版本覆盖，业务操作事件不能用快照覆盖策略丢弃。</li>
+    <li>同一 Guest 实例始终只有一个执行线程进入 Wasm。UI、网络线程与 AppManager 均通过事件通知，不重入 Guest。</li>
+  </ul>
+  <h3>8.3 版本校验按领域划分</h3>
+  <div class="table-wrap"><table><thead><tr><th>通知</th><th>校验身份</th><th>必须避免的错误</th></tr></thead><tbody>
+    <tr><td>生命周期 ACK</td><td>InstanceKey ＋ transition_seq</td><td>迟到的挂起 ACK 不能挂起已经重新激活的 App</td></tr>
+    <tr><td>前台准备完成</td><td>InstanceKey ＋最新 foreground token</td><td>B 加载完成不能覆盖后来选择的 C 或 Home</td></tr>
+    <tr><td>组件 Ready / Stop ACK</td><td>ComponentKey ＋该组件迁移序列；首帧还需 foreground token</td><td>同一 Guest 内重建的 Activity / Service 也不能接收旧对象的确认</td></tr>
+    <tr><td>HTTP / 音频完成</td><td>InstanceKey ＋该资源的 handle generation</td><td>切换前后台不应让仍有效的音乐网络响应失效</td></tr>
+    <tr><td>真实退出通知</td><td>InstanceKey ＋ runner 身份；仅消费一次</td><td>不能因为旧 transition_seq 而忽略退出，导致永远等不到清理</td></tr>
+    <tr><td>Widget 更新 / 操作</td><td>实例归属、provider sequence、Host revision、action requestId</td><td>旧实例发布覆盖新实例数据；重复点击造成两次“下一首”</td></tr>
+  </tbody></table></div>
+  <p>重复 Activate 同一 AppId 不创建第二实例；重复 Stop 返回同一停止结果。STOPPING 中的普通操作返回 BUSY。最新显式激活可以保留一个待启动意图，等旧实例完全停止后再重新准入；该意图被更新的用户选择取消。</p>
+  <h3>8.4 最小控制循环示意</h3>
+  <pre><code>ProcessOne(message):
+    validate origin, identity and message-specific generation
+    if RuntimeExited:
+        beginOrContinueCleanup(currentInstance)  // 不按旧迁移序列丢弃
+    else if command:
+        compute desired action from record, capability and current budgets
+        reserve resources before starting asynchronous work
+        commit record / pending transition
+        submit bounded work descriptor
+    else if matching transition completion:
+        commit lifecycle change
+    publish immutable manager snapshot
+
+// 禁止在此处：RunWasm、等待 HTTP、join 未退出的线程、持锁调用 LVGL。</code></pre>
+</section>
+
+<section id="sequences">
+  <h2><span class="num">09</span>启动、切换、挂起与停止的时序</h2>
+  <h3>9.1 冷启动应用 B：先准备，再移交前台</h3>
+  <ol>
+    <li>Home 或当前页面提交 Activate(B)。AppManager 生成前台 token，检查安装、策略、槽位与总预算。准入失败时保持原应用 A 和音乐不变。</li>
+    <li>B 进入 STARTING，获得独立执行器、上下文和作用域服务。StartContext 携带启动原因、是否需要准备完整 UI、待处理操作；Host 可接受一个不可见 staging 帧。</li>
+    <li>Guest 完成有界初始化，SDK 在进入事件循环时报告 RuntimeReady。后台启动可以没有画面；完整 UI 激活必须同时满足 RuntimeReady 和 FrameReady。等待时 Host 可显示 Loading 遮层，UiTarget 仍为 A，遮层暂时接管输入。</li>
+    <li>如果 token 仍是最新请求，Host 撤销 A 的输入、取消未结束手势、清除输入法待发送文本，撤销 A 的显示租约。</li>
+    <li>在一个显示提交中激活 B 的已准备画面并更新 UiTarget；输入仅在有效首帧就绪且无系统遮层后交给 B。向 A / B 投递有序的 VisibilityChanged。</li>
+    <li>A 的媒体 / 任务资格继续有效；无工作时才进入空闲挂起流程。B 若在准备期间失败，A 不失去前台。</li>
+  </ol>
+  <div class="callout">staging surface 是准备资源，不是屏幕拥有权。全局始终只有一个 DisplayLease。前台事务不等待 A 的业务回调返回才撤销其输入，但任何旧显示提交都必须经过租约校验。</div>
+  <p>前台启动窗口内若用户又点击 C 或返回 Home，更新 foreground token。B 的迟到完成只更新自身状态；若没有剩余合法工作，则取消或挂起 B，不提交其画面。</p>
+  <p>首帧超时与初始化失败都发生在移交前：撤销 B 的 staging 预算，清理 B，移除相应 Loading 遮层；最新意图未改变时恢复 A 的交互。不提供完整界面的应用不能成为 UiTarget，其显式操作作为后台工作执行。</p>
+  <h3>9.2 热切换与返回 Home</h3>
+  <div class="flow"><div class="step">音乐 A：RUNNING<br>拥有 media 租约</div><span class="arrow">→</span><div class="step">ShowHome<br>撤销 A 输入与显示</div><span class="arrow">→</span><div class="step">A 仍 RUNNING<br>网络、队列、音频继续</div><span class="arrow">→</span><div class="step">Activate(A)<br>复用原实例与登录</div></div>
+  <p>目标已 RUNNING 时不重启 main；目标 SUSPENDED 时先恢复到 RUNNING。恢复后可以重建已回收的呈现缓冲，但逻辑内存和账号仍属于同一实例。系统 Home 操作定义为幂等 ShowHome；若保留现有 PC F1 的“来回切换”快捷方式，由 Shell 转换成 Activate / ShowHome，不能作为新的生命周期状态。</p>
+  <p>ActivityController 将前后台变化投递为对应 Activity 的 OnStop / OnResume。Service 不接收表示自身停止的事件；只有显式 StopService / StopApp 或清理策略才改变其组件生命周期。</p>
+  <h3>9.3 挂起与恢复</h3>
+  <ol>
+    <li>AppManager 确认应用隐藏、无有效后台租约、无业务操作待处理、不是最新前台准备目标，发送 PrepareSuspend(seq)，并阻止未经仲裁的新工作。</li>
+    <li>Guest 在当前 handler 结束、进入 event_wait 安全点时配合；Host 完成作用域 I/O 处理与外借显示缓冲排空后报告 Quiesced。</li>
+    <li>ACK 仍匹配目标时提交 SUSPENDED。业务时钟和普通 Timer 按现有冻结语义处理；Host 时间、闹钟与任务调度不冻结。</li>
+    <li>新的用户操作或任务到期触发恢复。先打开控制门，确认 Resume，再投递业务事件；Stop 控制始终可以唤醒挂起中的执行器。</li>
+  </ol>
+  <p>挂起确认前出现新的工作时，取消该次挂起并提升序列。即使执行器刚好已停车，也必须解除停车；丢弃旧 ACK 本身不足以完成恢复。</p>
+  <h3>9.4 停止、关闭、停用和卸载</h3>
+  <div class="table-wrap"><table><thead><tr><th>操作</th><th>实例 / 媒体</th><th>后续后台唤醒</th><th>已登记闹钟</th></tr></thead><tbody>
+    <tr><td>返回 Home / 关闭完整 UI</td><td>不停止；按工作资格运行或挂起</td><td>保持</td><td>保持</td></tr>
+    <tr><td>正常退出 / 内存回收</td><td>释放该实例及其媒体</td><td>仍允许已登记任务唤醒</td><td>保持，Host 独立执行</td></tr>
+    <tr><td>用户“关闭应用”</td><td>停止实例、媒体和当前任务；设置 user_stopped</td><td>周期任务暂停自动拉起；显式打开 / 用户 Widget 操作可清除标记</td><td>保留，响铃不自动拉起已被用户停止的 Guest</td></tr>
+    <tr><td>停用应用</td><td>停止实例，保留安装与配置</td><td>禁止</td><td>禁用所属应用的闹钟，恢复启用需明确策略</td></tr>
+    <tr><td>卸载 / 清除应用数据</td><td>先停止并排空资源；再删除对应数据</td><td>删除任务登记</td><td>删除所属闹钟，不留下失主提醒</td></tr>
+  </tbody></table></div>
+  <p>“关闭应用仍保留已登记闹钟”是本项目的产品规则，与完整 Android force-stop 行为不等价；UI 必须清楚表达。用户若要取消提醒，应操作闹钟开关或停用应用。</p>
+  <p>停止顺序固定：阻止新调用 → 撤销输入 / 显示 → 取消本实例 I/O 与媒体 → 请求协作 Stop → 确认线程退出 → 排空回调与 DMA → 释放图形、句柄、包租约与预算。前台实例退出才返回 Home；后台天气退出不能把正在显示的音乐页面切走。</p>
+  <p>包升级由 PackageCoordinator 先阻止目标 App 新启动，再只停止该 App 的实例；旧包映射释放后才能替换或回收旧块。其他应用保持运行。新包就绪后是否恢复前台，仍服从最新用户意图。</p>
+</section>
+
+<section id="background">
+  <h2><span class="num">10</span>后台工作资格、重要性与回收</h2>
+  <p>Manifest 只声明允许申请的能力；实际执行资格由 Host 根据真实工作授予。单纯调用“我要后台运行”不能永久常驻。</p>
+  <div class="table-wrap"><table><thead><tr><th>原因</th><th>取得条件</th><th>释放 / 到期</th><th>策略</th></tr></thead><tbody>
+    <tr><td>前台界面</td><td>AppManager 提交 UiTarget</td><td>返回 Home 或切到其他 App</td><td>不视为后台租约；交互优先</td></tr>
+    <tr><td>MEDIA</td><td>声明 media 能力，具备合法用户启动来源，Host 确认媒体已加载 / 播放 / 正在有限缓冲</td><td>停止、失败、长时间无进展；暂停宽限结束</td><td>音乐持续 RUNNING；回收保护不等于永远不可终止</td></tr>
+    <tr><td>JOB</td><td>有效的 Host 任务票据，例如天气刷新</td><td>完成、取消或整个任务的单调时钟 deadline</td><td>允许 HTTP；超时取消本实例任务资源，记录失败并退避</td></tr>
+    <tr><td>WIDGET_ACTION</td><td>来自 Home 的当前有效操作绑定</td><td>结果确认或短任务超时</td><td>短暂唤醒执行；操作完成不能顺带永久保活</td></tr>
+    <tr><td>启动临时资格</td><td>通过 Host 准入、正处于 STARTING</td><td>RuntimeReady、失败或启动 deadline</td><td>只覆盖有界初始化，不可被无限续期</td></tr>
+  </tbody></table></div>
+  <h3>10.1 三个应用如何协同</h3>
+  <p><strong>天气：</strong>Host 保存周期任务，合并到期唤醒；Guest 发布成功快照后结束 JOB。网络失败保留上次成功数据和时间，显示过期标记。周期刷新不能抢占前台。</p>
+  <p><strong>时钟闹钟：</strong>Host 保存时区配置与闹钟；Guest 完成配置后可以挂起或被回收。时钟 Widget 仍持续更新。PC 首版允许实例驻留，以验证多实例隔离，不要求它不断执行。</p>
+  <p><strong>音乐：</strong>后台继续处理网络和曲终事件，自动解析下一首；不进行进度条动画或完整 Scene 绘制。暂停时短暂保留执行资格，随后可挂起，但保留内存中的账号和队列；恢复不重新登录。实例被真正回收后只恢复明确保存的状态，不能承诺保留未选择持久化的凭证。</p>
+  <h3>10.2 内存压力与优先级</h3>
+  <p>先回收未使用的呈现缓存和解码缓存，再选择隐藏、无媒体与无有效任务的 SUSPENDED 实例；之后才考虑中止可重试的有限 JOB。前台与正在播放的媒体默认受保护。若仍不能准入新应用，返回 NO_CAPACITY，保持音乐继续，不通过静默杀音乐来假装启动成功。</p>
+  <p>LRU 只在同一保护等级内使用；不能让“天气最近刷新过”比“正在播放的音乐”更重要。真实 Host OOM 或设备关机属于异常边界，不提供绝对保活保证。</p>
+</section>
+
+<section id="messages">
+  <h2><span class="num">11</span>Service 如何被时间与消息驱动</h2>
+  <h3>11.1 两种定时器</h3>
+  <div class="table-wrap"><table><thead><tr><th>定时器</th><th>适用场景</th><th>Guest 不运行时</th></tr></thead><tbody>
+    <tr><td>Guest 内部 Timer</td><td>界面动画、活动实例内短周期检查；媒体可优先使用 Host 状态事件</td><td>挂起可冻结；销毁后失效，不自动新建 Guest</td></tr>
+    <tr><td>Host Scheduler 定时任务</td><td>每15分钟刷新天气、延迟后台工作；记录目标 App＋Service 与 work_id</td><td>有授权且未被用户停止时，可恢复 / 冷启动 Guest 和目标 Service</td></tr>
+    <tr><td>Host AlarmScheduler</td><td>用户闹钟与持久提醒</td><td>Host 直接调度响铃；通知 Service 可以补充业务，但不作为响铃前提</td></tr>
+  </tbody></table></div>
+  <div class="flow"><div class="step">Scheduler 到期<br>生成合法工作票据</div><span class="arrow">→</span><div class="step">AppManager<br>恢复或冷启动 Guest</div><span class="arrow">→</span><div class="step">ServiceController<br>确保 Service Ready</div><span class="arrow">→</span><div class="step">OnScheduledWork<br>异步 I/O → 发布 Widget → CompleteWork</div></div>
+  <p>WeatherService 可以采用 StopWhenIdle：队列空、无在途工作且无持续媒体后停止组件；Guest 没有可见 Activity 和其他工作时再挂起 / 回收。PlaybackService 采用显式停止策略，但 RUNNING 状态本身仍不产生无限保活资格。</p>
+  <h3>11.2 两种消息地址</h3>
+  <div class="table-wrap"><table><thead><tr><th>地址</th><th>用途</th><th>未存活时</th></tr></thead><tbody>
+    <tr><td>逻辑 Endpoint = AppId＋service_id</td><td>启动服务、投递业务命令、计划任务；不依赖某次 Guest 的内存位置</td><td>仅可信用户 / Scheduler 或明确授权的启动请求可冷启动；普通跨 App Send 默认返回 NOT_RUNNING</td></tr>
+    <tr><td>实例 Endpoint = ComponentKey</td><td>某次请求的回复、HTTP / 媒体完成、组件对象通知</td><td>可以按策略恢复同一个挂起实例；身份已失效就返回 STALE，不改投新组件、不重新启动</td></tr>
+  </tbody></table></div>
+  <p>V1 同 App 和跨 App 的业务消息统一经过 Host MessageBroker，接收端再由单一 Guest dispatcher 串行分发；后续可以优化同实例投递成本，但不能改变执行资格、时序和去重语义。不共享原始对象地址，不在发送者 handler 中重入接收者。</p>
+  <pre><code>// 概念信封，具体 wire 仍需按固定宽度字段定义。
+Message {
+    target: AppServiceEndpoint | ComponentEndpoint;
+    type; schema_version; request_id; sender_sequence;
+    reply_to; deadline; bounded_payload;
+}
+// source App / Instance / Component 来自 Host 绑定上下文，不接受自报。
+// Broker 给接收服务建立 WorkTicket；工作归接收端，不随发送 Activity 关闭。</code></pre>
+  <h3>11.3 启动、消息和完成是三件事</h3>
+  <ul>
+    <li><code>StartService(service_id, optional_initial_message)</code> 保证实例和组件初始化，在 ServiceReady 后交付首条消息。重复 Start 不重复创建对象。</li>
+    <li><code>SendMessage(endpoint, ...)</code> 不默认创建另一个 Guest；目标挂起时按授权恢复。STARTING 可有限排队，STOPPING 返回 BUSY。</li>
+    <li><code>CompleteWork(work_id)</code> 结束这一项工作；<code>StopSelf(component_epoch)</code> 另行核验消息 / 在途工作是否为空。不能把 Finish 某条消息等同于停止整个 App。</li>
+  </ul>
+  <p>Accepted 仅表示已入队；业务完成另有 Reply / Result。队列满或 deadline 已到时明确拒绝。处理过程中取消属于尽力而为，不能承诺回滚已经发生的业务副作用。</p>
+  <p>载荷保存在 Host 有界邮箱，MessageArrived 事件只携带消息句柄等短描述，Guest 通过 Message Service 的 Read / Ack 复制并释放载荷；不把1 KiB载荷塞进现有固定事件结构。读取 ACK 与业务 CompleteWork 分离。等待消息最多8条，分发后的未完成工作受每 App 的工作配额约束；队列非空是有期限的唤醒意图，不能绕过 deadline 永久阻止挂起。</p>
+  <h3>11.4 导出权限与可靠性</h3>
+  <p>App Service 默认 <code>exported=false</code>，自身组件与可信 Home 可按声明调用。跨 App 消息必须显式声明 endpoint、允许发送者和消息类型；Host 限制载荷、频率、执行预算与唤醒来源。V1 不引入 Binder、通用广播、绑定引用计数或任意组件发现。</p>
+  <p><code>wake_on_message</code> 默认关闭。接收服务显式开启且允许发送者 / 消息类型匹配时，Host 才能为跨 App 消息签发短期工作票据、冷启动目标 Service；仍受预算和 user_stopped 限制，不能借消息清除用户停止标记，也不能启动 Activity。实例端点的迟到回复永远不使用这条冷启动路径。</p>
+  <p>普通消息默认不持久化，崩溃后不自动重放。活动实例内按发送序列水位去重并缓存有限结果；缓存外的旧序列拒绝，不重新执行“下一首”等操作。跨实例恢复依靠幂等命令和状态查询，不承诺恰好一次。持久任务计划与闹钟登记走专用 Host 服务，不用普通消息模拟可靠调度。</p>
+  <p>Activity 销毁后，发给旧 Activity 的回复丢弃；已经交给 PlaybackService 的有效播放工作继续。Home 卡片可读取服务发布的新状态；重建的 Activity 通过查询或 AppModel 获取当前快照，不接收旧对象的迟到回复。</p>
+  <div class="callout">后台响应消息不等于抢占前台。除非有新的用户激活请求，Service 的定时工作、媒体结束或跨 App 消息都不能自行切换 UiTarget。允许导出字段也不等于自动脱敏，应用不得在公开回复或 Widget 中发布凭证。</div>
+</section>
+
+<section id="isolation">
+  <h2><span class="num">12</span>服务与资源隔离：多会话的前置条件</h2>
+  <p>当前 <a href="../../firmware/espressif/main/runtime/guest_context.cpp">GuestContext</a> 清理包含全局 StopAll、SuspendAll、ReleaseGuestResources；<a href="../../firmware/pc/session.cpp">PcInput</a> 只有一个触摸与按键接收者。直接增加 Session 数量会破坏其他实例，必须先建立作用域。</p>
+  <div class="table-wrap"><table><thead><tr><th>能力</th><th>每实例契约</th><th>全局仲裁 / 共享</th></tr></thead><tbody>
+    <tr><td>Graphics / Direct Surface</td><td>场景、纹理、动态缓冲与字体句柄记录 owner；后台只保留逻辑资源，不持续绘制；停用仅释放本实例</td><td>一个 DisplayLease；前台切换前排空 DMA / scanout；只允许一个前台画面和一个有预算的 staging 画面</td></tr>
+    <tr><td>Input / Text</td><td>每实例独立事件队列；后台不收物理输入；迁移时取消手势和输入法待发送文本</td><td>InputRouter 始终只向当前输入拥有者投递；Home / 弹窗优先</td></tr>
+    <tr><td>HTTP</td><td>请求归属实例及组件；每实例至少两个并发名额，给关键 Service 预留一个，避免 Activity 长轮询阻塞曲目解析</td><td>共享有界传输执行器；取消 Activity 请求不取消 PlaybackService；Host 市场有独立预算</td></tr>
+    <tr><td>Audio / URL media</td><td>流、完成回调、播放句柄按 owner 路由；CloseOwner 只影响所属实例</td><td>AudioFocus 仲裁媒体与闹钟，设备主音量仍由 Host 管理</td></tr>
+    <tr><td>Timer / Watchdog / 工作任务</td><td>独立队列、执行预算、冻结与取消；后台运行不冻结；挂起才冻结 Guest 业务 Timer</td><td>物理定时器与工作池可以共享，必须计入总容量并标记归属</td></tr>
+    <tr><td>Storage / Package</td><td>KV 按 AppId 隔离；映射与异步读按实例租用；清理先于包释放</td><td>BundleFS / 安装协调器不能只依赖“全系统无 AppSession”的旧前提</td></tr>
+    <tr><td>Widget / Alarm / Job 登记</td><td>声明按 AppId 持久管理；活跃发布和执行请求验证 InstanceKey</td><td>Host 保存生命周期独立的记录，卸载时按所有者删除</td></tr>
+  </tbody></table></div>
+  <div class="callout"><strong>原始设备与作用域服务分开。</strong>不能给四个 GuestContext 复制四份指向相同全局对象的 DeviceServices，就认为完成了隔离。每个实例需要绑定 owner 的服务视图，底层物理设备仍统一共享和仲裁。</div>
+  <p>还需实例内的组件子资源域：Activity 拥有 UI / 输入和界面请求，Service 拥有媒体、后台网络与消息工作，AppModel 拥有共享账号与配置。销毁 Activity 只关闭其子域，不能执行 GuestContext 的整体析构。新组件 SDK 使用带 owner 绑定的上下文 / facade；同 Guest 共享内存，因此组件 token 不提供恶意代码之间的安全隔离。</p>
+  <p>同 App 共用一个 Guest，不等于继续共用一个全局 HTTP handle。现在的单请求实现需要改成有界多句柄，并报告并发限额；否则微信长轮询可能让 PlaybackService 等不到解析下一首所需的请求。</p>
+  <p>依赖仍保持 Runtime → Device contracts ← Platform。AppManager 属于 Host controller；Runtime 接收中立的 owner token 与服务契约，不依赖 Host UI。FirmwareApp / PC main 继续作为组合根。</p>
+  <p>PC WAMR 全局运行环境只初始化一次，每实例有自己的模块数据、执行环境与线程上下文；停止一个实例不能销毁全局 WAMR。RV32 各实例继续使用独立 QEMU 子进程、通信区和桥接上下文，停止只针对对应进程。现有全局任务池、完成回调和图形缓存也须逐项审计归属。</p>
+</section>
+
+<section id="fault-containment">
+  <h2><span class="num">13</span>App 故障不扩散：故障模型与容器契约</h2>
+  <p>这里的“WAMR 容器”指 Host 管理的模块实例、执行环境、线性内存和服务资源域，不是 Linux 容器或受硬件保护的进程。App 的 Activity 与 Service 默认共享一个故障边界。</p>
+  <div class="callout warn"><strong>可承诺的范围：</strong>在可信 WAMR、可信编译器和正确 Host 服务的前提下，Guest 的 Wasm Trap、资源超额和受预算约束的死循环只结束所属 App，不重启 Host，也不停止其他 App。无 MMU 且无额外硬件隔离时，不能承诺 WAMR / Host / 驱动的任意原生缺陷或任意恶意 AOT 机器码仍然可局部恢复。</div>
+  <h3>13.1 故障分类</h3>
+  <div class="table-wrap"><table><thead><tr><th>故障</th><th>预期处理</th><th>保证的边界</th></tr></thead><tbody>
+    <tr><td>线性内存越界、非法间接调用、unreachable、非法算术</td><td>Wasm 检查转为 Trap；SessionRunner 报告 AppFault，再走 STOPPING 清理</td><td>检查必须在实际执行的代码中生效。Wasm 语义支持这类 Trap。<a class="ref" href="https://webassembly.org/docs/security/">官方来源</a></td></tr>
+    <tr><td>C++ 数组越界 / use-after-free，但地址仍落在线性内存内</td><td>可能损坏本 App 数据，未必立即 Trap；异常边界仍应限制在本 App 内</td><td>线性内存检查不是 C++ 对象级内存检查；不能承诺检测所有应用内存错误。</td></tr>
+    <tr><td>malloc / memory.grow 失败、资源或消息超额</td><td>返回失败；Guest 可降级，无法继续则结束本 App</td><td>Host 与其他 App 预留预算不被挤占；不能用全局 OOM / assert 代替局部拒绝。</td></tr>
+    <tr><td>递归和栈耗尽</td><td>在触及 Host 栈之前拒绝 / Trap</td><td>分别约束线性内存中的 aux stack、WAMR 执行栈、RTOS 原生栈，并包含 Host import 调用链和中断余量。</td></tr>
+    <tr><td>纯计算死循环、频繁调用 ABI 的忙循环</td><td>预算 / 取消检查点使执行在规定延迟内返回，调度公平性保证 Home 和音频获得时间</td><td>要求编译产物支持取消；“定时器已触发”不等于“Guest 已退出”。</td></tr>
+    <tr><td>越权句柄、畸形 ABI 参数、迟到回调</td><td>Host 校验范围、整数溢出、容量、owner、epoch；返回错误 / 丢弃；必要时停止违规实例</td><td>只使用校验后的数据；异步任务复制请求或显式持有内存租约，不能保留失效的 Guest 裸指针。</td></tr>
+    <tr><td>Host import 崩溃、解码器 / WAMR 缺陷、原生堆损坏</td><td>属于可信计算基故障，交由目标健康策略处理</td><td>无硬件隔离时不在 App 局部恢复保证内；不能吞掉 HardFault 后继续使用可能已损坏的共享堆。</td></tr>
+    <tr><td>伪造 / 被篡改的原生 AOT</td><td>在执行前拒绝；由可信发布链证明来源与编译策略</td><td>AOT 元数据和普通哈希不等于机器码安全证明；不允许未知来源原生包直接执行。</td></tr>
+  </tbody></table></div>
+  <h3>13.2 每实例最小故障上下文</h3>
+  <pre><code>// 概念契约，不代表新增的公开 ABI 或已有 WAMR API。
+InstanceFaultDomain {
+    InstanceKey owner;
+    ModuleInstance module;       // 私有可变全局、表、线性内存
+    ExecutionContext exec;      // 独立异常、取消标记、受控执行任务
+    MemoryBudget memory;        // 线性内存、执行栈、原生栈、Host 资源
+    ExecutionBudget execution;  // 累计计算额度、截止时间、最大取消延迟
+    ScopedServices services;    // owner 句柄、I/O、媒体、图形、回调租约
+    ExitRecord exit;            // 有界记录，不依赖 Guest 最终回调
+}</code></pre>
+  <p>模块代码可在运行时允许时只读共享；可变模块实例状态、exec_env、异常和取消状态不得跨 App 共用。V1 不开放 Guest 原生扩展、动态链接任意原生符号、Guest 共享内存或 Guest 线程。全局 WAMR 只初始化一次，全局分配器及内部锁仍属于共享可信计算基，不能把一个实例 Trap 当作全局 runtime 销毁的理由。</p>
+  <p>执行预算分为独立三项：持续运行而未让出的上限、某次工作累计的计算额度、包含异步等待的总 deadline。ABI 调用不能无限刷新累计额度；合法 event_wait 可以暂停计算计费，但不能暂停工作 deadline。RTOS 时间片只保证任务有机会调度，不保证错误 App 已停止或资源已回收。</p>
+  <h3>13.3 局部故障处理顺序</h3>
+  <ol>
+    <li>SessionRunner 生成带 InstanceKey 的 Trap / Quota / Timeout 原因，AppManager 只修改所属 AppRecord。</li>
+    <li>撤销该 Activity 的输入和新帧提交；若它是前台则显示 Host Home / 错误状态。后台 App 故障不抢走当前前台。</li>
+    <li>禁止新服务调用，取消本 owner 的 I/O / 媒体与工作资格；受控运行代码观察取消标记并返回 Host。</li>
+    <li>确认执行任务退出，排空回调、借用缓冲和 DMA 后，才释放模块、资源与槽位。Guest OnDestroy 仅尽力执行，不在正确清理的关键路径。</li>
+    <li>保留 Widget 最后成功快照并标记离线；按 AppId 记录有界崩溃计数、退避及自动拉起熔断。Host 已登记闹钟继续有效。</li>
+  </ol>
+  <p>原生 import 也必须有界：网络与解码等长操作交给可取消执行器，不能在 Guest 调用栈持有全局锁无限等待。若执行任务仍未退出，保持 STOPPING 和资源预留；禁止以强删任务、longjmp 跨原生资源栈或提前 free 伪装为安全回收。</p>
+  <p>若产品要求覆盖可信计算基的任意错误，需要额外设计硬件与权限边界：例如目标确实具备并启用 MPU / PMP、受保护任务 / 用户态、受限外设与 DMA 访问；或者采用有 MMU 的进程系统。这是另一个隔离 profile，不是 AppManager 状态机或切换解释器就能补齐的能力。</p>
+</section>
+
+<section id="aot-profile">
+  <h2><span class="num">14</span>AOT 可继续使用，但需可信构建与可中断执行</h2>
+  <p><strong>AOT 不等于取消沙箱。</strong>可信编译器可以把 Wasm 内存、间接调用和栈检查编译进原生代码；no-MMU 使用软件检查即可，不依赖 Linux 的 mmap / 信号页保护。风险来自关闭检查、原生产物来源不可信、无法限时退出或 Host 可信计算基缺陷。</p>
+  <h3>14.1 产物准入契约</h3>
+  <div class="table-wrap"><table><thead><tr><th>项目</th><th>发布 profile 要求</th></tr></thead><tbody>
+    <tr><td>内存 / 栈检查</td><td>显式固定 <code>--bounds-checks=1</code>、<code>--stack-bounds-checks=1</code>，保留 aux stack 检查及 Wasm 必需的调用 / 陷阱语义。禁止 unchecked-memory 和会覆盖安全策略的附加参数；不借用 MMU trap 作为 no-MMU 的前提。</td></tr>
+    <tr><td>执行中断</td><td>经可信编译器在循环回边等位置插入逐实例取消 / 额度检查，覆盖无 import 的循环，定义最大检查间隔及退出延迟。需要运行时与代码生成共同支持，不能只给 SDK handler 加检查。</td></tr>
+    <tr><td>兼容与导入</td><td>固定 WAMR / wamrc 版本、目标 ISA / ABI、扩展能力和安全 profile；只允许既有 Core / Service ABI 导入，不开放任意 POSIX / 原生函数。</td></tr>
+    <tr><td>来源与完整性</td><td>可信构建方签名覆盖 App 身份、AOT 摘要、资源摘要、编译器标识、安全 profile 和权限声明；Host 验证授权与摘要后加载。普通 SHA-256 只证明相对给定摘要未改变，不证明构建来源可信。</td></tr>
+    <tr><td>未知第三方输入</td><td>优先接收验证过的 Wasm，再由可信发布工具链离线生成受控 AOT；或在资源允许时使用带预算的解释器。只有未知原生 AOT 且无法验证来源的包不在可执行集合中。</td></tr>
+  </tbody></table></div>
+  <p>这些是拟议的发布与 Host 准入要求，不能从现有市场提供了下载地址和文件摘要推导出已经满足。旧 AOT 产物即使包含内存检查，也不自动具备新的取消检查点；需要由已知构建链证明能力或重新编译，不能由 manifest 自行声称支持。</p>
+  <h3>14.2 当前固定版本的代码事实与缺口</h3>
+  <p>以下静态结论对应本仓库 WAMR 子模块 <code>0982ec5e5ecb4ad17061d6538875417727c8b1ea</code>；它们不是目标板故障注入的结果，也不能直接用上游 main 的新功能替代。</p>
+  <ul>
+    <li><strong>内存检查已有基础：</strong><a href="../../tools/micropixel">构建工具</a>默认传 <code>--bounds-checks=1</code>；<a href="../../firmware/espressif/main/runtime/wamr/wamr_runtime.cpp">Host</a>默认拒绝声明 UNCHECKED_MEMORY 的 Bundle。该声明不是机器码证明。当前工具末尾仍接受实验附加参数，发布 profile 需要拒绝覆盖检查策略。</li>
+    <li><strong>栈检查要显式固定：</strong>固定版 <a href="../../firmware/espressif/components/wasm-micro-runtime/wamr-compiler/main.c">wamrc</a>默认保留 aux stack 检查，未指定 native stack 选项时通常跟随 bounds-check 设置。发布策略不能仅依赖默认值；还要核对平台原生栈边界、Host import 最坏调用深度与余量。</li>
+    <li><strong>Trap 已能返回 App 级失败：</strong><a href="../../firmware/espressif/main/runtime/app_session.cpp">AppSession::Run</a>读取 WAMR 异常并返回 GuestTrap / WatchdogTimeout。但这不捕获任意 Host 原生崩溃，也不证明其他 App 的资源不会被旧全局析构清理。</li>
+    <li><strong>终止请求不等于有界退出：</strong><a href="../../firmware/espressif/main/runtime/wamr/watchdog.c">watchdog</a>超时调用 <code>wasm_runtime_terminate()</code>，固定版 <a href="../../firmware/espressif/components/wasm-micro-runtime/core/iwasm/common/wasm_runtime_common.c">实现</a>主要设置异常标志。<a href="../../firmware/espressif/components/wasm-micro-runtime/core/iwasm/compilation/aot_emit_control.c">AOT 检查点生成</a>受 thread manager 条件控制，且 <code>check_suspend_flags()</code>对非共享内存直接返回。当前 SDK 单线程 Guest 因而不能据此宣称纯死循环可在 watchdog 时限内退出。</li>
+    <li><strong>现有 watchdog 不是累计额度：</strong>ABI checkpoint 会重新延长 deadline；频繁调用 ABI 的忙循环不能仅靠这个计时器限制总计算消耗。需要独立预算，且不要为获取取消检查点而给 Guest 开启线程 / 共享内存。</li>
+    <li><strong>AOT validator 不是机器码安全验证器：</strong>该固定版本 <a href="../../firmware/espressif/components/wasm-micro-runtime/core/iwasm/aot/aot_validator.c">aot_validator.c</a>只增加内存声明数量 / 导入限制检查；打开此选项不能证明原生指令保留了边界检查或未被篡改。</li>
+  </ul>
+  <div class="callout warn"><strong>不要误用 instruction metering：</strong>上游 <a href="https://github.com/wasm-micro-runtime/wasm-micro-runtime/blob/main/doc/build_wamr.md">WAMR 构建文档</a>明确限制该能力只支持 classic / fast interpreter，不适用于 AOT / JIT。AOT 的逐实例预算 / 取消需要另行确认并补足代码生成支持，不能只打开同名构建开关。</div>
+  <h3>14.3 推荐执行策略</h3>
+  <p>MCU 保留受控 AOT 作为性能路径，先补齐可信构建、软件检查、可中断执行和 owner 清理契约；解释器可作为开发和未知 Wasm 输入的受限执行路径，仍受 Host 可信计算基约束。PC RV32 的独立 QEMU 子进程可以被 Linux 终止，但该硬件 / 操作系统边界不等于 MCU 上已经具备同样的恢复能力。</p>
+  <p>对天气、音乐等普通业务，基本目标是“Guest 故障只结束本 App，Home / 其他 App / Host 闹钟继续”。对必须在本 App Activity 故障后仍连续运行的功能，应拆成 Host 受控服务或另一个 Guest 故障域，并为额外实例明确计费；仅增加一个 Service 类无法获得这种隔离。</p>
+</section>
+
+<section id="widgets">
+  <h2><span class="num">15</span>Home Widget：数据与操作的最小协议</h2>
+  <p>应用内部的 <code>guest/sdk/ui</code> 控件继续绘制完整页面；桌面卡片新增独立 Widget Service。Home 只消费 Host 验证并复制的数据，不直接渲染 Guest 的对象树或内存。</p>
+  <h3>15.1 V1 模板与发布内容</h3>
+  <div class="table-wrap"><table><thead><tr><th>模板</th><th>数据</th><th>Home 行为</th></tr></thead><tbody>
+    <tr><td>INFO</td><td>标题、主值、副文字、内置图标、更新时间、有效期</td><td>显示天气等摘要；到期显示“数据过期”，保留最后成功值</td></tr>
+    <tr><td>CLOCK</td><td>Host 时间源引用、显示格式、已确认的下次闹钟引用</td><td>Home 自行更新时间；Guest STOPPED 也可正常显示</td></tr>
+    <tr><td>MEDIA</td><td>曲目、艺术家、播放状态、基准位置 / 时间 / 时长、允许操作</td><td>Host 推算显示进度并钳制范围；状态变化时接受新快照</td></tr>
+  </tbody></table></div>
+  <p>首版采用内置图标，不传任意 HTML、脚本、URL 或 Guest 纹理句柄。封面后续通过 Host 管理的有限图片租约扩展，不能把生命周期短于卡片的资源直接交给 Home。</p>
+  <pre><code>// 概念消息；实现时定义稳定、版本化、按字段校验的 C wire。
+PublishWidget {
+    widget_id; template_id; provider_sequence;
+    text_fields; numeric_fields; allowed_action_ids;
+    data_time; ttl;                  // 状态新鲜度
+}
+// owner 由调用上下文注入，不由 Guest 指定。
+PublishResult { host_revision; }
+
+WidgetAction {
+    widget_id; expected_host_revision;
+    action_id; action_request_id; bounded_payload;
+}</code></pre>
+  <h3>15.2 更新、停止与恢复</h3>
+  <ul>
+    <li>发布是有界复制，双缓冲或短锁交换后由 Home 读取；绘制过程中不执行 Guest，也不等待网络。</li>
+    <li>Host 对每张卡片维护单调 revision；拒绝同实例的倒序 provider_sequence，以及已关闭实例的更新。</li>
+    <li>天气成功快照可缓存，音乐私有信息默认只在本次会话有效；注销时主动清除个人卡片，禁止快照携带凭证。</li>
+    <li>应用停止不统一删除所有卡片。天气显示最后数据与新鲜度；时钟继续由 Host 驱动；音乐标记停止并禁用失效的播放状态。</li>
+    <li>发布频率有配额。音乐在曲目 / 状态变化时发布，正常进度由 Host 推算；时钟不每秒发布。</li>
+  </ul>
+  <h3>15.3 点击卡片与按钮</h3>
+  <p>点击卡片主体调用 Activate(ownerAppId)。点击按钮先验证当前卡片、操作声明与用户来源，再通过 AppManager 投递给所属 Guest：RUNNING 直接排队，SUSPENDED 先唤醒，STOPPED 按策略冷启动。UI 不直接调用 Guest 函数。</p>
+  <p>播放控制采用 <code>SetPlaying(true/false)</code> 等明确目标，避免重复 Toggle 翻转两次。“下一首”等非幂等动作按 requestId 去重，失败或崩溃后不自动重放；需要用户重新操作。结果通过新快照或操作完成事件确认，等待期间相应按钮暂时禁用。</p>
+  <p>旧 revision 的操作若会产生相反含义则拒绝，并要求 Home 刷新；通用“打开应用”可按当前登记重新解析。Widget 操作不能授权任意跨 App 控制，也不能在没有用户操作时偷偷切换前台。</p>
+</section>
+
+<section id="alarm">
+  <h2><span class="num">16</span>时间、闹钟与音频优先级</h2>
+  <h3>16.1 两类时间不能混用</h3>
+  <div class="table-wrap"><table><thead><tr><th>时间</th><th>用途</th><th>规则</th></tr></thead><tbody>
+    <tr><td>单调时钟</td><td>启动 / 停止 deadline、工作租约、执行预算、退避</td><td>不受用户改时间或网络校时影响；跨重启不能直接复用旧单调时间值</td></tr>
+    <tr><td>Host UTC ＋时区</td><td>日期、每日闹钟、持久任务计划、Widget 更新时间</td><td>校时 / 时区改变时重新计算下一触发点；对同一闹钟发生记录去重</td></tr>
+    <tr><td>现有 Guest 业务时钟</td><td>动画、游戏逻辑、应用内部相对 Timer</td><td>SUSPENDED 时可按旧契约冻结，不作为墙上时间或跨实例闹钟</td></tr>
+  </tbody></table></div>
+  <p>原型使用 Host 统一配置的时区，默认 Asia/Shanghai（UTC+08:00）。V1 不开放尚未实现转换规则的夏令时地区配置；如扩展时区库，必须同时定义不存在时间与重复时间的触发策略。</p>
+  <h3>16.2 闹钟属于 Host 的持久登记</h3>
+  <p>登记至少包含 <code>(AppId, alarm_id, rule_revision, enabled, local_time / UTC, repeat_rule, timezone, ring_profile)</code>。写入成功才返回已保存；失败保留旧规则。Guest 不存在、被用户停止或发生异常时，已登记闹钟仍可由 Host 响铃；Host 是否重新唤醒 Guest 另受 user_stopped 约束。</p>
+  <p>每次触发生成稳定的 occurrence_id，例如“应用＋闹钟＋规则版本＋本地发生日期”。先记录待响意图，再请求 Host 铃声。用户关闭或稍后提醒后提交对应状态；重启恢复未确认提醒时，只维护一个活动响铃实例。</p>
+  <div class="callout warn">不宣称跨掉电的外部声音动作可以绝对“恰好一次”。使用持久发生标识与确认状态恢复，允许同一未确认提醒恢复响铃，但不产生并行重复响铃。时间回拨不重复启动已处理的同一发生记录；大幅向前校时按可配置的迟到窗口处理。</div>
+  <p>默认建议：短时间错过的提醒可以补响一次；超出迟到窗口只记录错过并安排下一次。设备休眠唤醒取决于平台能力；完全断电时的软件定时器不能保证响铃，Time / Alarm 服务应报告对应能力。</p>
+  <h3>16.3 音频重要性不等于界面前后台</h3>
+  <p>普通天气页面进入前台不应自动暂停音乐。V1 同时允许一个媒体拥有者与一个 Host 闹钟输出；多个普通媒体流的替换 / 拒绝由 Host 明确仲裁。系统主音量始终独立于 App 音量与 focus 增益。</p>
+  <ol>
+    <li>AlarmScheduler 触发后，AudioFocus 为 Host 闹钟获得临时优先级。</li>
+    <li>支持混音的平台降低音乐 focus 增益并播放铃声；不支持的平台暂停对应媒体流并标记原因是 focus interruption。</li>
+    <li>音乐仍保留原实例和媒体资格。因闹钟被暂停时，不触发普通的“长时间无进展 / 暂停宽限到期”回收逻辑。</li>
+    <li>结束时仅撤销该次 focus 影响。恢复前核对流身份与用户播放意图版本；如果用户期间暂停、换歌或停止应用，不能凭旧记录重新播放。</li>
+  </ol>
+  <p>闹钟声源与停止 / 稍后提醒入口由 Host 管理。即使 Clock Guest 正在启动、卡死或已停止，Home 系统提醒仍能关闭当前铃声。停用或卸载所属应用时，必须先禁用相关发生记录并撤销响铃租约。</p>
+</section>
+
+<section id="sdk">
+  <h2><span class="num">17</span>SDK、事件与版本兼容</h2>
+  <p>以下名称为拟议 API，不是已经可调用的 SDK。沿用现有七个 Core imports，通过新增版本化 Service 方法与事件承载能力；不复用已发布 ID。</p>
+  <div class="table-wrap"><table><thead><tr><th>拟议能力</th><th>最小方法 / 事件</th><th>权限边界</th></tr></thead><tbody>
+    <tr><td>Lifecycle</td><td>查询自身状态 / StartContext；RuntimeReady；VisibilityChanged；PrepareSuspend / Resume 与安全点确认；自身退出</td><td>Guest 只操作自己；ACK 由 SDK 在串行事件循环的安全点配合</td></tr>
+    <tr><td>AppComponents</td><td>注册 Activity / App Service；StartService / StopService / StopSelf；组件 Ready / Stop 确认</td><td>默认自身组件；控制路径仍由 Host 核验来源和执行资格，不产生 Guest 线程</td></tr>
+    <tr><td>Messages</td><td>Send / Reply / CompleteWork；OnMessage；逻辑端点与实例端点</td><td>私有为默认；跨 App 必须导出与允许；普通消息不自动可靠重放</td></tr>
+    <tr><td>Widgets</td><td>Publish / Clear；WidgetAction；ActionResult</td><td>只能发布声明过的自身卡片和操作；调用上下文绑定所有者</td></tr>
+    <tr><td>Time</td><td>UTC / 时区配置快照、时间有效性、校时变化</td><td>普通 Guest 只读系统时间；配置入口由 Host 管理</td></tr>
+    <tr><td>Jobs</td><td>登记 / 取消自身周期任务；WorkDue / CompleteWork</td><td>Host 核验频率、预算与停止标记；不能借后台任务抢前台</td></tr>
+    <tr><td>Alarms</td><td>登记 / 查询 / 取消自身闹钟；查询发生状态</td><td>只管理自身登记；Host Home 的可信入口可关闭当前系统提醒</td></tr>
+    <tr><td>Apps 控制</td><td>Activate / ShowHome / Stop 的 Host 接口</td><td>V1 仅 Home / Host controller 使用；普通 Guest 不开放任意跨 App 启动</td></tr>
+  </tbody></table></div>
+  <h3>17.1 Guest 最小开发模型</h3>
+  <pre><code>// 伪代码：注册与生命周期 API 尚未实现。
+Application app;
+AppModel model;                       // 账号 / 设置；不保存可销毁组件的裸指针
+app.RegisterActivity("main", [&amp;] {
+    return MusicActivity(model);
+});
+app.RegisterService("playback", [&amp;] {
+    return PlaybackService(model);
+});
+app.RunComponents();                  // 一个 Guest、一个 dispatcher
+
+// MusicActivity：OnCreate / OnResume / OnStop / OnDestroy
+// PlaybackService：OnCreate / OnStart / OnMessage / OnScheduledWork /
+//                  OnMediaEvent / OnStop
+// 后台入口只创建目标 Service，不自动创建 Activity 或分配完整画面。
+// 安全点与整体 Stop 仍由 SDK 配合 Host。</code></pre>
+  <p>回调内只发起异步网络、媒体与存储请求；完成再作为事件返回同一 dispatcher。组件本身没有线程，耗时计算也必须遵守执行预算。Activity 通过消息控制 Service，通过 AppModel / 状态查询展示结果；返回 Home 后后台业务不依赖 Activity 对象。</p>
+  <p>新增事件不得与已发布事件编号冲突。现有 Resume 及业务时钟冻结语义保持兼容；“从后台回前台”使用可见性事件，不能错误投递一次表示解除挂起的 Resume。</p>
+  <h3>17.2 Manifest 与旧 Bundle</h3>
+  <p>建议保持 Bundle v1 外层封装，新增 requirements schema v2，明确运行策略、后台能力、Widget 声明与服务最低版本。构建工具、Host 解析器和兼容检查同时升级；严格旧解析器应拒绝新要求，不能静默忽略后错误运行。</p>
+  <pre><code>// requirements v2 的字段示意；不是当前 app.json 可直接使用的格式。
+components: {
+    activity: { id: main },
+    service: { id: playback, exported: false, idle_policy: explicit }
+}
+runtime: {
+    background_modes: [media, job],
+    max_linear_memory_bytes: 16777216,
+    max_http_inflight: 2
+}
+widgets: [
+    { id: main, template: MEDIA, provider: service.playback, actions: [SET_PLAYING, NEXT] }
+]
+services: { lifecycle: 1.0, app_components: 1.0, messages: 1.0, widget: 1.0 }</code></pre>
+  <ul>
+    <li>旧 requirements v1 映射为一个 LegacyActivity，不推断 App Service；离开页面后经兼容适配器安全挂起，不授予后台保活。</li>
+    <li>Service-only App 不要求图形 / 输入或 UI 字体；组件定义与工厂必须一致，未知组件拒绝启动。</li>
+    <li>当前音乐应用需要把界面与微信扫码视图放入 MusicActivity，把队列、播放、自动下一首和 Widget 发布放入 PlaybackService；共享账号归 AppModel，登录界面请求与播放请求使用不同组件归属。</li>
+    <li>Scene 在失去呈现权后不能覆盖屏幕。可接受有界逻辑更新，但不进行物理呈现；Direct Surface 必须按排空与归还协议处理。</li>
+    <li>旧应用不应因 Scene 暂不呈现而无故触发 Panic。不能配合归还 Direct Surface 的旧实例，应沿前台兼容暂停路径处理，不把直接输出权借给后台。</li>
+    <li>新增 wire 使用固定宽度字段、size / version / reserved 校验和明确容量；不跨 ABI 传 STL、C++ 对象布局或 Host 指针。</li>
+  </ul>
+</section>
+
+<section id="limits">
+  <h2><span class="num">18</span>容量、超时与失败契约</h2>
+  <p>以下是 PC 原型建议配置，不是性能实测，也不是所有 MCU 的默认值。每个目标用独立 profile 限定容量，Host 在启动前预留预算，运行时继续核验。</p>
+  <div class="table-wrap"><table><thead><tr><th>项目</th><th>初始建议</th><th>约束</th></tr></thead><tbody>
+    <tr><td>安装目录 / 存活实例</td><td>64 个 AppRecord / 4 个实例槽</td><td>足以容纳天气、时钟、音乐和一个额外应用；STARTING、SUSPENDED、STOPPING 都占槽</td></tr>
+    <tr><td>前台与准备画面</td><td>1 个 DisplayLease / 1 个 staging</td><td>保留其他 App 的逻辑 Scene 不等于保留多个完整帧缓冲</td></tr>
+    <tr><td>线性内存</td><td>每实例最多 16 MiB，总计最多 64 MiB</td><td>按模块与策略的较严格上限；Host 图形、解码和 QEMU RSS 另行计入，不是同一预算</td></tr>
+    <tr><td>HTTP</td><td>每实例 2 个请求；Guest 传输并发最多 8</td><td>至少一个名额为关键 Service 保留；扩展有界句柄表与限额查询；Host 市场有单独预算</td></tr>
+    <tr><td>组件 / 消息</td><td>每 App 0–1 Activity、0–1 App Service；每服务最多8条等待消息，每条最多1 KiB</td><td>Service 不额外占 Guest 槽；邮箱只为存活实例分配；载荷、在途票据与去重水位都需总额限制</td></tr>
+    <tr><td>Widget</td><td>每 App 最多 2 个，总计 8 个；快照最多 2 KiB</td><td>文本按 UTF-8 字节限制；常规发布最多 1 次 / 秒，可配置小突发；不传大图</td></tr>
+    <tr><td>管理队列 / 后台工作</td><td>32 个普通命令；每实例独立关键控制邮箱；每 App 最多 4 个工作租约</td><td>停止与退出通知不能丢；普通命令超额返回 BUSY</td></tr>
+    <tr><td>媒体预算</td><td>媒体拥有者 1；闹钟输出 1；PC 解码样本缓存上限可取 128 MiB，压缩源另限 32 MiB</td><td>现有 PC 播放器整曲解码，不能只按 Wasm 内存估算；MCU 需要流式窗口，不能复制此数值</td></tr>
+    <tr><td>启动 / 首帧</td><td>初始化 5 秒；Ready 后首帧等待 3 秒</td><td>按 WAMR / RV32 与资源大小调整；网络业务不得阻塞初始化</td></tr>
+    <tr><td>挂起 / 停止</td><td>挂起确认 500 毫秒；停止期限由 profile 规定，不能用现有约 3 秒 watchdog 配置直接充当已验证退出上界</td><td>执行后端须证明可观察取消；到期触发升级处理，未经确认退出不得释放内存</td></tr>
+    <tr><td>工作 / 空闲</td><td>JOB 30 秒；Widget 操作 10 秒；后台空闲宽限 1 秒；音乐暂停宽限 30 秒</td><td>请求级超时不能突破所属工作总 deadline；focus 中断不按用户暂停回收</td></tr>
+  </tbody></table></div>
+  <p>128 MiB 媒体缓存只是单项上限，不能与全部实例上限无条件相加占用。准入必须计入目标总内存、工作池、服务上下文、帧缓冲和媒体实际保留预算；预算不够时明确拒绝。MCU 是否能保留三个实例须由目标内存与栈报告决定。</p>
+  <div class="table-wrap"><table><thead><tr><th>情形</th><th>Host 行为</th><th>对其他应用的保证</th></tr></thead><tbody>
+    <tr><td>无槽 / 无内存 / 配额超额</td><td>返回 NO_CAPACITY / QUOTA_DENIED，撤销该次未用预留</td><td>保留旧前台和后台音乐</td></tr>
+    <tr><td>应用初始化失败</td><td>清理该实例；记录 AppId、实例代次、阶段和原因</td><td>不提交半初始化画面，不释放其他实例资源</td></tr>
+    <tr><td>后台任务超时</td><td>取消目标 I/O，释放 JOB；保留旧 Widget 成功值并标记失败</td><td>不停止或取消音乐的请求</td></tr>
+    <tr><td>Guest Trap / 执行预算耗尽</td><td>在本文故障模型内结束该实例；自动重启受退避与次数限制，不能立即无限循环</td><td>在可信运行时与可中断执行条件下，其他 Guest 与 Host 闹钟继续；后台故障不抢前台</td></tr>
+    <tr><td>过期回调 / 无效 owner</td><td>丢弃或返回 STALE_INSTANCE，不查找“恰好相同”的新句柄</td><td>旧请求不能控制新实例</td></tr>
+    <tr><td>停止无法确认完成</td><td>保持 STOPPING 和预算，报告 Host 健康故障，拒绝复用该槽</td><td>不制造 use-after-free；系统级恢复由目标策略决定</td></tr>
+  </tbody></table></div>
+  <p>错误名是语义设计，实现时映射到明确的 Service 状态码，不能复用已发布数值。日志只记录身份、请求、状态与错误，不记录认证凭证、原始 Widget 私有内容或带签名的播放 URL。</p>
+</section>
+
+<section id="invariants">
+  <h2><span class="num">19</span>必须保持的不变量</h2>
+  <ol class="invariant">
+    <li><strong>唯一实例：</strong>任意 AppId 至多一个存活实例；正在清理的实例仍算存活。</li>
+    <li><strong>唯一显示权：</strong>任意时刻最多一个 Guest DisplayLease。Home 与系统提醒由 Host 接管。</li>
+    <li><strong>停止局部化：</strong>停止天气不能结束音乐流、取消音乐请求、清除音乐场景或解绑其他实例输入。</li>
+    <li><strong>组件独立：</strong>停止 / 销毁 MusicActivity 不停止 PlaybackService；停止 Service 也不自动销毁仍在前台的 Activity。</li>
+    <li><strong>组件不等于实例：</strong>每个 App 默认一个 Guest；组件通过同一事件循环执行，共享 App 级异常边界。</li>
+    <li><strong>前台与音频独立：</strong>天气进入前台后，音乐继续播放并处理下一首。</li>
+    <li><strong>安全回收：</strong>RUNNING 不直接释放；SUSPENDED 回收也必须经过 STOPPING 与清理确认。</li>
+    <li><strong>时间独立：</strong>实例挂起或退出不冻结 Host 时间，不取消已经确认且未禁用的闹钟。</li>
+    <li><strong>回调不可串代：</strong>旧实例的 HTTP、音频、图像与迁移回调不能改变新实例。</li>
+    <li><strong>用户意图最新优先：</strong>连续激活 A、B、C 后，迟到完成不能使前台从 C 跳回 A / B。</li>
+    <li><strong>Home 绘制独立：</strong>Guest 阻塞、异常或不在线时，Home 可以继续显示可用缓存及 Host 时钟。</li>
+    <li><strong>有界资源：</strong>命令、队列、租约、快照、请求、图形和重启都有明确上限；超限不靠隐式增长掩盖。</li>
+    <li><strong>故障边界明确：</strong>Guest Trap 与可中断的预算耗尽只终止所属 App；Host 原生错误和未知来源 AOT 不伪装成可局部恢复的普通 App 故障。</li>
+    <li><strong>可停止先于准入：</strong>执行后端必须满足逐实例取消和有界返回契约；watchdog 发出终止请求本身不是退出证明。</li>
+    <li><strong>凭证归属：</strong>音乐 Cookie 与队列业务留在音乐 Guest；Home 只接收允许展示的摘要。</li>
+    <li><strong>恢复正确：</strong>闹钟结束只能恢复仍有效的音乐意图，不能重新播放用户已暂停或停止的内容。</li>
+  </ol>
+</section>
+
+<section id="migration">
+  <h2><span class="num">20</span>代码结构与兼容迁移边界</h2>
+  <p>建议按依赖顺序建立“作用域服务 → 多会话管理 → 生命周期 / Widget → Host 调度与音频焦点”。同一阶段未完成隔离的目标仍保持单会话 profile，不直接移除全局保护后开放并发。</p>
+  <div class="table-wrap"><table><thead><tr><th>现有入口</th><th>目标职责</th></tr></thead><tbody>
+    <tr><td><a href="../../firmware/pc/main.cpp">firmware/pc/main.cpp</a></td><td>保留 PC 组合根、事件泵与呈现入口；把单 session / active_index / foreground 策略移交 AppManager</td></tr>
+    <tr><td><a href="../../firmware/pc/home_app.cpp">firmware/pc/home_app.cpp</a></td><td>从 ManagerSnapshot 和 WidgetStore 渲染多个应用的摘要；按钮只提交命令</td></tr>
+    <tr><td><a href="../../firmware/pc/session.hpp">firmware/pc/session.*</a>、<a href="../../firmware/pc/rv32_session.cpp">rv32_session.cpp</a></td><td>适配统一 SessionRunner；绑定实例作用域；提交运行、挂起与退出通知</td></tr>
+    <tr><td><a href="../../firmware/espressif/main/runtime/app_runtime.hpp">runtime/app_runtime.*</a></td><td>保留全局 WAMR 所有权；将单 active_session 变为受预算管理的实例创建能力，不承担 UI 策略</td></tr>
+    <tr><td><a href="../../firmware/espressif/main/runtime/guest_context.cpp">runtime/guest_context.*</a></td><td>绑定不可变 owner；所有关闭、暂停、句柄解析与回调按 owner 限定</td></tr>
+    <tr><td>拟增 host/controller/app_manager.*</td><td>状态机、实例注册、前台事务、后台资格、回收与故障策略；不依赖 LVGL 对象</td></tr>
+    <tr><td>拟增 ActivityController / ServiceController / MessageBroker</td><td>AppManager 的组件控制块与有界消息入口；维护组件 epoch、资源子域与 Ready / Stop 时序，不各自创建管理线程</td></tr>
+    <tr><td>拟增 Host widget / job / alarm / audio-focus 模块</td><td>各自拥有持久登记或共享资源仲裁；采用稳定 AppId 与本次执行身份的不同归属</td></tr>
+    <tr><td><a href="../../guest/abi/micropixel_abi.h">guest/abi</a>、<a href="../../guest/sdk/application.hpp">guest/sdk</a>、guest/runtime</td><td>新增版本化 Service、事件和 typed facade；SDK 到 wire 的转换仍留在 Guest Runtime</td></tr>
+    <tr><td><a href="../../tools/build_app_bundle.py">tools/build_app_bundle.py</a>、<a href="../../firmware/espressif/main/runtime/bundle/app_requirements.h">app_requirements.*</a></td><td>共同支持 requirements v2、后台策略、服务版本与 Widget 声明；保持旧包的前台兼容路径</td></tr>
+  </tbody></table></div>
+  <p>PC 与 MCU 共享管理契约和状态机，不共享平台线程细节。PC 优先允许天气、时钟、音乐三个实例共存；MCU 可按内存 profile 减少驻留实例，通过同一 Job / Alarm / Widget 契约保持功能。新功能落地后再更新当前架构基线说明；本文不修改现有运行行为。</p>
+</section>
+
+<section id="simulator">
+  <h2><span class="num">21</span>状态交互示例</h2>
+  <p>下面是本文规则的浏览器模型，不连接设备、网络、账号或音频。Guest 与组件的启动 / 停止 ACK 在示例中立即完成，过程显示于日志；“推进30秒”同时结算空闲宽限。可分别销毁音乐 Activity、停止播放 Service，并观察不同结果。消息示例是本地规则模型，不替代 Runtime 的并发、权限与真实 IPC。</p>
+  <p class="small muted">卡片区域始终显示 Home 数据预览，便于观察后台状态；当前真实界面归属以“界面”一栏为准。</p>
+  <noscript><div class="callout warn">浏览器未启用 JavaScript；其余设计内容和状态图仍可完整阅读。</div></noscript>
+  <div class="sim-info" aria-live="polite"><span id="sim-ui">界面：Home</span><span id="sim-focus">音频焦点：音乐</span><span id="sim-count">驻留实例：3 / 4</span></div>
+  <div class="sim-grid" style="margin-top:15px">
+    <div class="sim-widget"><h3>天气卡片</h3><div class="value" id="widget-weather-value">24°C · 晴</div><p id="widget-weather-note" class="small muted">上次成功数据</p></div>
+    <div class="sim-widget"><h3>时钟闹钟卡片</h3><div class="value" id="widget-clock-value">08:30:00</div><p class="small muted">示例时间 · Host 绘制</p><p id="widget-clock-note" class="small">下次闹钟 09:00</p></div>
+    <div class="sim-widget"><h3>音乐卡片</h3><div class="value" id="widget-music-value">正在播放</div><p id="widget-music-note" class="small muted">示例曲目 · Guest 保留队列</p></div>
+  </div>
+  <div class="toolbar">
+    <button class="btn" type="button" data-sim="activate-weather">打开天气</button>
+    <button class="btn" type="button" data-sim="activate-clock">打开闹钟</button>
+    <button class="btn" type="button" data-sim="activate-music">打开音乐</button>
+    <button class="btn primary" type="button" data-sim="home">返回 Home</button>
+  </div>
+  <div class="toolbar">
+    <button class="btn" type="button" data-sim="weather-start">天气任务到期</button>
+    <button class="btn" type="button" data-sim="weather-message">发送天气刷新消息</button>
+    <button class="btn" type="button" data-sim="weather-done">天气刷新完成</button>
+    <button class="btn" type="button" data-sim="music-toggle">暂停 / 继续音乐</button>
+    <button class="btn" type="button" data-sim="advance">推进30秒</button>
+    <button class="btn" type="button" data-sim="alarm-toggle">响铃 / 结束闹钟</button>
+    <button class="btn" type="button" data-sim="destroy-music-activity">销毁音乐 Activity</button>
+    <button class="btn" type="button" data-sim="stop-music-service">停止 PlaybackService</button>
+    <button class="btn" type="button" data-sim="stop-weather">用户停止天气</button>
+    <button class="btn" type="button" data-sim="reclaim">回收一个可回收实例</button>
+    <button class="btn" type="button" data-sim="reset">重置示例</button>
+  </div>
+  <div class="table-wrap"><table class="sim-state"><thead><tr><th>App</th><th>Guest</th><th>Activity</th><th>App Service</th><th>可见性</th><th>执行原因</th><th>user_stopped</th></tr></thead><tbody id="sim-state-rows"></tbody></table></div>
+  <p id="sim-message" role="status" class="small muted">初始：Home 可见；音乐在后台播放；天气正在执行任务；时钟 Guest 挂起但时间与闹钟仍有效。</p>
+  <pre class="sim-log" id="sim-log" aria-label="模拟状态迁移日志"></pre>
+</section>
+
+<section id="references">
+  <h2><span class="num">22</span>来源与术语</h2>
+  <p>Android 用于概念及隔离边界对照；所有配额、五状态模型、后台租约、故障准入和关闭语义均为 MicroPixel 的拟议契约。资料核对日期：2026-11-15；固定版代码事实见 AOT 章节。</p>
+  <ul class="source-list">
+    <li><a href="https://developer.android.com/guide/components/activities/activity-lifecycle">Android Activity lifecycle</a>：页面生命周期与进程销毁的区别。</li>
+    <li><a href="https://developer.android.com/develop/background-work/services">Android Services overview</a>：Service 是无 UI 组件，默认与所在进程主线程关联，不自动创建新线程或进程。</li>
+    <li><a href="https://developer.android.com/guide/components/activities/process-lifecycle">Android Processes and app lifecycle</a>：系统按重要性管理进程存活。</li>
+    <li><a href="https://developer.android.com/develop/background-work/services/fgs">Android Foreground services overview</a>：可感知持续工作与界面可见性分离。</li>
+    <li><a href="https://developer.android.com/develop/ui/views/appwidgets/overview">Android App widgets overview</a>：信息摘要、控制操作和打开应用。</li>
+    <li><a href="https://developer.android.com/develop/background-work/services/alarms">Android Schedule alarms</a>：应用实例之外的定时调度思想。</li>
+    <li><a href="https://source.android.com/docs/security/app-sandbox">Android Application Sandbox</a>：内核、UID 与进程隔离，包含应用原生代码。</li>
+    <li><a href="https://webassembly.org/docs/security/">WebAssembly Security</a>：线性内存边界、控制流与 Trap，区别于 C++ 对象级内存安全。</li>
+    <li><a href="https://github.com/wasm-micro-runtime/wasm-micro-runtime/blob/main/doc/build_wamr.md">WAMR build configurations</a>：软件检查、解释器 instruction metering 与 AOT validator 的构建说明；本项目行为仍以固定版本源代码为准。</li>
+    <li><a href="https://github.com/wasm-micro-runtime/wasm-micro-runtime/blob/main/doc/memory_tune.md">WAMR memory tuning</a>：运行时堆、执行栈与线性内存中的 aux stack。</li>
+    <li>当前代码事实以 <a href="../../firmware/espressif/main/runtime/app_runtime.cpp">AppRuntime</a>、<a href="../../firmware/espressif/main/runtime/guest_context.cpp">GuestContext</a>、<a href="../../firmware/pc/main.cpp">PC 组合入口</a> 与 <a href="pc-home.zh-CN.md">当前 PC Home 契约</a> 为准。</li>
+  </ul>
+  <div class="table-wrap"><table><thead><tr><th>词</th><th>本文含义</th></tr></thead><tbody>
+    <tr><td>App</td><td>安装与权限边界，包含可选 Activity 和 App Service；不等于一个永远存在的进程</td></tr>
+    <tr><td>Activity</td><td>Guest 内的完整界面组件；STOPPED 只是隐藏，不表示 Guest 停止</td></tr>
+    <tr><td>App Service</td><td>Guest 内按事件执行的后台业务组件；默认与 Activity 共用实例和线程</td></tr>
+    <tr><td>Host Service ABI</td><td>Network / Audio 等跨边界能力接口，不是 App 业务 Service 对象</td></tr>
+    <tr><td>实例 / Session</td><td>一次独立 Guest 执行及其资源归属</td></tr>
+    <tr><td>RUNNING</td><td>可以处理事件，不代表持续占用 CPU，也不代表可见</td></tr>
+    <tr><td>后台</td><td>没有前台 UI；可 RUNNING，也可 SUSPENDED / STOPPED</td></tr>
+    <tr><td>租约</td><td>Host 授予的有限资源 / 执行资格，不是 Guest 自报的永久权限</td></tr>
+    <tr><td>Widget</td><td>Home 渲染的跨应用卡片协议，不是 Guest 内部 UI 控件实例</td></tr>
+  </tbody></table></div>
+</section>
+<footer class="footer">MicroPixel · AppManager 设计提案 0.2 · 所有新增接口与配置均待实现。<a href="#top" class="backtop">返回顶部 ↑</a></footer>
+<script>
+"use strict";
+(function () {
+  const labels = { weather: "天气", clock: "时钟闹钟", music: "音乐" };
+  function initial() {
+    return {
+      ui: "home", now: 0, nextInstance: 4, playing: true, pauseUntil: 0, alarm: false,
+      weatherRevision: 1, temperature: 24, weatherNote: "上次成功数据；当前刷新进行中",
+      message: "Home 可见；天气执行 JOB；音乐持有 MEDIA；时钟 Guest 挂起，Host 时间与闹钟继续。",
+      logs: ["初始：weather=RUNNING，clock=SUSPENDED，music=RUNNING；UiTarget=Home"],
+      apps: {
+        weather: { life: "RUNNING", instance: 1, userStopped: false, job: true, jobUntil: 30, workReason: "JOB",
+          activity: "NONE", activityEpoch: 0, service: "RUNNING", serviceEpoch: 1 },
+        clock: { life: "SUSPENDED", instance: 2, userStopped: false, job: false, jobUntil: 0, workReason: "",
+          activity: "NONE", activityEpoch: 0, service: "STOPPED", serviceEpoch: 0 },
+        music: { life: "RUNNING", instance: 3, userStopped: false, job: false, jobUntil: 0, workReason: "",
+          activity: "STOPPED", activityEpoch: 1, service: "RUNNING", serviceEpoch: 1 }
+      }
+    };
+  }
+  function log(model, message) {
+    model.logs.push("t+" + model.now + "s  " + message);
+    if (model.logs.length > 60) model.logs.shift();
+  }
+  function life(model, id, target, reason) {
+    const app = model.apps[id];
+    const previous = app.life;
+    app.life = target;
+    log(model, id + ": " + previous + " → " + target + " [" + reason + "]");
+  }
+  function reasons(model, id) {
+    const result = [];
+    const app = model.apps[id];
+    if (app.life === "STOPPED") return result;
+    if (model.ui === id) result.push("UI");
+    if (app.job) result.push(app.workReason || "JOB");
+    if (id === "music" && model.playing) result.push("MEDIA");
+    else if (id === "music" && model.pauseUntil > model.now) result.push("MEDIA_GRACE");
+    return result;
+  }
+  function activity(model, id, target) {
+    const app = model.apps[id], previous = app.activity;
+    app.activity = target;
+    log(model, id + ".Activity: " + previous + " → " + target + " [epoch " + app.activityEpoch + "]");
+  }
+  function service(model, id, target, reason) {
+    const app = model.apps[id], previous = app.service;
+    app.service = target;
+    log(model, id + ".Service: " + previous + " → " + target + " [" + reason + "]");
+  }
+  function leaveUi(model) {
+    if (model.ui !== "home" && model.apps[model.ui].activity === "RESUMED")
+      activity(model, model.ui, "STOPPED");
+    model.ui = "home";
+  }
+  function destroyActivity(model, id) {
+    if (model.ui === id) leaveUi(model);
+    if (model.apps[id].activity !== "NONE") activity(model, id, "NONE");
+  }
+  function stopService(model, id, reason) {
+    const app = model.apps[id];
+    app.job = false;
+    if (id === "music") { model.playing = false; model.pauseUntil = 0; }
+    if (app.service !== "STOPPED") {
+      service(model, id, "STOPPING", reason);
+      service(model, id, "STOPPED", "模拟组件退出与子资源域清理");
+    }
+  }
+  function ensureService(model, id, explicitUser) {
+    if (!ensureRunning(model, id, explicitUser)) return false;
+    const app = model.apps[id];
+    if (app.service === "STOPPED") {
+      app.serviceEpoch++;
+      service(model, id, "STARTING", "创建服务对象，Guest 不变");
+      service(model, id, "RUNNING", "模拟 ServiceReady");
+    }
+    return true;
+  }
+  function startWeatherWork(model, fromMessage) {
+    if (!ensureService(model, "weather", fromMessage)) return;
+    const app = model.apps.weather;
+    if (app.job) {
+      log(model, "weather.Service: 合并重复刷新，不延长现有任务 deadline");
+      model.message = "服务已存在；刷新消息合并到当前任务，不创建另一个 Guest。";
+      return;
+    }
+    app.job = true;
+    app.workReason = fromMessage ? "WIDGET_ACTION" : "JOB";
+    app.jobUntil = model.now + (fromMessage ? 10 : 30);
+    log(model, "weather.Service: " + (fromMessage ? "OnMessage(REFRESH)" : "OnScheduledWork") + "；deadline=t+" + app.jobUntil + "s");
+    model.weatherNote = "正在刷新，保留上次成功数据";
+    model.message = "先保证 Guest 与 Service 可运行，再投递事件；不创建 Activity，不抢占前台。";
+  }
+  function ensureRunning(model, id, explicitUser) {
+    const app = model.apps[id];
+    if (explicitUser) app.userStopped = false;
+    if (app.userStopped) {
+      log(model, id + ": 拒绝自动唤醒，user_stopped=true");
+      model.message = "应用被用户停止；显式打开可恢复，周期任务不能偷偷重启。";
+      return false;
+    }
+    if (app.life === "STOPPED") {
+      life(model, id, "STARTING", "准入并分配新实例");
+      app.instance = model.nextInstance++;
+      app.activity = "NONE"; app.activityEpoch = 0;
+      app.service = "STOPPED"; app.serviceEpoch = 0;
+      life(model, id, "RUNNING", "模拟 RuntimeReady");
+    } else if (app.life === "SUSPENDED") {
+      life(model, id, "RUNNING", "模拟 Resume ACK；保留实例 " + app.instance);
+    }
+    return true;
+  }
+  function stop(model, id, user, reason) {
+    const app = model.apps[id];
+    if (user) app.userStopped = true;
+    app.job = false;
+    if (app.life !== "STOPPED") {
+      life(model, id, "STOPPING", reason);
+      destroyActivity(model, id);
+      stopService(model, id, reason);
+      life(model, id, "STOPPED", "模拟执行器退出与清理完成");
+      app.instance = null;
+    } else log(model, id + ": 已停止，重复 Stop 无副作用");
+    if (id === "weather") model.weatherNote = "保留最后成功快照；" + reason;
+  }
+  function assertInvariant(model) {
+    const active = Object.values(model.apps).filter(function (app) { return app.life !== "STOPPED"; });
+    if (active.length > 4) throw new Error("实例容量超过4");
+    if (model.ui !== "home" && (model.apps[model.ui].life !== "RUNNING" || model.apps[model.ui].activity !== "RESUMED"))
+      throw new Error("前台必须是运行 Guest 的 RESUMED Activity");
+    if (model.playing && (model.apps.music.life !== "RUNNING" || model.apps.music.service !== "RUNNING"))
+      throw new Error("媒体资格必须由运行 Guest 的 Service 持有");
+    for (const id of Object.keys(model.apps)) {
+      const app = model.apps[id];
+      if (app.life === "SUSPENDED" && reasons(model, id).length) throw new Error("有工作或前台权的实例不能挂起");
+      if (app.life === "STOPPED" && app.instance !== null) throw new Error("停止后不能保留运行身份");
+      if (app.life === "STOPPED" && (app.activity !== "NONE" || app.service !== "STOPPED"))
+        throw new Error("Guest 停止后组件也必须清理");
+      if (app.activity === "RESUMED" && model.ui !== id) throw new Error("只有一个 RESUMED Activity");
+      if (app.job && (app.life !== "RUNNING" || app.service !== "RUNNING")) throw new Error("工作票据必须有可执行服务");
+      if (app.userStopped && app.life !== "STOPPED" && app.life !== "STOPPING") throw new Error("显式恢复前必须先清除用户停止标记");
+    }
+    return true;
+  }
+  function step(input, action) {
+    if (action === "reset") return initial();
+    const model = JSON.parse(JSON.stringify(input));
+    if (action.indexOf("activate-") === 0) {
+      const id = action.slice(9);
+      if (!Object.prototype.hasOwnProperty.call(model.apps, id)) throw new Error("未知应用");
+      ensureRunning(model, id, true);
+      const before = model.ui;
+      if (model.ui !== id) leaveUi(model);
+      if (model.apps[id].activity === "NONE") {
+        model.apps[id].activityEpoch++;
+        activity(model, id, "CREATED");
+      }
+      if (model.apps[id].activity !== "RESUMED") activity(model, id, "RESUMED");
+      model.ui = id;
+      log(model, "UiTarget: " + before + " → " + id + "；不重建其他实例");
+      model.message = "打开" + labels[id] + "；音乐播放资格与界面归属独立。";
+    } else if (action === "home") {
+      leaveUi(model);
+      log(model, "ShowHome；撤销 Guest 输入与显示权，不撤销 MEDIA");
+      model.message = "所有卡片可见；后台任务和媒体继续。重复 ShowHome 幂等。";
+    } else if (action === "weather-start") {
+      startWeatherWork(model, false);
+    } else if (action === "weather-message") {
+      startWeatherWork(model, true);
+    } else if (action === "weather-done") {
+      if (model.apps.weather.life === "RUNNING" && model.apps.weather.job) {
+        model.apps.weather.job = false;
+        stopService(model, "weather", "StopWhenIdle：本次任务完成且队列为空");
+        model.weatherRevision++;
+        model.temperature = model.temperature === 24 ? 25 : 24;
+        model.weatherNote = "成功快照 v" + model.weatherRevision + "；JOB 已完成";
+        log(model, "weather: 发布快照、释放 JOB；等待空闲结算");
+        model.message = "天气工作结束，数据仍可显示；推进30秒可看到闲置实例挂起。";
+      } else {
+        log(model, "weather: 没有运行中的 JOB，忽略迟到完成");
+        model.message = "迟到响应不能恢复已经停止的实例或覆盖当前数据。";
+      }
+    } else if (action === "music-toggle") {
+      ensureService(model, "music", true);
+      model.playing = !model.playing;
+      model.pauseUntil = model.playing ? 0 : model.now + 30;
+      log(model, "music: " + (model.playing ? "用户继续播放，MEDIA 生效" : "用户暂停，保留30秒宽限"));
+      model.message = model.playing ? "音乐继续播放；无需把音乐页面切到前台。" : "暂停是媒体状态；宽限结束且隐藏时，实例才可挂起。";
+    } else if (action === "advance") {
+      model.now += 30;
+      log(model, "推进30秒，检查工作 deadline 和空闲资格");
+      if (model.apps.weather.job && model.apps.weather.jobUntil <= model.now) {
+        model.apps.weather.job = false;
+        stopService(model, "weather", "任务超时，取消自身网络");
+        model.weatherNote = "本次 JOB 超时；保留上次成功快照";
+        log(model, "weather: 取消超时任务，释放 JOB");
+      }
+      if (model.pauseUntil && model.pauseUntil <= model.now) {
+        model.pauseUntil = 0;
+        log(model, "music: 用户暂停宽限到期");
+      }
+      for (const id of Object.keys(model.apps)) {
+        if (model.apps[id].life === "RUNNING" && !reasons(model, id).length)
+          life(model, id, "SUSPENDED", "隐藏且无工作；模拟安全点 ACK");
+      }
+      model.message = "只挂起没有前台权和执行资格的实例；Host 时间与闹钟不受影响。";
+    } else if (action === "alarm-toggle") {
+      model.alarm = !model.alarm;
+      log(model, "Host Alarm: " + (model.alarm ? "获得优先级，音乐 focus 增益降低" : "解除优先级，保留用户当前播放意图"));
+      model.message = "闹钟不依赖时钟 Guest 是否存活；结束响铃不会把用户已暂停的音乐重新播放。";
+    } else if (action === "destroy-music-activity") {
+      if (model.apps.music.life !== "STOPPED" && model.apps.music.activity !== "NONE")
+        ensureRunning(model, "music", false);
+      destroyActivity(model, "music");
+      log(model, "销毁 Activity 仅释放 UI 子资源，不停止 PlaybackService");
+      model.message = "音乐 Activity 为 NONE；播放服务与 Guest 可保持运行，账号和队列不依赖界面对象。";
+    } else if (action === "stop-music-service") {
+      if (model.apps.music.life !== "STOPPED") ensureRunning(model, "music", false);
+      stopService(model, "music", "显式 StopService");
+      model.message = "只停止播放服务；若 Activity 仍在前台，它继续显示，Guest 不退出。";
+    } else if (action === "stop-weather") {
+      stop(model, "weather", true, "用户停止");
+      model.message = "只停止天气；音乐与 Host 闹钟继续。再次点击“天气任务到期”会被停止标记拦截。";
+    } else if (action === "reclaim") {
+      const id = ["weather", "clock", "music"].find(function (name) {
+        return model.apps[name].life === "SUSPENDED" && !reasons(model, name).length;
+      });
+      if (id) {
+        stop(model, id, false, "内存回收");
+        model.message = "回收" + labels[id] + "实例；未设置用户停止标记，合法任务可以冷启动恢复。";
+      } else {
+        log(model, "NO_EVICTABLE：没有可回收挂起实例");
+        model.message = "没有候选时拒绝回收，不能静默杀掉正在播放的音乐。";
+      }
+    } else throw new Error("未知操作");
+    assertInvariant(model);
+    return model;
+  }
+  globalThis.MicroPixelAppDesign = { initial: initial, step: step, assertInvariant: assertInvariant, reasons: reasons };
+
+  if (typeof document !== "undefined") {
+    let model = initial();
+    function render() {
+      document.getElementById("sim-ui").textContent = "界面：" + (model.ui === "home" ? "Home" : labels[model.ui]);
+      document.getElementById("sim-focus").textContent = "音频焦点：" + (model.alarm ? "闹钟" : model.playing ? "音乐" : "空闲");
+      const count = Object.values(model.apps).filter(function (app) { return app.life !== "STOPPED"; }).length;
+      document.getElementById("sim-count").textContent = "驻留实例：" + count + " / 4";
+      const rows = document.getElementById("sim-state-rows");
+      rows.replaceChildren();
+      for (const id of Object.keys(model.apps)) {
+        const app = model.apps[id];
+        const row = document.createElement("tr");
+        const values = [labels[id] + (app.instance === null ? "" : " #" + app.instance), app.life, app.activity, app.service,
+          model.ui === id ? "前台" : "后台", reasons(model, id).join(" + ") || (app.life === "RUNNING" ? "空闲宽限" : "—"),
+          app.userStopped ? "true" : "false"];
+        values.forEach(function (value, index) {
+          const cell = document.createElement("td");
+          if (index === 1) {
+            const badge = document.createElement("span");
+            badge.className = "pill " + app.life.toLowerCase();
+            badge.textContent = value; cell.appendChild(badge);
+          } else cell.textContent = value;
+          row.appendChild(cell);
+        });
+        rows.appendChild(row);
+      }
+      document.getElementById("widget-weather-value").textContent = model.temperature + "°C · 晴";
+      document.getElementById("widget-weather-note").textContent = model.weatherNote;
+      const seconds = 8 * 3600 + 30 * 60 + model.now;
+      document.getElementById("widget-clock-value").textContent = [
+        Math.floor(seconds / 3600) % 24, Math.floor(seconds / 60) % 60, seconds % 60
+      ].map(function (value) { return String(value).padStart(2, "0"); }).join(":");
+      document.getElementById("widget-clock-note").textContent = model.alarm ? "Host 正在响铃；Guest 状态独立" : "下次闹钟 09:00；Host 登记保持";
+      document.getElementById("widget-music-value").textContent = model.apps.music.life === "STOPPED" ? "应用已停止" :
+        model.apps.music.service === "STOPPED" ? "播放服务已停止" : model.playing ? (model.alarm ? "播放中 · 闹钟减弱" : "正在播放") : "已暂停";
+      document.getElementById("widget-music-note").textContent = model.apps.music.life === "STOPPED" ?
+        "实例已回收；冷启动使用已提交设置" : model.apps.music.service === "STOPPED" ?
+        "服务已停止；队列恢复以已保存状态为准" : "示例曲目 · PlaybackService 持有队列";
+      document.getElementById("sim-message").textContent = model.message;
+      const output = document.getElementById("sim-log");
+      output.textContent = model.logs.join("\n");
+      output.scrollTop = output.scrollHeight;
+    }
+    document.querySelectorAll("[data-sim]").forEach(function (button) {
+      button.addEventListener("click", function () { model = step(model, button.dataset.sim); render(); });
+    });
+    document.getElementById("print-doc").addEventListener("click", function () { window.print(); });
+    render();
+    if ("IntersectionObserver" in window) {
+      const observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          document.querySelectorAll("nav a").forEach(function (link) {
+            if (link.getAttribute("href") === "#" + entry.target.id) link.setAttribute("aria-current", "location");
+            else link.removeAttribute("aria-current");
+          });
+        });
+      }, { rootMargin: "-10% 0px -70% 0px" });
+      document.querySelectorAll("main section").forEach(function (section) { observer.observe(section); });
+    }
+  }
+})();
+</script>
+</main>
+</body>
+</html>
