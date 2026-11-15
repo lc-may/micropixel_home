@@ -56,6 +56,7 @@
 <section id="decision">
   <h2><span class="num">01</span>目标与最小设计</h2>
   <p>当前实现仍是一个 Guest Session：PC Home 与市场由 Host 承载，音乐可以在这两个系统页面后继续执行；启动另一 Guest 会停止旧会话。本文提出下一阶段的架构，不表示现有运行程序已经具备多会话能力。基线见 <a href="pc-home.zh-CN.md">PC Home 设计</a>。</p>
+  <p>分阶段落地见 <a href="../development/app-manager-plan.zh-CN.html">九次交付实施计划</a>。首轮聚焦正常路径的多应用与 HMI，故障恢复及 AOT 强停补强后置；本文保留较完整的长期架构契约。</p>
   <div class="callout"><strong>最小模型：一个 AppId 对应至多一个 Guest；App 可含 0–1 个 Activity、0–1 个 App Service。组件有各自生命周期，共用实例而不创建 Guest 线程。多个 App 的 Guest 独立运行，屏幕至多属于一个 Activity。</strong></div>
   <div class="grid">
     <div class="card"><h3>实例生命周期</h3><p><strong>5 种状态</strong></p><p>STOPPED、STARTING、RUNNING、SUSPENDED、STOPPING。</p></div>

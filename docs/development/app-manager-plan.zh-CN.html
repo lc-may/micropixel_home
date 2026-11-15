@@ -1,0 +1,535 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>MicroPixel 多应用框架：9 次交付实施计划</title>
+<style>
+:root{--ink:#203247;--muted:#596c7f;--line:#dce5ed;--accent:#126e79;--soft:#eaf5f4;--paper:#fff;--bg:#f4f7fa}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.8 system-ui,-apple-system,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif}aside{position:fixed;inset:0 auto 0 0;width:248px;padding:27px 20px;background:#fff;border-right:1px solid var(--line);overflow:auto}.brand{font-size:23px;font-weight:750}.small{font-size:13px;color:var(--muted)}nav a{display:block;padding:5px 8px;font-size:13px;text-decoration:none;color:var(--muted)}nav a:hover{background:var(--soft);color:var(--accent)}main{margin-left:248px;padding:36px 44px 70px;max-width:1460px}.hero,section{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:28px 32px;margin:0 0 23px}.hero{border-top:5px solid var(--accent)}.eyebrow{font-size:12px;letter-spacing:1.2px;font-weight:700;color:var(--accent)}h1{font-size:clamp(28px,3vw,40px);line-height:1.35;margin:14px 0}h2{font-size:25px;line-height:1.45;margin:0 0 18px}h2 .num{color:var(--accent);font-size:15px;margin-right:10px}h3{font-size:18px;margin:24px 0 9px}p{margin:10px 0}a{color:#235fa8;text-underline-offset:3px}a:focus-visible,button:focus-visible{outline:3px solid #2395a3;outline-offset:3px}ul,ol{padding-left:23px}li{margin:6px 0}.lead{font-size:17px;color:#425b70}.meta{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}.badge{font-size:12px;padding:3px 9px;background:#edf3f7;border-radius:5px}.badge.proposal{background:#fff0db;color:#87540b}.callout{padding:14px 18px;background:var(--soft);border-left:4px solid var(--accent);margin:18px 0}.callout.warn{background:#fff6e7;border-color:#ae7626}.table-wrap{overflow:auto;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.75}th,td{border:1px solid var(--line);padding:10px 12px;vertical-align:top;text-align:left}th{background:#edf3f7}tbody tr:nth-child(even){background:#fafcfe}code{font-family:ui-monospace,Consolas,monospace;font-size:.9em;background:#edf2f6;border-radius:4px;padding:2px 4px;overflow-wrap:anywhere}pre{background:#112638;color:#e8f1f8;padding:18px;border-radius:8px;overflow:auto;font-size:12px;line-height:1.7}pre code{padding:0;background:none;color:inherit;overflow-wrap:normal}.phase-meta{display:flex;gap:10px;flex-wrap:wrap;padding:11px 14px;background:#f1f6fa;border-radius:7px;font-size:13px}.roadmap{display:grid;grid-template-columns:repeat(3,1fr);list-style:none;padding:0;gap:12px}.roadmap li{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:7px;padding:12px 15px;background:#fafcfe}.roadmap strong{display:block}.milestones{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.milestone{padding:14px;border:1px solid var(--line);border-radius:8px;background:#f9fcfd}.milestone strong{display:block;color:var(--accent)}.btn{font:inherit;border:1px solid #bdd2df;border-radius:7px;background:white;color:var(--ink);padding:7px 13px;cursor:pointer}.footer{padding:10px 3px;color:var(--muted);font-size:13px}.checklist{list-style:none;padding-left:0}.checklist li{padding-left:24px;position:relative}.checklist li:before{content:"□";position:absolute;left:0;color:var(--accent)}.nowrap{white-space:nowrap}
+@media(max-width:1050px){aside{width:220px;padding:22px 14px}main{margin-left:220px;padding:24px}.hero,section{padding:24px}.milestones{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){aside{position:static;width:auto;border-right:0;border-bottom:1px solid var(--line)}nav{display:grid;grid-template-columns:1fr 1fr}nav a{font-size:12px}main{margin-left:0;padding:15px 12px}.hero,section{padding:20px 17px}h2{font-size:21px}.roadmap,.milestones{grid-template-columns:1fr}th,td{min-width:105px;padding:9px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media print{aside,.no-print{display:none!important}body{background:#fff;font-size:10pt;color:#000}main{margin:0;padding:0;max-width:none}.hero,section{border:0;border-radius:0;padding:12px 0;margin:0 0 18px}.hero{border-bottom:2px solid var(--accent)}h1{font-size:25pt}h2{font-size:17pt;break-after:avoid}h3{break-after:avoid}table{font-size:8pt}thead{display:table-header-group}tr,.callout,.milestone{break-inside:avoid}.table-wrap{overflow:visible}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f6f8;color:#000;border:1px solid #ddd}.roadmap{grid-template-columns:repeat(3,1fr)}a{color:#174a79}@page{size:A4;margin:15mm}}
+</style>
+</head>
+<body id="top">
+<aside aria-label="实施计划目录">
+  <div class="brand">MicroPixel</div>
+  <p class="small">多应用框架 · 9 次交付计划</p>
+  <nav>
+    <a href="#scope">01 目标与范围</a>
+    <a href="#baseline">02 当前代码与改动范围</a>
+    <a href="#roadmap">03 交付总览与依赖</a>
+    <a href="#contracts">04 共用契约与兼容策略</a>
+    <a href="#d1">05 D1：实例资源归属</a>
+    <a href="#d2">06 D2：AppManager 与多实例</a>
+    <a href="#d3">07 D3：Activity / Service SDK</a>
+    <a href="#d4">08 D4：音乐组件迁移</a>
+    <a href="#d5">09 D5：Widget 与消息</a>
+    <a href="#d6">10 D6：天气与后台调度</a>
+    <a href="#d7">11 D7：时钟闹钟与音频焦点</a>
+    <a href="#d8">12 D8：RV32 AOT 后端</a>
+    <a href="#d9">13 D9：RTOS 目标适配</a>
+    <a href="#budgets">14 容量与工作量</a>
+    <a href="#validation">15 验证矩阵与证据</a>
+    <a href="#rollout">16 合入与回退</a>
+    <a href="#risks">17 风险与待确定事项</a>
+    <a href="#done">18 最终完成条件</a>
+    <a href="#references">19 关联文档</a>
+  </nav>
+</aside>
+<main>
+<header class="hero">
+  <div class="eyebrow">IMPLEMENTATION PLAN · 1.0</div>
+  <h1>多应用框架<br>9 次交付实施计划</h1>
+  <p class="lead">先建立实例资源归属和多会话管理，再迁移 Activity / Service、音乐与桌面卡片，最后接入调度、闹钟、RV32 和真实 RTOS。每次交付都有可运行结果、验证条件和回退边界。</p>
+  <div class="meta"><span class="badge proposal">计划，尚未执行阶段实现</span><span class="badge">2026-11-15 · Asia/Shanghai</span><span class="badge">代码基线：70fdba6</span><span class="badge">正常路径优先 · 故障恢复后置</span></div>
+  <p>架构契约见 <a href="../design/app-manager.zh-CN.html">AppManager 详细设计</a>。该设计包含更完整的故障隔离目标；本计划明确收敛首版交付范围，不把设计中的全部能力都计入这九次交付。</p>
+  <button class="btn no-print" id="print-plan" type="button">打印 / 另存为 PDF</button>
+</header>
+
+<section id="scope">
+  <h2><span class="num">01</span>目标与范围</h2>
+  <div class="callout"><strong>交付目标：</strong>在 PC 上让天气、时钟闹钟、音乐三个独立 Guest 的功能同时有效；用户在 Home 查看卡片并进入应用，天气页面在前台时音乐继续播放。第 9 次交付把同一契约落到一块选定的 RTOS / no-MMU 板卡。</div>
+  <div class="table-wrap"><table><thead><tr><th>本轮必须完成</th><th>本轮后置</th></tr></thead><tbody>
+    <tr><td>正常启动、前后台切换、协作挂起 / 恢复、局部停止和卸载 / 升级协调</td><td>崩溃自动重启、崩溃前内存状态恢复、重启退避与熔断</td></tr>
+    <tr><td>每实例 / 每组件资源归属、有界容量、迟到回调校验、Host 参数检查</td><td>AOT 新取消检查点、纯死循环强停、累计指令预算、任意原生错误隔离</td></tr>
+    <tr><td>一个 App 一个 Guest；每 App 最多一个 Activity、一个业务 Service</td><td>多 Activity 栈、多窗口、同 App 多 Guest、Guest 线程与共享内存</td></tr>
+    <tr><td>Home 模板卡片、有界消息、Host Job / Alarm / AudioFocus</td><td>桌面自由布局、任意 Guest UI 嵌入、Binder、可靠消息重放和恰好一次投递</td></tr>
+    <tr><td>配置、任务计划与闹钟登记持久化；音乐按既有选项记住登录</td><td>Host 重启后自动恢复音乐播放、掉电前队列执行位置恢复、关机期间错过的闹钟补响</td></tr>
+    <tr><td>固定槽位与资源准入；保留现有 Wasm 检查和 Trap 错误报告</td><td>内存压力下自动杀应用 / 自动重建，以及新增 AOT 签名发布体系</td></tr>
+  </tbody></table></div>
+  <p><strong>故障恢复后置不等于取消正常清理。</strong>正常停止仍必须确认执行退出、排空回调和 DMA，再释放内存。执行无法退出时保留 STOPPING 与预算，不复用该槽；本轮不承诺任意 App 故障下系统仍可持续服务。已有边界检查、Trap 处理和下载校验保持启用。</p>
+  <p>Home 是 Host 系统界面，不占 Guest 槽。天气可以休眠，时钟 Guest 可以退出，音乐 Service 可以持续工作；“同时有效”不要求所有 App 一直消耗 CPU。Activity 与 Service 共用 Guest，因此默认共享 App 级异常边界。</p>
+</section>
+
+<section id="baseline">
+  <h2><span class="num">02</span>当前代码与改动范围</h2>
+  <p>基线是 <code>70fdba6</code>：PC Home、市场、原生 Wasm、单实例 RV32 AOT、网易云音乐和基本 UI 控件已存在；多 Guest、组件 SDK、Widget 协议和 Host Job / Alarm 尚未实现。下表是代码事实，不表示已经完成后续迁移。</p>
+  <div class="table-wrap"><table><thead><tr><th>位置</th><th>现状 / 约束</th><th>计划改动</th></tr></thead><tbody>
+    <tr><td><a href="../../firmware/pc/main.cpp">PC 组合根</a>、<a href="../../firmware/pc/home_app.cpp">Home</a></td><td>单个 Session、active_index 和 foreground；打开另一 Guest 先停止旧会话</td><td>组合根保留事件泵；管理策略交给 AppManager；Home 读取不可变快照</td></tr>
+    <tr><td><a href="../../firmware/espressif/main/runtime/app_runtime.hpp">AppRuntime</a></td><td>全局 WAMR 及单个 active_session；RunApp 同步运行</td><td>保留全局 WAMR，只把会话创建 / 运行能力改为受预算的实例集合</td></tr>
+    <tr><td><a href="../../firmware/espressif/main/runtime/guest_context.cpp">GuestContext</a>、DeviceServices</td><td>初始化及清理仍有全局音频 / 图形操作，输入只有一个接收者</td><td>owner 绑定的服务视图、路由、局部暂停及局部关闭</td></tr>
+    <tr><td><a href="../../firmware/pc/session.cpp">PC Session</a>、<a href="../../firmware/pc/os.cpp">任务兼容层</a></td><td>Stop 等待 join；JoinTasks 涉及全局任务表</td><td>异步请求停止 / 完成通知；每实例 TaskGroup，只回收本 owner 的任务</td></tr>
+    <tr><td><a href="../../firmware/pc/remote.hpp">HTTP / URL media</a></td><td>HTTP 单个活动 handle，媒体共用物理播放器</td><td>有界多句柄、组件归属、Service 预留名额、媒体仲裁</td></tr>
+    <tr><td><a href="../../guest/sdk/application.hpp">Guest Application</a>、<a href="../../guest/abi/micropixel_abi.h">ABI</a></td><td>一个事件 handler；没有组件生命周期或跨 Guest 消息</td><td>事件循环内分发 Activity / Service；新增版本化 Service 方法和 typed facade</td></tr>
+    <tr><td><a href="../../firmware/espressif/main/runtime/abi/service_registry.hpp">ServiceRegistry</a></td><td>已注册 14 个端点，固定容量 16；目录在实例内缓存</td><td>D3 审计全部新增端点，按需要显式扩为固定容量（初始建议 24），不做无限增长或实例内热注册</td></tr>
+    <tr><td><a href="../../guest/apps/netease-music/app.json">音乐 manifest</a>、<a href="../../guest/apps/netease-music/main.cpp">入口</a></td><td>当前要求至少 720×720，界面、账号和播放业务混在应用对象内</td><td>D4 拆业务与页面；D9 按目标分辨率与内存调整布局 / 容量，不能仅降低 manifest 门槛</td></tr>
+  </tbody></table></div>
+  <p>PC 阶段预计涉及约 40–70 个新增或修改文件，包含示例和测试；这是静态范围估计，D1 完成依赖审计后重估。MCU 平台适配另计。WAMR / wamrc 固定版本、七个 Core imports、AOT v6 与 Bundle v1 外壳保持不变。</p>
+</section>
+
+<section id="roadmap">
+  <h2><span class="num">03</span>交付总览与依赖</h2>
+  <ol class="roadmap" aria-label="依次交付的九个阶段">
+    <li><strong>D1 → 资源归属</strong>单 Guest 不变，先消除全局清理假设</li>
+    <li><strong>D2 → 多实例管理</strong>两个小 Guest 验证状态机与显示切换</li>
+    <li><strong>D3 → 组件 SDK</strong>Activity / Service 生命周期与兼容声明</li>
+    <li><strong>D4 → 音乐迁移</strong>页面可销毁，后台播放继续</li>
+    <li><strong>D5 → Widget / 消息</strong>Home 展示与控制多个应用</li>
+    <li><strong>D6 → 天气 / Job</strong>周期唤醒、消息工作与空闲挂起</li>
+    <li><strong>D7 → 闹钟 / 焦点</strong>Host 定时响铃，协调媒体意图</li>
+    <li><strong>D8 → RV32 AOT</strong>复用同一管理契约与业务回归</li>
+    <li><strong>D9 → RTOS / no-MMU</strong>一块板的服务、内存与 HMI 验收</li>
+  </ol>
+  <p>主路径为 <code>D1 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9</code>。阶段内按依赖串行合入；后续接口可以先评审，但不能跳过前置资源隔离就启用多实例。每次交付可拆成 2–3 个提交，不要求把全部改动塞进一个大提交。</p>
+  <div class="milestones">
+    <div class="milestone"><strong>M1 · D3 完成</strong>两个测试 Guest 共存，组件生命周期可验证</div>
+    <div class="milestone"><strong>M2 · D4 完成</strong>其他页面前台运行，音乐后台自动下一首</div>
+    <div class="milestone"><strong>M3 · D7 完成</strong>PC 天气＋时钟闹钟＋音乐＋Home 功能闭环</div>
+    <div class="milestone"><strong>M4 · D9 完成</strong>RV32 验证通过，一块 RTOS 板完成同场景验证</div>
+  </div>
+  <p>D2 的并发演示使用有界、会主动返回事件循环的小型 Guest；正式音乐迁移在 D4。D9 的网络与媒体平台适配独立计费，不能把 PC 通过作为 MCU 已经可用的证据。</p>
+</section>
+
+<section id="contracts">
+  <h2><span class="num">04</span>共用契约与兼容策略</h2>
+  <div class="table-wrap"><table><thead><tr><th>主题</th><th>九次交付共同遵守的决定</th></tr></thead><tbody>
+    <tr><td>身份</td><td>AppId 是安装身份；InstanceKey=(boot_nonce, slot, epoch) 是运行身份；ComponentKey 增加组件种类、ID 和组件 epoch。owner 从 Host 调用上下文取得，不信任 Guest 自报 AppId。</td></tr>
+    <tr><td>状态机</td><td>Guest：STOPPED / STARTING / RUNNING / SUSPENDED / STOPPING。Activity：NONE / CREATED / RESUMED / STOPPED。Service：STOPPED / STARTING / RUNNING / STOPPING。失败作为退出原因，不另建 CRASHED 状态。</td></tr>
+    <tr><td>单写入者</td><td>AppManager 控制循环独占状态迁移；慢加载、执行、I/O 和回收在有界执行器运行。Accepted 只表示入队，READY、首帧提交和 EXITED 分别确认。</td></tr>
+    <tr><td>显示与输入</td><td>一个活动 DisplayLease、一个受预算的 staging；前台交接以有效组件首帧为条件。旧实例 / 旧组件帧和输入不能提交。Home / 系统提醒优先。</td></tr>
+    <tr><td>组件资源</td><td>Activity 资源域拥有 UI / 输入；Service 资源域拥有媒体 / 后台请求；App 资源域拥有共享账号和配置。ComponentContext 显式绑定资源域，异步完成保留原 ComponentKey，不依赖可变的“当前组件”。</td></tr>
+    <tr><td>组件 token 的边界</td><td>它用于生命周期与路由；同 Guest 共享内存，不构成恶意 Activity 与 Service 之间的安全边界。Host 必须校验 token 属于当前 Guest 及有效组件代次。</td></tr>
+    <tr><td>兼容</td><td>保留 Bundle v1 外壳，扩展版本化 requirements。新 Host 将旧 v1 App 作为 LegacyActivity，在多应用 profile 下不授予后台 Service / Widget 权限；旧 Host 对新必需版本明确拒绝。</td></tr>
+    <tr><td>ABI</td><td>新增服务 / 方法 / 事件分配新 ID；不复用旧 ID，不暴露 STL / C++ 布局 / Host 指针。端点继续放在现有 ABI 文件边界内，业务实现委托给 Runtime / Host 模块。</td></tr>
+    <tr><td>WAMR / AOT</td><td>不升级或修改 WAMR / wamrc，不改 AOT 格式；每 Guest 独立 module instance、exec_env、可变内存和执行任务，全局 runtime 初始化一次。保留内存 / 栈检查，拒绝 unchecked-memory。</td></tr>
+    <tr><td>消息</td><td>Host 中转、复制小载荷、有界邮箱、Read / Ack 票据。入队、接收、业务完成分开；默认易失，不承诺跨崩溃重放。payload 不塞入固定 Event 结构。</td></tr>
+    <tr><td>后台资格</td><td>MEDIA、JOB、WIDGET_ACTION 都是有 owner 的执行资格。Service 的 RUNNING 不等于一直占 CPU，也不自动赋予永久常驻权。Host 闹钟不依赖 Guest 存活。</td></tr>
+  </tbody></table></div>
+  <p>PC 与 RTOS 共用状态模型和中立的 Runtime 控制接口。拟新增 <code>runtime/app_control.hpp</code> / <code>session_runner.hpp</code> 提供请求和通知契约，由组合根注入 Host 实现；Runtime 不反向包含 Host controller。Guest SDK 继续不依赖 LVGL、SDL、FreeRTOS 或 POSIX。</p>
+  <p>迁移使用同一代码的并发容量 / 能力 profile，不维护两套 Home 或音乐页面。D1 保持现有单会话行为；D2–D3 在显式开发 profile 中启用并发；D4 验收迁移后的音乐；D7 功能闭环后再切换 PC 默认配置。新的后台资格只来自受 Host 核验的组件声明。</p>
+</section>
+
+<section id="d1">
+  <h2><span class="num">05</span>D1：建立实例资源归属</h2>
+  <div class="phase-meta"><span>前置：当前单 Guest 基线可运行</span><span>结果：仍为单 Guest，资源清理已局部化</span><span>粗估：3–5 人日</span></div>
+  <h3>实施任务</h3>
+  <ol>
+    <li>新增中立 InstanceKey、OwnerScope、资源计数与代次校验；记录物理设备、App 资源和实例资源的归属。</li>
+    <li>为 Graphics / Input / Audio / HTTP / URL media 建立每实例服务视图。图形包括 Scene、纹理、字体、Direct Surface 和异步解码，不只是给 StopAll 换名字。</li>
+    <li>移除 Guest 初始化 / 挂起 / 析构对其他 owner 的全局 ResumeAll / SuspendAll / StopAll / ReleaseGuestResources 副作用。系统整体关机仍可使用全局设备操作。</li>
+    <li>为输入接收者、PCM 完成通知和媒体句柄建立 owner 路由；异步回调持有安全租约，确认关闭后排空。</li>
+    <li>把 PC 全局 JoinTasks 的会话用途改为 TaskGroup / owner 回收。共享网络执行器和任务池有固定容量，Guest 停止不能等待或结束其他实例的任务。</li>
+    <li>在统一 Host 测试 wrapper 中增加便携应用框架测试分组；仅该分组可独立于 esp-http3 运行，保留原固件全量测试的依赖检查。直接调用编译器不作为测试入口。</li>
+  </ol>
+  <p><strong>代码位置：</strong><a href="../../firmware/espressif/main/runtime/guest_context.hpp">GuestContext</a>、<a href="../../firmware/espressif/main/device/device_services.hpp">DeviceServices</a>、<a href="../../firmware/espressif/main/device/contracts/">设备契约</a>、Runtime 图形 / 音频 / 资源服务、<a href="../../firmware/pc/os.cpp">PC 任务兼容层</a>、PC remote / audio；拟新增 Runtime owner 与 scoped-services 类型。</p>
+  <h3>建议提交边界</h3>
+  <p>D1.1：owner 类型、固定容量与测试夹具；D1.2：作用域服务及局部清理；D1.3：任务 / 回调排空和现有单 Guest 回归。生产配置本阶段仍保持一个 Guest。</p>
+  <h3>验收与交付证据</h3>
+  <ul class="checklist">
+    <li>两个 Host 测试上下文分别创建资源，关闭 A 后 B 的音频、纹理、请求与输入绑定不受影响；这是 owner 测试，不假装已实现多 Guest。</li>
+    <li>旧 owner / 旧 generation 的回调被丢弃；A 的资源计数归零，B 的有效资源计数保持。</li>
+    <li>现有单 Guest 的 Home 后台播放、市场、音乐、登录、图形与 Direct Surface 回归通过。</li>
+    <li>交付资源归属清单、释放顺序、自动化测试、构建结果及一份按 owner 的资源快照。</li>
+  </ul>
+  <p><strong>回退边界：</strong>保持单槽 profile；若作用域语义未通过，不启用 D2 并发。回退以整个未完成提交组为单位，不用恢复全局清理来掩盖局部错误。</p>
+</section>
+
+<section id="d2">
+  <h2><span class="num">06</span>D2：AppManager 与原生多实例</h2>
+  <div class="phase-meta"><span>前置：D1 全部 owner 验证通过</span><span>结果：两个测试 Guest 共存与切换</span><span>粗估：4–6 人日</span></div>
+  <h3>实施任务</h3>
+  <ol>
+    <li>新增无 LVGL 依赖的 AppManager、固定 AppRecord / InstanceSlot、命令队列、关键通知邮箱和 ManagerSnapshot；先以单槽替换 PC main 的管理策略。</li>
+    <li>建立 SessionRunner 的 BeginStart / RequestSuspend / RequestResume / RequestStop 和完成通知。不能在 UI 控制循环调用会阻塞的 Stop / join。</li>
+    <li>实现 Guest 五状态与 seq / epoch 验证；挂起在 event_wait 安全点确认，恢复先开控制门，再投递普通事件；停止仍等待退出和排空。</li>
+    <li>以两个小 Guest 验证并发，每实例一个受控 Host 执行任务；WAMR 全局只初始化一次。PC 快速解释器加载会改写输入模块，因此每次加载保留独立可写字节副本。</li>
+    <li>实现唯一 DisplayLease、InputRouter 与一个 staging；新前台首帧未准备好时保留旧前台。Home 可取消待提交切换，连续请求以最新用户意图为准。</li>
+    <li>加入 PackageRevision 租约：升级 / 卸载仅协调目标 App，等其退出和映射释放后替换；其他 Guest 继续。槽满明确拒绝，不自动回收。</li>
+  </ol>
+  <p><strong>代码位置：</strong><a href="../../firmware/pc/main.cpp">PC main</a>、<a href="../../firmware/pc/session.hpp">Session</a>、PC 渲染 / 输入与 Home；拟新增 <code>host/controller/app_manager.*</code>、状态模型和 Runtime runner 契约，并加入 PC CMake。MCU 原 AppRuntime 此时仍保持单会话 profile。</p>
+  <h3>建议提交边界</h3>
+  <p>D2.1：纯状态机与单槽接入；D2.2：两个测试 Guest 的实例集合 / 路由；D2.3：准备后交接、异步停止和包租约。后台测试资格由可信测试组合根配置，不开放 Guest 自行声明任意后台权限的入口。</p>
+  <h3>验收与交付证据</h3>
+  <ul class="checklist">
+    <li>两个 Guest 的心跳同时递增；切换 A/B、返回 Home、停止 A 后，B 继续且 InstanceKey 不变。</li>
+    <li>只有当前前台收到触摸、按键与文本；切换取消原拖动，旧文本不会进入新页面，后台帧不能覆盖前台或 Home。</li>
+    <li>连续激活 A→B→A、加载时返回 Home、启动失败、满槽和队列满，均保留合法的显示目标及预算。</li>
+    <li>开始停止后 UI 控制循环仍能响应；迟到 READY / QUIESCED / EXITED 不复活旧实例；100 次正常启动 / 停止后资源回到稳定基线。</li>
+    <li>交付状态迁移测试、并发 Guest 夹具、管理快照，以及双 Guest 运行 / 切换 / 退出的日志和截图。</li>
+  </ul>
+  <p><strong>回退边界：</strong>同一 AppManager 使用单槽配置继续运行既有功能；并发 profile 在验收前不成为默认。此阶段不把未迁移的音乐 App 当正式后台 Service 验收。</p>
+</section>
+
+<section id="d3">
+  <h2><span class="num">07</span>D3：Activity / Service SDK 与兼容声明</h2>
+  <div class="phase-meta"><span>前置：D2 多实例管理稳定</span><span>结果：组件生命周期可由 Host 协调</span><span>粗估：4–6 人日</span></div>
+  <h3>实施任务</h3>
+  <ol>
+    <li>新增 Guest 组件注册、Activity / Service 基类或等效 typed 接口和 ComponentContext；继续复用一个 Application 事件循环，生命周期与业务事件串行分发。</li>
+    <li>实现 Activity 创建、首帧就绪、恢复、隐藏和销毁；实现 Service 启动、就绪、停止与工作完成。回调 ACK 不等于整个 App 已退出。</li>
+    <li>为 UI / 输入、Service 媒体 / 请求和 AppModel 建立明确资源子域。回调绑定原组件代次，销毁 Activity 不关闭 Service 资源。</li>
+    <li>通过 Service ABI 传递版本化生命周期及组件 token，不新增 Core import。固定 Event 仅携带控制字段 / 票据，不包含任意长载荷。</li>
+    <li>同步工具、Host 和 Guest 的 requirements 新版本：组件声明、后台能力、所需服务版本和 Widget 预留声明；旧 v1 App 映射为 LegacyActivity。</li>
+    <li>一次盘点后续 Lifecycle / Message / Widget / Job / Alarm 服务 ID 与容量。按需固定扩大 ServiceRegistry（初始建议 24），登记内存成本；尚未实现的能力不在描述符中虚报支持。</li>
+  </ol>
+  <p><strong>代码位置：</strong><a href="../../guest/sdk/application.hpp">SDK Application</a>、Guest Runtime、<a href="../../guest/abi/micropixel_abi.h">ABI</a>、现有 service_endpoints / registry、<a href="../../tools/build_app_bundle.py">打包工具</a>、<a href="../../tools/micropixel">CLI</a>、<a href="../../firmware/espressif/main/runtime/bundle/app_requirements.h">requirements reader</a>；拟新增组件分发器与 conformance Guest。Host ActivityController / ServiceController 为 AppManager 内的控制块，不各自开管理线程。</p>
+  <h3>建议提交边界</h3>
+  <p>D3.1：ABI / requirements 契约与兼容 fixture；D3.2：SDK 分发和 Host 控制；D3.3：组件资源域及 conformance。每个公开版本变更同步示例和文档，不在计划阶段提前占用最终数值 ID。</p>
+  <h3>验收与交付证据</h3>
+  <ul class="checklist">
+    <li>测试 App 销毁 Activity 后 Service 心跳继续；重建 Activity 产生新组件 epoch，Guest main 只运行一次。</li>
+    <li>停止 Service 不销毁仍在前台的 Activity；旧组件 HTTP / UI 回调不进入新组件。</li>
+    <li>旧 v1 包可在新 Host 启动；多应用 profile 下无后台权限；不支持新必需版本的 Host 明确拒绝。</li>
+    <li>对畸形大小、无效组件、跨实例 token、重复迁移和超容量请求有确定结果；Guest SDK 不引入 OS / LVGL 依赖。</li>
+    <li>交付 SDK 最小组件示例、协议表、manifest 示例、新旧 requirements fixture 与兼容测试。</li>
+  </ul>
+  <p><strong>回退边界：</strong>阶段能力在 Host profile 中关闭，新包保留明确版本要求；不把新 requirements 当 v1 结构解释，也不为兼容复用旧事件 ID。</p>
+</section>
+
+<section id="d4">
+  <h2><span class="num">08</span>D4：网易云音乐迁移为 Activity＋PlaybackService</h2>
+  <div class="phase-meta"><span>前置：D3 组件 SDK 与资源子域</span><span>结果：正式音乐后台播放与其他 Guest 共存</span><span>粗估：3–5 人日</span></div>
+  <h3>实施任务</h3>
+  <ol>
+    <li>拆分 AppModel、MusicActivity 与 PlaybackService。账号 / Cookie 和共享配置属于 AppModel；Scene、列表滚动和页面临时请求属于 Activity；队列、媒体句柄、自动下一首和曲目解析属于 Service。</li>
+    <li>区分页面读取、账号登录和播放关键请求。HTTP 改为每实例至少两个有界请求名额，给 PlaybackService 预留一个；物理执行器也需要并行通道，不能只增加句柄却继续单线程阻塞处理长轮询。</li>
+    <li>实现有效媒体租约：可播放的加载 / 播放工作获得资格，用户暂停进入宽限；返回 Home 或进入其他 App 不撤销媒体资格。后台 Activity 停止动画与帧提交。</li>
+    <li>销毁 / 重建 MusicActivity 时从 AppModel 和媒体状态重建页面；不重登账号、不重建播放队列、不重复启动 Guest。</li>
+    <li>保持现有微信官网授权、每日推荐去重、触底加载、红星收藏和独立播放队列行为；升级 App requirements 和组件声明。</li>
+    <li>退出账号、切换账号或会话失效时，同步撤销 Service 中的私有请求、队列和个人快照；Activity 重建不能恢复另一个账号的内存状态。</li>
+    <li>Service 不依赖 Activity 对象指针。D5 之前 Home 暂用受控管理快照显示运行 App，跨界面媒体卡片待统一 Widget 协议接入。</li>
+  </ol>
+  <p><strong>代码位置：</strong><a href="../../guest/apps/netease-music/main.cpp">音乐入口</a>、<a href="../../guest/apps/netease-music/client.hpp">客户端</a>、<a href="../../guest/apps/netease-music/music_view.hpp">界面</a>、账号 / 登录模块、app.json、Guest Network / Audio facade、Host 网络池与媒体资源路由。保留一个新的正式页面实现，不维护旧 UI 分支。</p>
+  <h3>建议提交边界</h3>
+  <p>D4.1：AppModel / Activity / Service 拆分与单 App 回归；D4.2：HTTP 并发与媒体资格；D4.3：音乐＋前台测试 Guest 的集成。生产账号扫码仅用于必要的手动联调，自动回归全部使用合成音频和本地接口 fixture。</p>
+  <h3>验收与交付证据</h3>
+  <ul class="checklist">
+    <li>音乐后台连续完成至少两首测试歌曲并自动下一首，前台测试 App 可正常交互。</li>
+    <li>销毁并重建 MusicActivity 后仍是同一 Guest / Service，昵称、账号身份、队列及当前播放位置保留。</li>
+    <li>一个请求模拟 35 秒登录长轮询时，Service 的下一首解析可独立完成；关闭 Activity 请求不取消播放请求。</li>
+    <li>停止整个音乐 App 后仅清理音乐 owner；其他 App 的网络、计时和显示继续。</li>
+    <li>交付新的音乐 Bundle、组件职责说明、并发请求测试、PCM 证据和后台运行日志；不记录真实凭证。</li>
+  </ul>
+  <p><strong>回退边界：</strong>默认 profile 仍可限制单槽，组件实现保持一致。若新旧应用包的 requirements 不兼容，应回到匹配 Host / Guest 的已验证组合，不通过忽略版本检查强行运行。</p>
+</section>
+
+<section id="d5">
+  <h2><span class="num">09</span>D5：Home Widget、操作与实例消息</h2>
+  <div class="phase-meta"><span>前置：D4 音乐业务独立于页面</span><span>结果：Home 展示并控制多个 App</span><span>粗估：3–5 人日</span></div>
+  <h3>实施任务</h3>
+  <ol>
+    <li>新增 WidgetStore：AppId 所有权、模板、版本、更新时间、过期 / 离线标记和有界状态快照；Home 仅渲染允许字段，不读 Guest 对象或 Cookie。</li>
+    <li>V1 固定 weather / clock / media 三类模板，最多两个 Widget / App、全局八个。先用测试 App 的天气 / 时钟快照验证协议，真实业务在 D6 / D7 接入。</li>
+    <li>新增 MessageBroker、票据 Read / Ack 和 Result；Host 注入发送者，校验目标实例 / 组件代次、导出权限、载荷及期限。同 Guest 组件消息与跨 Guest 消息统一经过 Broker，不直接跨调 Guest 函数。</li>
+    <li>Home 点击卡片走 Activate；卡片按钮走明确的业务命令，如 SetPlaying、NextTrack。操作绑定 Widget revision、目标身份与 request_id，等待期间合并或禁用重复操作。</li>
+    <li>实现活跃实例内的序列水位和有界结果缓存；旧序列落在缓存外时拒绝，不重新执行“下一首”。普通消息不持久化、不自动跨实例重放。</li>
+    <li>增加实例地址与逻辑 App / Service 地址的区分。D5 先向存活接收端路由；自动冷启动入口在 D6 结合任务资格开放。默认私有，导出服务必须声明调用者 / 消息类型 allowlist。</li>
+  </ol>
+  <p><strong>代码位置：</strong><a href="../../firmware/pc/home_app.cpp">Home</a>、Host WidgetStore / MessageBroker（拟新增）、AppManager 操作入口、Runtime 消息邮箱、Guest Widget / Message SDK、音乐 Service 快照发布。Runtime 通过注入的中立接口请求 Host 操作。</p>
+  <h3>建议提交边界</h3>
+  <p>D5.1：快照协议与模板渲染；D5.2：Broker / Ack / 权限 / 去重；D5.3：音乐卡片与多应用 Home 接入。卡片模板不嵌入另一 Guest 的 Scene 或 LVGL 树。</p>
+  <h3>验收与交付证据</h3>
+  <ul class="checklist">
+    <li>Home 同时显示三个来源的卡片；音乐进度可由 Host 时间推算，常规发布不超过设定频率。</li>
+    <li>Home 暂停 / 恢复 / 下一首后，音乐页面显示同一业务结果；进入页面不丢队列。</li>
+    <li>超大快照、邮箱满、未授权发送者、旧 Widget revision 和旧 ComponentKey 都被明确拒绝。</li>
+    <li>重复 NextTrack 只执行一次；重启后的新实例不接收旧实例回复；没有普通消息“恰好一次”假承诺。</li>
+    <li>交付 Widget / Message 线协议、权限 fixture、Host 模板截图和按请求关联的路由日志。</li>
+  </ul>
+  <p><strong>回退边界：</strong>Home 可退回仅显示 App 列表和管理快照；组件继续使用同一生命周期。关闭 Widget 能力时通过协商明确告知 Guest，不保留会被错误投递的旧按钮。</p>
+</section>
+
+<section id="d6">
+  <h2><span class="num">10</span>D6：天气应用与 Host JobScheduler</h2>
+  <div class="phase-meta"><span>前置：D5 Widget / Broker；真实数据源在接入前确定</span><span>结果：按时间 / 消息执行后台工作并休眠</span><span>粗估：3–5 人日</span></div>
+  <h3>实施任务</h3>
+  <ol>
+    <li>新增 Host JobScheduler：按 AppId 持久登记周期 / 单次任务；运行时创建有限 work ticket，使用单调时钟限制执行 deadline。周期刷新不是精确闹钟。</li>
+    <li>闭合 EnsureWork：RUNNING 复用、SUSPENDED 安全恢复、STOPPED 受控冷启动。Guest / Service Ready 后才投递工作；一个旧 work 完成不能停止仍有其他工作的 Service。</li>
+    <li>实现有限消息唤醒：逻辑端点必须显式允许、来源合法、具有预算，且不是用户停止状态。实例端点的迟到消息永不改投到新实例。</li>
+    <li>新增 <code>guest/apps/weather/</code>（拟新增）：WeatherActivity 展示详情，WeatherService 发请求、更新缓存和 Widget，然后完成工作。默认刷新周期可取 15 分钟，测试使用虚拟时间。</li>
+    <li>加入后台资格与空闲策略：有 MEDIA / JOB / WIDGET_ACTION 时不挂起；无资格且无前台 / 待投递操作时经安全点挂起。本轮不做内存压力自动回收。</li>
+    <li>持久保存城市、任务计划和最后成功天气；失败保留旧值并标记时间。用户 StopApp 设置 user_stopped，阻止自动 Job / 消息拉起；显式打开或用户 Widget 操作可清除标记。</li>
+  </ol>
+  <p><strong>代码位置：</strong>Host JobScheduler / 任务登记存储（拟新增）、AppManager 后台资格和工作租约、Runtime Job SDK、天气 Guest；复用既有 HTTP，不在天气中引入 socket 或平台头文件。</p>
+  <h3>数据源与提交边界</h3>
+  <p>WeatherClient 隔离城市标识、认证和响应解析。先用 localhost fixture 覆盖成功 / 失败 / 慢响应；真实数据源、城市配置和授权条件在 D6 接入前确定，密钥不写仓库。D6.1：Scheduler / work ticket；D6.2：天气组件 / Widget；D6.3：真实来源适配及冷 / 热唤醒验证。</p>
+  <h3>验收与交付证据</h3>
+  <ul class="checklist">
+    <li>虚拟时间触发任务，覆盖 RUNNING、SUSPENDED、STOPPED 三条路径；刷新后卡片更新，Service 无工作时结束 / 挂起。</li>
+    <li>刷新期间音乐不断；Guest Timer 在挂起时冻结，而 Host 时钟、Job 时限与未来登记不冻结。</li>
+    <li>慢请求超过工作总 deadline 后取消 I/O，释放对应租约；已有天气成功值保留。</li>
+    <li>user_stopped 阻止自动拉起；显式 Widget 刷新可启动目标 App，且不抢当前 Activity 前台。</li>
+    <li>正常重启可恢复配置和未来计划；卸载删除相关 Job。交付天气 Guest、数据源说明、虚拟时钟测试和一次真实刷新结果。</li>
+  </ul>
+  <p><strong>回退边界：</strong>关闭自动调度后保留手动打开 / 刷新；任务登记采用版本化记录，不因临时关闭功能而损坏旧配置。真实源未确定时，D6 可进入 fixture 联调，但不能标记真实天气验收完成。</p>
+</section>
+
+<section id="d7">
+  <h2><span class="num">11</span>D7：时钟闹钟、Host AlarmScheduler 与音频焦点</h2>
+  <div class="phase-meta"><span>前置：D6 调度与持久登记；D4 媒体 Service</span><span>结果：PC 三应用功能闭环</span><span>粗估：4–6 人日</span></div>
+  <h3>实施任务</h3>
+  <ol>
+    <li>新增 <code>guest/apps/clock-alarm/</code>（拟新增）。ClockActivity 负责设置、启用 / 停用闹钟，配置提交给 Host；ClockService 可按需接收通知，不在响铃关键路径上。</li>
+    <li>Host Time / Clock Widget 独立刷新；单调时钟用于 deadline，UTC 与固定时区偏移用于闹钟。首版不引入完整 IANA 时区 / 夏令时数据库。</li>
+    <li>实现 AlarmScheduler 与版本化持久记录：一次性与按星期重复、停止响铃、未来计划恢复；闹钟登记的确认必须在持久提交成功之后返回。</li>
+    <li>时间未同步时标记不可用，不按错误 UTC 响铃。显式校时 / 改时区后重算未来 occurrence；首版不补响关机或时间跳变期间错过的提醒。同一 occurrence 去重，多条同时到期合并为一个 Host 响铃界面。</li>
+    <li>实现 AudioFocus：Host 闹钟取得优先级，暂停或 duck 音乐，记录媒体 owner、句柄代次和 intent_version。用户暂停、停止或切歌后，不得用旧快照恢复错误媒体。</li>
+    <li>区分用户暂停与 focus 中断；后者不能误触发音乐的用户暂停回收计时。系统主音量继续由 Host 管理。</li>
+    <li>用户“关闭 App”保留已确认的 Host 闹钟，且不拉起被停止的 Guest；停用禁用闹钟，卸载 / 清除数据删除闹钟。界面明确表达此产品规则。</li>
+  </ol>
+  <p><strong>代码位置：</strong>Host Time / AlarmScheduler / AudioFocus / 闹钟系统 UI（拟新增）、Host 持久配置、AppManager 停用 / 卸载协调、Audio 服务、Clock Guest、音乐 Service 的 focus 事件。</p>
+  <h3>建议提交边界</h3>
+  <p>D7.1：时间模型、虚拟时钟与持久闹钟；D7.2：ClockActivity、Host 卡片与响铃；D7.3：音频焦点和三应用联调。贪睡、多级提醒、自定义网络铃声后置，使用一条有界 Host 铃声路径完成首版。</p>
+  <h3>验收与交付证据</h3>
+  <ul class="checklist">
+    <li>Clock Guest 正常停止 / 回收后，Home 时间仍更新；已确认闹钟仍按计划响铃，Guest 通知失败不影响铃声。</li>
+    <li>覆盖一次性、每周重复、关闭 / 停用 / 卸载、正常重启、UTC 前后跳变、时区调整与多个同时到期；同一 occurrence 不重复响铃。</li>
+    <li>响铃结束恢复仍有效的播放意图；用户在响铃期间暂停或停止音乐，则不恢复；旧媒体 owner / generation 不被误用。</li>
+    <li>天气刷新、音乐后台、ClockActivity / Home 切换同时有效；操作不阻塞 LVGL，系统弹窗拥有输入优先级。</li>
+    <li>交付时钟 Guest、登记格式、音频焦点状态表、时间推进测试、PCM 和三应用演示。</li>
+  </ul>
+  <p><strong>回退边界：</strong>有未处理闹钟时不通过关闭能力静默丢弃登记；保留读取 / 禁用 / 删除配置的路径。默认多应用 profile 仅在本阶段功能闭环通过后启用；必要时回到单槽配置和匹配的应用版本。</p>
+</section>
+
+<section id="d8">
+  <h2><span class="num">12</span>D8：把 RV32 AOT 接入同一框架</h2>
+  <div class="phase-meta"><span>前置：D7 原生 PC 功能闭环</span><span>结果：原生 Wasm / RV32 共用管理与业务契约</span><span>粗估：3–5 人日</span></div>
+  <h3>实施任务</h3>
+  <ol>
+    <li>将 RV32 Session 适配为相同 SessionRunner，启动、前台、挂起、工作资格和退出只由 AppManager 决定，不在后端复制另一套策略。</li>
+    <li>每实例独立 QEMU 进程、socket、共享 RAM、桥接状态、包映射与日志 owner；包租约和内存 / 子进程预算都纳入准入。</li>
+    <li>使用原七个 Core imports 透传新 Service；核对消息票据、生命周期、Widget、Job / Alarm 的请求大小、分块和指针范围。仅在 framing 确有变化时显式协商协议版本。</li>
+    <li>构建支持新 SDK 的音乐、天气、时钟 RV32 Bundle，保持 WAMR / wamrc 固定版本和 AOT v6，不要求改写旧机器码。</li>
+    <li>官方旧 Bundle 保留 LegacyActivity 前台兼容；不能因 Host 升级就虚构 Service 或 Widget。打开系统页面时按其能力执行挂起策略，返回复用原实例。</li>
+    <li>为原生 / RV32 测试分别设置启动时限；优先等待明确就绪条件。模拟器更慢不作为业务断言失败的依据，也不把放宽时限当性能达标证据。</li>
+  </ol>
+  <p><strong>代码位置：</strong><a href="../../firmware/pc/rv32_session.cpp">RV32 Host 桥</a>、<a href="../../firmware/pc/rv32/runner.c">runner</a>、<a href="../../firmware/pc/rv32/protocol.h">framing</a>、SessionRunner、构建工具和原生 / RV32 共用的测试场景。若桥已能透传新服务，保持协议和 runner 改动最小。</p>
+  <h3>建议提交边界</h3>
+  <p>D8.1：runner 接口与多桥归属；D8.2：新 Guest Bundle / 服务透传；D8.3：混合后端与官方旧包回归。QEMU 进程终止是 PC 提供的能力，不用它推导 MCU 任意故障可恢复。</p>
+  <h3>验收与交付证据</h3>
+  <ul class="checklist">
+    <li>至少两个 RV32 Guest 共存，停止一个不会结束另一个进程、流或 socket；旧桥回调不能落到新槽。</li>
+    <li>原生音乐＋RV32 测试 App，以及 RV32 音乐＋原生测试 App 均可前后台切换；有效资源归属相同。</li>
+    <li>新音乐 RV32 Bundle 通过登录 fixture、列表、收藏、每日推荐、播放与后台自动下一首；天气、闹钟通过同一虚拟时间测试集。</li>
+    <li>官方固定旧包可浏览、安装、校验、运行、返回 Home 和再次进入；畸形 IPC、越界范围和错误版本仍拒绝。</li>
+    <li>交付各 Guest release Bundle、后端一致性结果与能力矩阵，不提交生成的二进制或测试报告到源码树。</li>
+  </ul>
+  <p><strong>回退边界：</strong>关闭 RV32 多实例能力时原生路径仍可使用；旧包安装与数据不删除。任何桥版本变化必须明确拒绝不兼容对端，不能尝试按旧结构继续解析。</p>
+</section>
+
+<section id="d9">
+  <h2><span class="num">13</span>D9：一块 RTOS / no-MMU 目标板适配</h2>
+  <div class="phase-meta"><span>前置：D8；明确板卡、屏幕、RAM / PSRAM、音频与网络能力</span><span>结果：同一组件模型在目标硬件上成立</span><span>粗估：5–10 人日，需按平台缺口重估</span></div>
+  <h3>开始前的可行性门槛</h3>
+  <p>先确定一块板及其资源 profile，不默认选 P4，不扩展到全部板型。逐项核对 WAMRC 目标、屏幕 / 触摸 / 字体、可用内存与最大连续块、音频输出、标准网络传输和可用 UTC 来源。已有网络连接可复用；Wi-Fi 配网流程不在本轮新增范围。</p>
+  <p>资源估算必须包含 Guest 线性内存、三类栈、Host 会话上下文、TLS、解码窗口、Scene / 字体 / 纹理、DMA、加载峰值和预留。若无法在目标板保持最少两个独立 Guest（前台＋音乐），应报告容量缺口并调整目标 / 应用容量，不以“Host 直接运行全部业务”替代多 Guest 验收。</p>
+  <h3>实施任务</h3>
+  <ol>
+    <li>由 FirmwareApp 组合 AppManager、RTOS SessionRunner 和 scoped services；Host controller 为唯一状态写入者，每个存活 Guest 使用受控执行任务，组件不另开 Guest 线程。</li>
+    <li>将 AppRuntime 从单个 active_session 限制改为受预算的实例创建能力；审计任务本地上下文、WAMR 全局锁 / 分配器、全局缓存及共享执行器容量。</li>
+    <li>适配图形 / 输入 / DMA 归属与系统 Home；后台不持续绘制，停止时只排空本 owner。测量真实调用链总栈，而不是单独增加 task stack 掩盖大局部对象。</li>
+    <li>实现 MCU HTTP / TLS 平台适配与有界并发；沿用证书与主机名校验、请求 owner 和取消契约。选择与现有网络栈匹配的适配方式，不引入 Guest socket。</li>
+    <li>补齐 URL media、目标可用的 MP3 解码和固定大小流式 / 分块缓冲；Guest 只控制媒体句柄，Host 音频回调不下载、解码或分配。禁止搬用 PC 的整曲 128 MiB PCM 缓存。</li>
+    <li>新增平台依赖须固定版本、核查许可证并更新第三方声明；不复制或修改 WAMR 子模块来实现普通平台适配。</li>
+    <li>为音乐 / 天气定义 MCU 数据窗口、JSON / 歌单 / 图像上限和低内存 profile；按真实屏幕调整控件、字体、触摸区域和二维码显示，再更新 requirements。</li>
+    <li>接入 Host 时钟 / 任务 / 持久闹钟与音频焦点；数据适配分为 PC SQLite 与目标既有存储，不共享数据库实现。</li>
+  </ol>
+  <p><strong>代码位置：</strong>FirmwareApp、Host controller / Home、<a href="../../firmware/espressif/main/runtime/app_runtime.cpp">AppRuntime</a> / AppSession / WAMR 包装层、Device 契约与目标 Platform 适配、既有 <a href="../../firmware/espressif/main/platform/audio/">音频模块</a>、<a href="../../firmware/espressif/main/platform/memory/">内存模块</a>、Guest 布局 / 容量配置和选定目标构建入口。WAMR 子模块源码仍不在本轮改动范围。</p>
+  <h3>建议提交边界</h3>
+  <p>D9.1：板级预算 / 中立接口 / Host 构建；D9.2：两 Guest 与 scoped graphics / input / audio；D9.3：HTTP / 媒体 / 低内存 HMI 与三应用场景。若新平台缺少成熟解码或 TLS 能力，应在 D9.1 评估后重估工时，而不是隐藏在最后的“联调”中。</p>
+  <h3>验收与交付证据</h3>
+  <ul class="checklist">
+    <li>选定目标 build-host 与对应 Guest release Bundle 构建通过；有硬件验证记录，PC / QEMU 结果不能替代。</li>
+    <li>至少前台 Guest 与音乐 Guest 共存；天气可按需唤醒，Clock Guest 退出后 Host 时间 / 闹钟仍有效。三个功能同时有效，不强制三个 Guest 永久驻留。</li>
+    <li>在真实屏幕上完成扫码、歌单滚动、播放、Home 控制、天气更新、闹钟中断 / 正确恢复及用户正常关闭。</li>
+    <li>测量任务最低空闲栈、Host / Guest 堆峰值、最大连续块、图形 / DMA 占用、解码窗口、切换延迟和音频 underrun；连续运行 30 分钟及 100 次正常切换 / 启停后无持续资源增长。</li>
+    <li>容量不足在准入时明确拒绝并保留旧前台 / 音乐；有完整资源报告和目标 profile，不能仅展示“编译通过”。</li>
+  </ul>
+  <p><strong>回退边界：</strong>目标配置维持单槽能力直到板级验证通过；新多应用能力未通过的板型不默认启用。回退固件 / Guest 必须使用匹配版本；版本化持久登记保留读取 / 迁移策略。</p>
+</section>
+
+<section id="budgets">
+  <h2><span class="num">14</span>容量、执行条件与工作量</h2>
+  <h3>PC 首版容量</h3>
+  <p>以下为初始 profile 建议，不是实测结论。D1 / D2 冻结计费和准入实现；D9 根据真实目标重算。不能只累加线性内存上限，而忽略 Host 和加载峰值。</p>
+  <div class="table-wrap"><table><thead><tr><th>项目</th><th>PC 初始值</th><th>必须满足的规则</th></tr></thead><tbody>
+    <tr><td>安装记录 / 实例槽</td><td>64 / 4</td><td>Home 不占槽；STARTING、SUSPENDED、STOPPING 均占槽。一个 AppId 至多一个存活 Guest。</td></tr>
+    <tr><td>显示</td><td>1 个 DisplayLease＋1 个 staging</td><td>保留后台逻辑 Scene 不等于分配多套全屏像素；同一时刻只准备一个前台交接。</td></tr>
+    <tr><td>Guest 线性内存</td><td>每实例上限 16 MiB；总上限 64 MiB</td><td>按模块与 profile 的较严格值；另计 WAMR 元数据、执行栈、原生栈、TLS、图形与解码。未知的共享堆成本不得假称已做硬配额。</td></tr>
+    <tr><td>HTTP</td><td>每实例 2；Guest 总并发 8</td><td>至少一个名额为关键 Service 预留；保证相应执行通道可用。市场 / Host 调度拥有独立预算。</td></tr>
+    <tr><td>ServiceRegistry</td><td>由当前 16 按需显式扩为固定容量，初始建议 24</td><td>D3 先完成服务 ID / 槽位审计、静态断言和内存账；端点不在实例内动态增删。</td></tr>
+    <tr><td>管理命令</td><td>32 普通命令＋每实例关键控制邮箱</td><td>普通命令可拒绝 BUSY；停止、退出和排空通知不得因普通队列满而丢失。</td></tr>
+    <tr><td>业务消息</td><td>每 Service 8 条等待、单条 1 KiB</td><td>邮箱仅为存活实例分配；另计在途票据、结果缓存及序列水位；不往 Event 中塞大 payload。</td></tr>
+    <tr><td>工作租约</td><td>每 App 4；JOB 30 秒、Widget action 10 秒</td><td>截止时间约束业务请求和租约，不是可抢占 Guest CPU 的证明。长工作拆分，消息完成只释放本 work_id。</td></tr>
+    <tr><td>Widget</td><td>每 App 2、总计 8；快照 2 KiB；常规发布最多 1 次 / 秒</td><td>schema、UTF-8、范围与版本独立校验；时钟 / 进度由 Host 推算，不要求 Guest 每帧发布。</td></tr>
+    <tr><td>媒体 / 闹钟</td><td>1 个主媒体拥有者＋1 个 Host 闹钟输出</td><td>Host 主音量不下放。焦点中断与用户暂停分别记录，不任意恢复旧媒体。</td></tr>
+    <tr><td>Job / Alarm 登记</td><td>Job 总计 16、每 App 4；Alarm 总计 32、每 App 8</td><td>计划按 AppId 持久管理；运行工作按 InstanceKey 管理；总容量不足明确拒绝。</td></tr>
+    <tr><td>图形 / 资源</td><td>沿用现有固定表上限，拆出每 App 与全局上限</td><td>D1 清单必须给出节点、纹理、字体、像素、上传量及帧率限额；未界定的全局资源不能直接开放给多个 Guest。</td></tr>
+  </tbody></table></div>
+  <p>全局准入至少满足 <code>Host 常驻预留＋各实例预留＋图形 / 媒体保留＋任务 / TLS / 加载峰值＋安全余量 ≤ 目标可用内存</code>，同时检查内部 SRAM、PSRAM、DMA 与最大连续分配块，不能把它们视为一个可互换的大堆。</p>
+  <p>正常 handler 必须返回事件循环，Host 长操作异步化。保留现有 watchdog，但不据其超时配置宣称 AOT 可限时退出；不新增“无检查点纯循环也可安全强停”的验收项。</p>
+  <h3>工作量估算</h3>
+  <div class="table-wrap"><table><thead><tr><th>交付</th><th>研发工作日粗估</th><th>主要不确定性</th></tr></thead><tbody>
+    <tr><td>D1 资源归属</td><td>3–5</td><td>图形、音频完成通知和全局任务表中的隐式所有权</td></tr>
+    <tr><td>D2 AppManager</td><td>4–6</td><td>多实例呈现、异步回收、包租约与迁移竞态</td></tr>
+    <tr><td>D3 组件 SDK</td><td>4–6</td><td>requirements 兼容、组件资源域与 SDK 分发语义</td></tr>
+    <tr><td>D4 音乐迁移</td><td>3–5</td><td>页面与播放业务拆分、登录长轮询和服务请求并发</td></tr>
+    <tr><td>D5 Widget / 消息</td><td>3–5</td><td>票据、操作去重、权限和 Home 状态一致性</td></tr>
+    <tr><td>D6 天气 / Job</td><td>3–5</td><td>真实数据源、持久计划与冷 / 热唤醒</td></tr>
+    <tr><td>D7 闹钟 / 焦点</td><td>4–6</td><td>时间跳变、登记语义与播放意图恢复</td></tr>
+    <tr><td>D8 RV32</td><td>3–5</td><td>多桥归属、旧包兼容及 QEMU 启动时限</td></tr>
+    <tr><td>D9 RTOS</td><td>5–10，平台缺口大时重估</td><td>HTTP / 解码适配、内存、屏幕和硬件验证</td></tr>
+  </tbody></table></div>
+  <p>按一位熟悉项目的开发者串行推进、包含各阶段验证估算：D1–D7 为 24–38 人日，D1–D8 为 27–43 人日，全部为 32–53 人日。整体另留约 20%–25% 弹性，不重复叠加到每个阶段；这不是日历承诺，也不含等待板卡、授权或构建环境。D1 审计完成、D6 数据源确定和 D9 资源评估后各复核一次。</p>
+</section>
+
+<section id="validation">
+  <h2><span class="num">15</span>验证矩阵、命令与证据</h2>
+  <h3>验证分层</h3>
+  <div class="table-wrap"><table><thead><tr><th>层次</th><th>覆盖内容</th><th>阶段</th></tr></thead><tbody>
+    <tr><td>纯模型 / owner 单元验证</td><td>状态迁移、seq / epoch、队列上限、资源局部关闭、焦点意图；使用可控时钟与服务夹具</td><td>D1 起持续使用</td></tr>
+    <tr><td>Guest conformance</td><td>真实 Wasm 生命周期、组件资源、参数与长度、消息票据、新旧 requirements / 服务版本</td><td>D2 / D3 起</td></tr>
+    <tr><td>PC 进程集成</td><td>多个 Guest 的实际执行、显示 / 输入路由、HTTP 并发、退出排空与数据持久化</td><td>D2 起</td></tr>
+    <tr><td>HMI / 音频</td><td>X11 / SDL 事件、截图、操作完成条件、合成连续音 PCM、自动下一首、暂停 / 恢复</td><td>D4 起</td></tr>
+    <tr><td>业务与时间</td><td>本地天气 / 音乐服务 fixture、虚拟时钟、任务登记、冷启动、时间跳变与闹钟仲裁</td><td>D4–D7</td></tr>
+    <tr><td>后端一致性</td><td>相同场景在原生、RV32 和混合后端运行，另保留官方旧 AOT fixture</td><td>D8</td></tr>
+    <tr><td>硬件资源与用户路径</td><td>所选板栈 / 堆 / DMA / 解码窗口测量和真实屏幕 / 网络 / 音频验证</td><td>D9</td></tr>
+  </tbody></table></div>
+  <p>自动测试使用 localhost 服务和合成音频，不依赖真实账号、线上推荐结果或实际收藏操作。虚拟时间验证分钟 / 日历任务；后台播放则使用实际 PCM / 播放状态，不能仅凭一行“播放成功”日志判断无声或不断流。</p>
+  <h3>已存在的命令</h3>
+  <pre><code># 既有 PC 构建与基线回归；这些入口当前已存在。
+bash tools/pc.sh build
+bash tools/pc.sh rv32-build
+bash tools/tests/test_firmware_host.sh --pc
+bash tools/tests/test_firmware_host.sh --pc --widgets
+bash tools/tests/test_firmware_host.sh --pc --home --interactive
+bash tools/tests/test_firmware_host.sh --pc --feed
+bash tools/tests/test_firmware_host.sh --pc --feed --refresh
+bash tools/tests/test_firmware_host.sh --pc --launcher
+bash tools/tests/test_firmware_host.sh --pc --launcher --rv32
+bash tools/tests/test_firmware_host.sh --pc --music --rv32
+bash tools/tests/test_firmware_host.sh --pc --rv32
+python3 -m unittest tools.tests.test_build_app_bundle_metadata tools.tests.test_micropixel_cli
+bash tools/check_firmware_architecture.sh
+git diff --check</code></pre>
+  <p>不要求每阶段机械重跑全部列表：按变更覆盖对应套件，成功后仅在新改动、失败或新疑点出现时复跑。SDK / ABI 变化构建对应 Guest；集成 App 生成 release Bundle；D9 只构建指定板，不默认扩大到其他目标。MCU 格式 / Host 检查按仓库说明使用已激活的 ESP-IDF 环境。</p>
+  <h3>拟新增入口：以下命令尚未实现</h3>
+  <pre><code># D1：新增 wrapper 分组，便携模型 / owner 测试不依赖 esp-http3。
+bash tools/tests/test_firmware_host.sh --app-framework
+
+# D2–D7：按交付增加 PC 集成分组。
+bash tools/tests/test_firmware_host.sh --pc --multi-app
+bash tools/tests/test_firmware_host.sh --pc --components
+bash tools/tests/test_firmware_host.sh --pc --messages
+bash tools/tests/test_firmware_host.sh --pc --home-widgets
+bash tools/tests/test_firmware_host.sh --pc --jobs
+bash tools/tests/test_firmware_host.sh --pc --alarms
+
+# D8：相同业务场景增加 --rv32 / 混合后端用例。
+# D9：采用已选目标的正式 build-host / Guest 构建入口。</code></pre>
+  <p>扩展现有 wrapper 和缓存机制，不绕开 wrapper 直接调用 clang++。当前环境中固件全量 Host wrapper 可能因缺 esp-http3 未启动；D1 的独立分组解决可便携测试的依赖，而固件全量检查仍在完整依赖环境执行，不能把未运行记成通过。</p>
+  <h3>统一出口条件</h3>
+  <ul>
+    <li>阶段功能有自动断言和可演示结果；编译通过不是单独验收依据。</li>
+    <li>无源代码 / ABI / docs 版本分歧，正常停止后本 owner 的资源回到基线，其他 owner 继续工作。</li>
+    <li>PC Host Home / 系统操作本地响应 p95 的初始目标为 200 毫秒，排除下载和加载等待；分别记录原生 / RV32 首帧与命令完成延迟。目标在 D2 基线后冻结，不用 QEMU 时限冒充硬件性能。</li>
+    <li>用连续合成音源检查前后台切换的 underrun 和非预期静音；音乐本身的自然静音不判作故障。D7 做至少 10 分钟 PC 组合运行，D9 做至少 30 分钟硬件运行。</li>
+    <li>日志只含身份、状态、请求 ID、数量与错误；账号 Cookie、OAuth code、签名 URL、真实设备标识不进入提交内容。</li>
+  </ul>
+  <h3>每次交付保留的证据</h3>
+  <p>变更说明列出阶段 ID、提交号、Host / SDK / App 版本、测试命令及退出码、未执行原因和剩余限制；本地 <code>build/app-manager-tests/dN/</code> 保存日志、截图、PCM 与资源统计。基线和阶段 Bundle 用摘要关联，生成物与一次性测量报告不提交到源码仓库。</p>
+</section>
+
+<section id="rollout">
+  <h2><span class="num">16</span>合入、启用与回退</h2>
+  <h3>开工与每阶段流程</h3>
+  <ol>
+    <li>D1 开始前保留当前已验证的 PC Host、音乐 Wasm / RV32 Bundle、fixture 和版本摘要到本地 build/，记录现有操作与资源基线。</li>
+    <li>每次先冻结该阶段协议和容量，再实现对应测试与代码；公开协议变更同步更新 SDK、reader、工具和示例。</li>
+    <li>按该阶段的 2–3 个提交边界完成变更；未完成能力由 profile 明确关闭，不维护旧页面副本。</li>
+    <li>运行受影响验证，完成阶段演示，记录通过 / 未运行 / 阻塞及原因。必要依赖缺失时不能把阶段标成完成。</li>
+    <li>更新实际已实现能力的 README 与架构基线，再合入阶段提交。设计提案不提前改成“已支持”。</li>
+    <li>阶段通过后进入下一次交付；依赖方只使用已落地、版本可协商的契约。</li>
+  </ol>
+  <h3>能力启用表</h3>
+  <div class="table-wrap"><table><thead><tr><th>阶段</th><th>默认行为</th><th>验证配置</th></tr></thead><tbody>
+    <tr><td>D1</td><td>单槽，保留现有 Home / 音乐体验</td><td>双 owner Host 测试，不开放多 Guest</td></tr>
+    <tr><td>D2–D3</td><td>保留单槽默认；统一使用新管理实现</td><td>开发 profile 的两个有界测试 Guest，组件 / 兼容验证</td></tr>
+    <tr><td>D4–D6</td><td>新组件可在单槽运行，正式音乐逐步迁移</td><td>音乐＋其他 Guest、Home Widget、Job 和 cold start</td></tr>
+    <tr><td>D7</td><td>PC 三应用闭环通过后启用多实例默认 profile</td><td>保留同版本单槽配置用于定位和回退</td></tr>
+    <tr><td>D8</td><td>按可用 runner 和声明提供 RV32 能力</td><td>多 RV32、混合模式与官方旧包</td></tr>
+    <tr><td>D9</td><td>只对验证通过的目标 profile 启用</td><td>其他板型继续原已验证行为，不推定全平台完成</td></tr>
+  </tbody></table></div>
+  <h3>回退规则</h3>
+  <p>首选同版本单槽 / 关闭未完成能力的配置回退，保留已经可读的配置与 Host 任务 / 闹钟。回退前先正常停止并排空新实例；尚未退出的实例不能被直接覆盖或复用。</p>
+  <p>requirements、任务和闹钟记录均版本化；旧 reader 对未知版本明确拒绝，不按旧布局解释。若必须退到不支持新闹钟的旧 Host，需先在新 Host 显式取消登记并备份配置，再更换匹配的 Host / Guest；不能承诺旧版本继续执行它不认识的提醒。</p>
+  <p>普通 Widget 快照与易失消息不做数据迁移，重建时标记离线并重新发布；账号和用户配置按既有 AppId 私有存储保持。普通实例状态和播放执行位置不属于本轮恢复数据。</p>
+</section>
+
+<section id="risks">
+  <h2><span class="num">17</span>风险、依赖和待确定事项</h2>
+  <div class="table-wrap"><table><thead><tr><th>风险 / 输入</th><th>处理</th><th>最晚检查点</th></tr></thead><tbody>
+    <tr><td>全局设备或任务仍被多个 Guest 共用</td><td>owner 清单及双上下文验证必须完成；不靠增加 Session 数量绕过问题</td><td>D1 出口</td></tr>
+    <tr><td>Service 表容量 / 协议空间不足</td><td>审计当前 14/16 槽，按固定容量扩展并分配新 ID；现有 ABI 目录结构保持</td><td>D3.1</td></tr>
+    <tr><td>登录长轮询占用播放所需的传输通道</td><td>组件请求归属、Service 名额预留和实际执行并发一起验证</td><td>D4.2</td></tr>
+    <tr><td>官方账号授权 / API 行为变化</td><td>自动回归依赖固定 fixture；真实账号仅联调，业务错误与框架错误分别定位</td><td>D4 / D6 真实联调</td></tr>
+    <tr><td>天气源、城市配置、授权方式未选</td><td>先实现 WeatherClient 和 fixture；真实来源确认后才完成真实天气验收，密钥由运行配置提供</td><td>D6.2 之前</td></tr>
+    <tr><td>旧官方 AOT 无组件声明</td><td>LegacyActivity 前台兼容；需要新 Service / Widget 时重新构建，Host 不伪造支持</td><td>D3 定规则，D8 验证</td></tr>
+    <tr><td>板卡 / 屏幕 / 内存 / 音频尚未选</td><td>可提前提供以指导 D4 布局；D9.1 开始前必须冻结一块目标和容量，不默认全部 MCU 都能容纳</td><td>D9.1 之前</td></tr>
+    <tr><td>音乐当前最低 720×720、PC 整曲解码</td><td>建立分辨率 / 数据窗口 profile、实测触摸和二维码；MCU 提供有界媒体缓冲与目标解码器</td><td>D4 建边界，D9 验证</td></tr>
+    <tr><td>纯死循环 / Host 原生故障</td><td>本轮受控 App 正常路径假设；已有检查保持，不新增无 MMU 下的任意故障恢复承诺</td><td>每阶段范围说明</td></tr>
+    <tr><td>SDK / Host / 工具版本混用</td><td>requirements fixture、新旧组合与明确拒绝；每交付记录版本摘要</td><td>D3 起每阶段</td></tr>
+    <tr><td>GUI / 本地 socket / QEMU / MCU 工具链依赖缺失</td><td>验证环境先行检查；记录未运行原因，准备依赖后再进入对应验收，不假报通过</td><td>对应阶段开始前</td></tr>
+  </tbody></table></div>
+  <p>当前可以在不确定真实天气源和 MCU 板型的情况下开始 D1–D5；这些输入到达其最晚检查点前不应阻止框架独立工作。板型若提前明确，则在 D4 就验证布局和 Guest 数据窗口，减少 D9 返工。</p>
+</section>
+
+<section id="done">
+  <h2><span class="num">18</span>最终完成条件</h2>
+  <p>以下路径构成首版验收；每条都需要实际状态和资源证据，不能只做静态页面。</p>
+  <ol>
+    <li><strong>从 Home 进入音乐：</strong>完成登录或恢复可用账号，显示昵称 / 歌单并播放；返回 Home 后曲目和进度继续。</li>
+    <li><strong>打开天气：</strong>天气成为唯一输入 / 显示目标，音乐继续；触发刷新后卡片发布新值，错误保留旧成功值。</li>
+    <li><strong>关闭天气：</strong>天气实例局部退出，音乐不受影响；自动任务按用户停止策略处理，显式 Widget 刷新可重新启动。</li>
+    <li><strong>销毁音乐页面：</strong>PlaybackService 与队列仍存在；再次进入复用 Guest 并重建 Activity，旧组件回调不能污染新页面。</li>
+    <li><strong>设定并离开闹钟：</strong>Clock Guest 可停止，Host 时间持续显示；闹钟响铃获得焦点，结束后仅恢复有效播放意图。</li>
+    <li><strong>停止音乐 App：</strong>媒体、请求、组件和资源只按其 owner 清理；Home、天气任务和 Host 闹钟继续。</li>
+    <li><strong>耗尽容量：</strong>新请求明确被拒绝，旧前台和音乐保持；正常释放槽后可再次启动，不自动复用未退出的槽。</li>
+    <li><strong>兼容与后端：</strong>旧官方 AOT 以前台 LegacyActivity 运行；新组件 Guest 在原生 / RV32 / 混合模式通过对应场景。</li>
+    <li><strong>硬件：</strong>一块明确的 RTOS 目标通过资源报告、真实 HMI、网络、音频和组合运行；其余板型不默认标为支持。</li>
+  </ol>
+  <div class="callout"><strong>本轮完成：</strong>正常路径的多应用功能闭环和一块硬件目标成立。<strong>下一轮独立目标：</strong>故障自动恢复、AOT 有界取消 / 计算预算，以及需要额外硬件支持的更强隔离。后续目标不反向作为这九次交付的隐含验收项。</div>
+</section>
+
+<section id="references">
+  <h2><span class="num">19</span>关联文档</h2>
+  <ul>
+    <li><a href="../design/app-manager.zh-CN.html">AppManager、Activity 与 App Service 详细设计</a>：架构、状态机、Widget、消息与更完整的故障边界。</li>
+    <li><a href="../design/pc-home.zh-CN.md">当前 PC Home</a>：单 Guest 的已实现行为。</li>
+    <li><a href="../design/pc-music.zh-CN.md">网易云 Guest 与 PC 服务</a>：当前账号、推荐、媒体与 HTTP 约束。</li>
+    <li><a href="../design/pc-rv32.zh-CN.md">RV32 运行方案</a>、<a href="../../firmware/pc/README.zh-CN.md">PC 构建与运行</a>：当前后端和测试入口。</li>
+    <li><a href="../../guest/sdk/README.zh-CN.md">Guest SDK</a>、<a href="../../guest/abi/README.zh-CN.md">Service ABI</a>：公开能力与版本规则。</li>
+    <li><a href="flashing.zh-CN.md">目标构建与烧录</a>、<a href="../../AGENTS.md">仓库工作约束</a>、<a href="../../CONTRIBUTING.zh-CN.md">贡献规范</a>。</li>
+  </ul>
+</section>
+
+<footer class="footer">本文件是实施和验收计划。架构机制保留在 design 文档，实际测试结果与阶段提交记录在各阶段变更说明及本地 build/ 日志中。</footer>
+</main>
+<script>document.getElementById('print-plan').addEventListener('click',()=>window.print());</script>
+</body>
+</html>

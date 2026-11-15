@@ -16,7 +16,7 @@ The following detailed guides are in Simplified Chinese.
 | Design | Development |
 |---|---|
 | [Architecture](design/architecture.zh-CN.md) | [Build and flashing](development/flashing.zh-CN.md) |
-| [AppManager, Activity and App Service design (HTML proposal)](design/app-manager.zh-CN.html) | — |
+| [AppManager, Activity and App Service design (HTML proposal)](design/app-manager.zh-CN.html) | [Nine-delivery implementation plan (HTML)](development/app-manager-plan.zh-CN.html) |
 | — | [C/C++ style](development/code-style.zh-CN.md) |
 | [Service ABI](../guest/abi/README.zh-CN.md) | [Graphics performance](development/graphics-performance.zh-CN.md) |
 | [BundleFS](design/bundlefs.zh-CN.md) | [Audio](development/game-audio.zh-CN.md) |
