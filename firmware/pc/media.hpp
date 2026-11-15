@@ -12,7 +12,7 @@
 namespace micropixel::pc {
 class MediaPlayer {
    public:
-    explicit MediaPlayer(SdlAudio& audio);
+    explicit MediaPlayer(SdlAudio& audio, uint64_t owner = 0);
     ~MediaPlayer();
     void Play(std::string source);
     void Stop();
@@ -28,15 +28,17 @@ class MediaPlayer {
    private:
     static device::PcmReadResult Read(void*, int16_t*, uint32_t);
     void Run();
-    void Load(const std::string&, uint64_t generation);
+    void Load(const std::string&, uint64_t generation, uint32_t component);
     void SetStatus(std::string, uint64_t generation);
     void StopAudioLocked();
     SdlAudio& audio_;
+    const uint64_t owner_;
     std::mutex mutex_;
     std::string status_ = "Ready: MP3, WAV and Ogg/Opus";
     std::condition_variable wake_;
     std::optional<std::string> pending_;
     uint64_t generation_{};
+    uint32_t pending_component_{};
     bool shutdown_{};
     std::vector<int16_t> samples_;
     std::atomic<size_t> position_{}, total_samples_{};

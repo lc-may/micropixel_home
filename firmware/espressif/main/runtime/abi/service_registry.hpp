@@ -58,9 +58,12 @@ class ServiceRegistry final {
                                uint32_t& response_size_out) const;
     [[nodiscard]] int32_t Submit(micropixel_service_handle_t service_handle, uint32_t channel_id, const uint8_t* bytes,
                                  uint32_t length) const;
+    [[nodiscard]] uint32_t ServiceId(micropixel_service_handle_t handle) const {
+        return handle && handle <= service_count_ ? descriptors_[handle - 1].service_id : 0;
+    }
 
    private:
-    static constexpr uint32_t kMaxServiceCount = 16U;
+    static constexpr uint32_t kMaxServiceCount = 24U;
 
     [[nodiscard]] bool Resolve(micropixel_service_handle_t service_handle, ServiceHandler*& handler_out,
                                const ServiceDescriptor*& descriptor_out) const;

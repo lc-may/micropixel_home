@@ -1,4 +1,5 @@
 import json
+import copy
 import struct
 import subprocess
 import sys
@@ -11,6 +12,29 @@ from tools import build_app_bundle as bundle
 
 
 class PackageMetadataTests(unittest.TestCase):
+    def test_component_requirements_contract(self):
+        fixture = json.loads((Path(__file__).parent / "fixtures/app-requirements-v2.json").read_text())
+        valid = fixture["requirements"]
+        self.assertEqual(bundle.validate_requirements(valid), valid)
+        invalid = [
+            {"schema_version": 1}, {"schema_version": 3}, {"components": {}},
+            {"services": {}}, {"services": {"lifecycle": True}},
+        ]
+        for change in invalid:
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                bundle.validate_requirements({**valid, **change})
+        for change in ({"activity": 1}, {"activity": False, "service": False},
+                       {"service": False}, {"background": ["task", "task"]},
+                       {"background": ["unknown"]}, {"widgets": -1}, {"widgets": True},
+                       {"widgets": 3}, {"extra": 1}):
+            value = copy.deepcopy(valid)
+            value["components"].update(change)
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                bundle.validate_requirements(value)
+        value = copy.deepcopy(valid)
+        value["components"].update(activity=False, widgets=2)
+        self.assertEqual(bundle.validate_requirements(value), value)  # Parsed, Host D3 rejects unsupported widgets.
+
     def test_system_font_requirement(self):
         value = {"schema_version": 1, "display": {"layouts": ["square"], "min_width": 320, "min_height": 320},
                  "required": [], "optional": [], "any_of": [], "services": {}, "system_font": "zh-CN"}

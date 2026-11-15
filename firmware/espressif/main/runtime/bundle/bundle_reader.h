@@ -109,6 +109,8 @@ void micropixel_close_asset_mapping(micropixel_bundle_asset_mapping_t* mapping);
  * Other sections are verified when opened.
  */
 bool micropixel_open_aot_package(const micropixel_bundle_source_t* source, micropixel_aot_package_t* package_out);
+bool micropixel_parse_app_requirements_json(const uint8_t* bytes, uint32_t length,
+                                            micropixel_app_requirements_t* output);
 void micropixel_close_aot_package(micropixel_aot_package_t* package);
 /* Borrows validated TOC metadata without reading or verifying section payload.
  * The package must outlive the returned pointer. Streaming consumers must verify

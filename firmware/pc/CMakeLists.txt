@@ -68,11 +68,13 @@ target_compile_definitions(pc_protocols PRIVATE
     HTTP_RECV_RETRY_TIMEOUT_MS=10000U HTTP_SEND_RETRY_TIMEOUT_MS=10000U)
 
 set(SHARED_SOURCES
+    host/controller/app_manager.cpp
     host/ui/system_locale.cpp host/ui/lvgl/square_common/hall_card_ui.cpp
     device/device_registry.cpp device/device_services.cpp device/text.cpp
     runtime/abi/guest_abi.cpp runtime/abi/native_symbols.c runtime/abi/service_endpoints.cpp runtime/abi/service_registry.cpp
     runtime/bundle/bundle_reader.c runtime/bundle/bundle_section_reader.cpp runtime/bundle/memory_bundle_source.c
     runtime/guest_context.cpp runtime/event_queue.cpp runtime/key_event_bridge.cpp runtime/touch_event_bridge.cpp
+    runtime/components.cpp
     runtime/audio/audio_playback_service.cpp runtime/audio/pcm_stream_service.cpp runtime/graphics/raster_kernels.cpp
     runtime/resources/bitmap_decoder.cpp runtime/resources/bitmap_store.cpp runtime/resources/resource_service.cpp
     runtime/services/storage_service.cpp runtime/services/app_storage.cpp runtime/services/direct_surface_service.cpp
@@ -97,10 +99,14 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.hp
     DEPENDS ${HOST_CATALOGS} "${REPOSITORY_ROOT}/tools/generate_localization.py")
 add_library(pc_host STATIC ${SHARED_SOURCES} os.cpp storage.cpp jpeg.cpp audio.cpp portable_app.cpp session.cpp rv32_session.cpp network.cpp media.cpp market.cpp store.cpp "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.hpp")
 target_include_directories(pc_host PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/generated")
+target_compile_definitions(pc_host PUBLIC MICROPIXEL_PC_COMPONENTS=1)
 target_link_libraries(pc_host PUBLIC pc_wamr lvgl pc_opus pc_protocols PkgConfig::PNG PkgConfig::CJSON sqlite3 jpeg mbedtls mbedx509 mbedcrypto opusfile ogg mpg123)
 target_compile_options(pc_host PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions;-fno-rtti>)
+target_sources(pc_host PRIVATE app_sessions.cpp remote.cpp)
 add_executable(micropixel-pc main.cpp home_app.cpp)
 target_compile_options(micropixel-pc PRIVATE -fno-exceptions -fno-rtti)
 target_link_libraries(micropixel-pc PRIVATE pc_host)
 
-target_sources(micropixel-pc PRIVATE remote.cpp)
+add_executable(pc-app-framework-test "${REPOSITORY_ROOT}/tools/tests/test_pc_app_framework.cpp")
+target_compile_options(pc-app-framework-test PRIVATE -UNDEBUG -fno-exceptions -fno-rtti)
+target_link_libraries(pc-app-framework-test PRIVATE pc_host)

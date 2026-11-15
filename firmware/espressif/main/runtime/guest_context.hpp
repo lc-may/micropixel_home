@@ -2,6 +2,7 @@
 #define MICROPIXEL_RUNTIME_GUEST_CONTEXT_HPP
 
 #include <array>
+#include <atomic>
 #include <string_view>
 
 #include "abi/micropixel_abi.h"
@@ -10,6 +11,7 @@
 #include "runtime/abi/service_registry.hpp"
 #include "runtime/audio/audio_playback_service.hpp"
 #include "runtime/audio/pcm_stream_service.hpp"
+#include "runtime/components.hpp"
 #include "runtime/event_queue.hpp"
 #include "runtime/guest_log_sink.hpp"
 #include "runtime/key_event_bridge.hpp"
@@ -42,7 +44,8 @@ class GuestContext final {
    public:
     GuestContext(const micropixel_aot_package_t& package, device::DeviceServices& devices,
                  work::BackgroundExecutor& background_executor, std::string_view effective_locale,
-                 const micropixel_system_launch_arguments_response_t& launch_arguments, GuestLogSink* log_sink);
+                 const micropixel_system_launch_arguments_response_t& launch_arguments, GuestLogSink* log_sink,
+                 uint16_t component_flags = 0);
     GuestContext(const GuestContext&) = delete;
     GuestContext& operator=(const GuestContext&) = delete;
     ~GuestContext();
@@ -57,9 +60,8 @@ class GuestContext final {
                resources_.valid() && audio_playback_.valid() && storage_.valid() && audio_foreground_ready_;
     }
     [[nodiscard]] micropixel_app_time_t AppTimeNow() const { return timers_.Now(); }
-    [[nodiscard]] EventWaitResult WaitEvent(micropixel_event_t& event, uint64_t timeout_us) {
-        return events_.Wait(event, timeout_us);
-    }
+    [[nodiscard]] EventWaitResult WaitEvent(micropixel_event_t& event, uint64_t timeout_us);
+    Components& components() { return components_; }
     [[nodiscard]] bool PushRequired(const micropixel_event_t& event) { return events_.PushRequired(event); }
     [[nodiscard]] bool PushTouch(const device::TouchSample& sample) { return touch_events_.Push(sample); }
     [[nodiscard]] bool PushKey(const device::KeySample& sample) { return key_events_.Push(sample); }
@@ -76,12 +78,13 @@ class GuestContext final {
     }
     [[nodiscard]] int32_t ServiceCall(micropixel_service_handle_t service_handle, uint32_t method_id,
                                       const uint8_t* request, uint32_t request_size, uint8_t* response,
-                                      uint32_t response_capacity, uint32_t& response_size_out) const {
-        return service_registry_.Call(service_handle, method_id, request, request_size, response, response_capacity,
-                                      response_size_out);
-    }
+                                      uint32_t response_capacity, uint32_t& response_size_out);
     [[nodiscard]] int32_t ServiceSubmit(micropixel_service_handle_t service_handle, uint32_t channel_id,
                                         const uint8_t* bytes, uint32_t length) const {
+        if (service_registry_.ServiceId(service_handle) == MICROPIXEL_SERVICE_GRAPHICS) {
+            const auto info = components_.Info();
+            if (info.flags && !components_.CanDraw()) return MICROPIXEL_STATUS_PERMISSION_DENIED;
+        }
         return service_registry_.Submit(service_handle, channel_id, bytes, length);
     }
 
@@ -365,6 +368,8 @@ class GuestContext final {
     StorageService storage_;
     TouchEventBridge touch_events_;
     KeyEventBridge key_events_;
+    Components components_;
+    LifecycleServiceEndpoint lifecycle_endpoint_;
     TimerServiceEndpoint timer_endpoint_;
     SystemServiceEndpoint system_endpoint_;
     StorageServiceEndpoint storage_endpoint_;
@@ -384,6 +389,8 @@ class GuestContext final {
     uint32_t core_sequence_{};
     bool suspended_{};
     bool audio_foreground_ready_{};
+    std::atomic<bool> stopping_{};
+    friend class Components;
 };
 
 }  // namespace micropixel::runtime

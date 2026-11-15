@@ -58,18 +58,25 @@ int32_t SdlAudio::GetInfo(micropixel_audio_info_t& info) {
             .max_pcm_streams = 1};
     return MICROPIXEL_STATUS_OK;
 }
-int32_t SdlAudio::PlayTone(const micropixel_audio_tone_t& tone) {
+int32_t SdlAudio::PlayTone(const micropixel_audio_tone_t& tone) { return Tone(tone, 0); }
+int32_t SdlAudio::Tone(const micropixel_audio_tone_t& tone, uint64_t owner) {
     if (!device_) return MICROPIXEL_STATUS_UNSUPPORTED;
     if (!platform::audio::AudioMixer::ValidTone(tone)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
     AudioLock lock(device_);
-    auto* selected = &synth_[0];
+    platform::audio::SynthVoice* selected = nullptr;
     for (auto& v : synth_) {
         if (!v.active) {
             selected = &v;
             break;
         }
-        if (v.remaining_frames < selected->remaining_frames) selected = &v;
+        if (synth_owners_[&v - synth_.data()] == owner &&
+            (!selected || v.remaining_frames < selected->remaining_frames))
+            selected = &v;
     }
+    if (!selected) return MICROPIXEL_STATUS_RESOURCE_EXHAUSTED;
+    synth_owners_[selected - synth_.data()] = owner;
+    auto* binding = FindBinding(owner);
+    synth_components_[selected - synth_.data()] = binding ? binding->component : 0;
     platform::audio::AudioMixer::StartVoice(*selected, tone, SampleRate());
     return MICROPIXEL_STATUS_OK;
 }
@@ -83,11 +90,17 @@ int32_t SdlAudio::StartPcm(const device::PcmSource& src, uint32_t token, uint16_
                            device::PcmStreamHandle& out) {
     return Start(src, token, volume, false, out);
 }
-int32_t SdlAudio::StartStereoPcm(const device::PcmSource& src, device::PcmStreamHandle& out) {
-    return Start(src, 0, 1000, true, out);
+uint32_t SdlAudio::ComponentScope(uint64_t owner) {
+    AudioLock lock(device_);
+    const auto* binding = FindBinding(owner);
+    return binding ? binding->component : 0;
+}
+int32_t SdlAudio::StartStereoPcm(const device::PcmSource& src, device::PcmStreamHandle& out, uint64_t owner,
+                                 uint32_t component) {
+    return Start(src, 0, 1000, true, out, owner, component);
 }
 int32_t SdlAudio::Start(const device::PcmSource& src, uint32_t token, uint16_t volume, bool stereo,
-                        device::PcmStreamHandle& out) {
+                        device::PcmStreamHandle& out, uint64_t owner, uint32_t component) {
     out = 0;
     if (!device_) return MICROPIXEL_STATUS_UNSUPPORTED;
     if (!src.read || !src.context || volume > 1000) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
@@ -97,6 +110,9 @@ int32_t SdlAudio::Start(const device::PcmSource& src, uint32_t token, uint16_t v
         if (v.active) continue;
         v.generation = (v.generation + 1) & 0xffffffU;
         if (!v.generation) ++v.generation;
+        v.owner = owner;
+        auto* binding = FindBinding(owner);
+        v.component = component == UINT32_MAX ? (binding ? binding->component : 0) : component;
         v.source = src;
         v.token = token;
         v.volume = volume;
@@ -177,13 +193,16 @@ void SdlAudio::Render(int16_t* output, uint32_t frames) {
         const auto count = std::min(chunk, frames - offset);
         uint32_t counts[4]{};
         device::PcmCompletion completed[4]{};
+        uint64_t completed_owners[4]{};
         uint32_t completions = 0;
         for (size_t i = 0; i < pcm_.size(); ++i) {
             auto& v = pcm_[i];
-            if (!v.active || v.paused) continue;
+            auto* binding = FindBinding(v.owner);
+            if (!v.active || v.paused || (binding && binding->suspended)) continue;
             const auto result = v.source.read(v.source.context, pcm_scratch_[i].data(), count);
             counts[i] = std::min(result.frames, count);
             if (result.finished || result.frames > count) {
+                completed_owners[completions] = v.owner;
                 completed[completions++] = {v.token,
                                             result.frames > count ? MICROPIXEL_STATUS_INTERNAL : MICROPIXEL_STATUS_OK};
                 v.active = false;
@@ -191,8 +210,11 @@ void SdlAudio::Render(int16_t* output, uint32_t frames) {
         }
         for (uint32_t f = 0; f < count; ++f) {
             int32_t mix = 0;
-            for (auto& v : synth_)
-                if (v.active) mix += platform::audio::AudioMixer::NextSample(v, sine_);
+            for (size_t i = 0; i < synth_.size(); ++i) {
+                auto* binding = FindBinding(synth_owners_[i]);
+                if (synth_[i].active && (!binding || !binding->suspended))
+                    mix += platform::audio::AudioMixer::NextSample(synth_[i], sine_);
+            }
             int32_t left = mix, right = mix;
             for (size_t i = 0; i < pcm_.size(); ++i) {
                 if (f >= counts[i]) continue;
@@ -204,8 +226,130 @@ void SdlAudio::Render(int16_t* output, uint32_t frames) {
             output[(offset + f) * 2 + 1] =
                 std::clamp<int64_t>(static_cast<int64_t>(right) * master_ / 10000, -32768, 32767);
         }
-        if (completion_)
-            for (uint32_t i = 0; i < completions; ++i) completion_(completion_context_, completed[i]);
+        for (uint32_t i = 0; i < completions; ++i) {
+            auto* binding = FindBinding(completed_owners[i]);
+            if (binding && binding->sink)
+                binding->sink(binding->context, completed[i]);
+            else if (!completed_owners[i] && completion_)
+                completion_(completion_context_, completed[i]);
+        }
     }
+}
+SdlAudio::Binding* SdlAudio::FindBinding(uint64_t owner) {
+    if (!owner) return nullptr;
+    for (auto& binding : bindings_)
+        if (binding.owner == owner) return &binding;
+    return nullptr;
+}
+ScopedAudio::ScopedAudio(SdlAudio& audio, uint64_t owner) : audio_(audio), owner_(owner) {
+    AudioLock lock(audio_.device_);
+    if (!owner || audio_.FindBinding(owner)) return;
+    for (auto& binding : audio_.bindings_)
+        if (!binding.owner) {
+            binding.owner = owner;
+            bound_ = true;
+            break;
+        }
+}
+ScopedAudio::~ScopedAudio() {
+    if (!bound_) return;
+    (void)StopAll();
+    AudioLock lock(audio_.device_);
+    if (auto* binding = audio_.FindBinding(owner_)) *binding = {};
+}
+int32_t ScopedAudio::StartPcm(const device::PcmSource& source, uint32_t token, uint16_t volume,
+                              device::PcmStreamHandle& handle) {
+    if (!bound_) return MICROPIXEL_STATUS_RESOURCE_EXHAUSTED;
+    return audio_.Start(source, token, volume, false, handle, owner_);
+}
+int32_t ScopedAudio::PausePcm(device::PcmStreamHandle handle) {
+    if (!bound_) return MICROPIXEL_STATUS_NOT_FOUND;
+    AudioLock lock(audio_.device_);
+    auto* voice = audio_.Find(handle);
+    if (!voice || voice->owner != owner_) return MICROPIXEL_STATUS_NOT_FOUND;
+    voice->paused = true;
+    return MICROPIXEL_STATUS_OK;
+}
+int32_t ScopedAudio::ResumePcm(device::PcmStreamHandle handle) {
+    if (!bound_) return MICROPIXEL_STATUS_NOT_FOUND;
+    AudioLock lock(audio_.device_);
+    auto* voice = audio_.Find(handle);
+    if (!voice || voice->owner != owner_) return MICROPIXEL_STATUS_NOT_FOUND;
+    voice->paused = false;
+    return MICROPIXEL_STATUS_OK;
+}
+int32_t ScopedAudio::SetPcmVolume(device::PcmStreamHandle handle, uint16_t volume) {
+    if (!bound_) return MICROPIXEL_STATUS_NOT_FOUND;
+    if (volume > 1000) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+    AudioLock lock(audio_.device_);
+    auto* voice = audio_.Find(handle);
+    if (!voice || voice->owner != owner_) return MICROPIXEL_STATUS_NOT_FOUND;
+    voice->volume = volume;
+    return MICROPIXEL_STATUS_OK;
+}
+int32_t ScopedAudio::StopPcm(device::PcmStreamHandle handle) {
+    if (!bound_) return MICROPIXEL_STATUS_NOT_FOUND;
+    AudioLock lock(audio_.device_);
+    auto* voice = audio_.Find(handle);
+    if (!voice || voice->owner != owner_) return MICROPIXEL_STATUS_NOT_FOUND;
+    voice->active = false;
+    voice->source = {};
+    return MICROPIXEL_STATUS_OK;
+}
+void ScopedAudio::BindPcmCompletionSink(device::PcmCompletionSink sink, void* context) {
+    if (!bound_) return;
+    AudioLock lock(audio_.device_);
+    if (auto* binding = audio_.FindBinding(owner_)) {
+        binding->sink = sink;
+        binding->context = context;
+    }
+}
+void ScopedAudio::UnbindPcmCompletionSink(void* context) {
+    if (!bound_) return;
+    AudioLock lock(audio_.device_);
+    if (auto* binding = audio_.FindBinding(owner_); binding && binding->context == context) {
+        binding->sink = nullptr;
+        binding->context = nullptr;
+    }
+}
+int32_t ScopedAudio::StopAll() {
+    if (!bound_) return MICROPIXEL_STATUS_NOT_FOUND;
+    AudioLock lock(audio_.device_);
+    for (size_t i = 0; i < audio_.synth_.size(); ++i)
+        if (audio_.synth_owners_[i] == owner_) audio_.synth_[i].active = false;
+    for (auto& voice : audio_.pcm_)
+        if (voice.owner == owner_) {
+            voice.active = false;
+            voice.source = {};
+        }
+    return MICROPIXEL_STATUS_OK;
+}
+int32_t ScopedAudio::SuspendAll() {
+    if (!bound_) return MICROPIXEL_STATUS_NOT_FOUND;
+    AudioLock lock(audio_.device_);
+    if (auto* binding = audio_.FindBinding(owner_)) binding->suspended = true;
+    return MICROPIXEL_STATUS_OK;
+}
+int32_t ScopedAudio::ResumeAll() {
+    if (!bound_) return MICROPIXEL_STATUS_NOT_FOUND;
+    AudioLock lock(audio_.device_);
+    if (auto* binding = audio_.FindBinding(owner_)) binding->suspended = false;
+    return MICROPIXEL_STATUS_OK;
+}
+void ScopedAudio::SetComponentScope(uint32_t token) {
+    if (!bound_) return;
+    AudioLock lock(audio_.device_);
+    if (auto* binding = audio_.FindBinding(owner_)) binding->component = token;
+}
+void ScopedAudio::StopComponent(uint32_t token) {
+    if (!bound_) return;
+    AudioLock lock(audio_.device_);
+    for (size_t i = 0; i < audio_.synth_.size(); ++i)
+        if (audio_.synth_owners_[i] == owner_ && audio_.synth_components_[i] == token) audio_.synth_[i].active = false;
+    for (auto& voice : audio_.pcm_)
+        if (voice.owner == owner_ && voice.component == token) {
+            voice.active = false;
+            voice.source = {};
+        }
 }
 }  // namespace micropixel::pc

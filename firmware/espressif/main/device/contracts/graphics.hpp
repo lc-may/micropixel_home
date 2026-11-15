@@ -174,6 +174,8 @@ class Graphics {
     [[nodiscard]] virtual int32_t ShowLaunchBitmap(const BitmapView& bitmap) = 0;
     virtual void DismissLaunchBitmap() = 0;
     virtual void ReleaseGuestResources() = 0;
+    // Drop the Activity scene while preserving fonts owned by App / Service.
+    virtual void ReleaseActivityResources() { ReleaseGuestResources(); }
 
     // Direct Surface. At most one per Guest; Create fails with
     // RESOURCE_EXHAUSTED while one exists. Present queues the buffer and

@@ -9,6 +9,17 @@
 #include "runtime/abi/service_registry.hpp"
 
 namespace micropixel::runtime {
+class GuestContext;
+
+class LifecycleServiceEndpoint final : public ServiceHandler {
+   public:
+    explicit LifecycleServiceEndpoint(GuestContext& context) : context_(context) {}
+    ServiceDescriptor Describe() const override;
+    int32_t Call(uint32_t, const uint8_t*, uint32_t, uint8_t*, uint32_t, uint32_t&) override;
+
+   private:
+    GuestContext& context_;
+};
 
 // PCM writes carry samples after the fixed header. Copy the header so the wire
 // buffer need not satisfy the alignment of the native request struct.

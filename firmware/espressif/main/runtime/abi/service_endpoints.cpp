@@ -89,6 +89,22 @@ bool ReadHandle(const uint8_t* request, uint32_t request_size, uint32_t& handle_
 
 }  // namespace
 
+ServiceDescriptor LifecycleServiceEndpoint::Describe() const {
+    return {.service_id = MICROPIXEL_SERVICE_LIFECYCLE,
+            .interface_major = 1,
+            .interface_minor = 0,
+            .flags = context_.components().Available()
+                         ? static_cast<uint32_t>(MICROPIXEL_SERVICE_FLAG_CALL | MICROPIXEL_SERVICE_FLAG_EVENTS)
+                         : 0U,
+            .capabilities = context_.components().Available() ? 1U : 0U,
+            .max_request_bytes = sizeof(micropixel_component_ack_t),
+            .max_response_bytes = sizeof(micropixel_component_info_t)};
+}
+int32_t LifecycleServiceEndpoint::Call(uint32_t method, const uint8_t* req, uint32_t size, uint8_t* out,
+                                       uint32_t capacity, uint32_t& written) {
+    return context_.components().Call(method, req, size, out, capacity, written);
+}
+
 ServiceDescriptor DevicesServiceEndpoint::Describe() const {
     return ServiceDescriptor{
         .service_id = MICROPIXEL_SERVICE_DEVICES,

@@ -168,6 +168,7 @@ adapters::GraphicsOperations MakeGuestGraphicsOperations(GuestGraphicsOperations
                 }
             },
         .release_guest_resources = [](void* opaque) { Binding(opaque).engine->Release(); },
+        .release_activity_resources = [](void* opaque) { Binding(opaque).engine->Release(false); },
         .create_direct_surface =
             [](void* opaque, const device::DirectSurfaceConfig& config, const device::DirectSurfaceReleaseSink& sink,
                device::DirectSurfaceInfo& info) {

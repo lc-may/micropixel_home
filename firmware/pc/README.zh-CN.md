@@ -213,3 +213,21 @@ SDL disk 驱动验证实际输出 PCM 非静音；WSLg 窗口和扬声器需要�
 
 `compat/` 是仅用于 PC 的运行适配层，提供真实线程、互斥量、固定容量队列、单调时钟和定时器。
 Linux 决定线程 CPU 和优先级；不模拟 FreeRTOS 的实时调度。该目录不参与 ESP-IDF 固件构建。
+
+
+## D1–D3：多实例与组件开发配置
+
+默认单槽兼容旧应用；`--multi-app` 启用最多四个原生 Wasm 实例。
+新组件使用 requirements v2 + Lifecycle 1.0，允许 Activity 销毁后 Service 保持运行。
+旧 v1 应用在该配置下隐藏即挂起；正式音乐的 Service 迁移属于 D4。
+
+```sh
+bash tools/pc.sh guest guest/apps/components-demo
+bash tools/pc.sh run --multi-app --autostart build/pc-apps/components-demo/components-demo.pc.json
+bash tools/tests/test_firmware_host.sh --app-framework
+bash tools/tests/test_firmware_host.sh --pc --multi-app
+# 本地 HTTP + X11/WSLg 交互自动验证
+bash tools/tests/test_firmware_host.sh --pc --components
+```
+
+详见[组件与资源契约](../../docs/design/app-components.zh-CN.md)。Widget、Job、Alarm、RV32 多实例与 MCU 适配按后续交付接入。

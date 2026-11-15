@@ -17,6 +17,7 @@ class HomeApp final {
     void Hide();
     void Update();
     void SetRunning(const PortableApp* app);
+    void SetMedia(MediaPlayer& media) { media_ = &media; }
     bool Visible() const { return root_ != nullptr; }
     int requested{-1};
     bool market_requested{}, music_requested{}, resume_requested{}, close_requested{};
@@ -25,7 +26,7 @@ class HomeApp final {
     static void Launch(lv_event_t*);
     static void Action(lv_event_t*);
     std::vector<std::unique_ptr<PortableApp>>& apps_;
-    MediaPlayer& media_;
+    MediaPlayer* media_;
     SdlAudio& audio_;
     const PortableApp* running_{};
     lv_obj_t *root_{}, *catalog_{}, *running_title_{}, *status_{}, *resume_{}, *pause_{}, *close_{};

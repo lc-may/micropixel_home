@@ -33,6 +33,13 @@ enum class EventType : uint16_t {
     kPcmStreamLowWater,
     // Input 1.1: analog gamepad axis.
     kAxis,
+    kLifecycle,
+};
+
+struct LifecycleEvent final {
+    uint32_t token{};
+    uint32_t command{};
+    uint32_t transition{};
 };
 
 enum class TouchPhase : uint8_t {
@@ -328,6 +335,11 @@ class Event final {
     [[nodiscard]] constexpr TimePoint timestamp() const { return timestamp_; }
 
     // Returns a view only when this is a TimerEvent emitted by source.
+    [[nodiscard]] constexpr uint32_t origin_service() const { return origin_service_; }
+    [[nodiscard]] constexpr uint32_t origin_handle() const { return origin_handle_; }
+    [[nodiscard]] constexpr const LifecycleEvent* lifecycle() const {
+        return type_ == EventType::kLifecycle ? &lifecycle_ : nullptr;
+    }
     // The pointer remains valid until this Event is destroyed or reassigned.
     [[nodiscard]] const TimerEvent* TimerFrom(const Timer& source) const;
     [[nodiscard]] const AudioPlaybackEvent* PlaybackFrom(const Playback& source) const;
@@ -396,6 +408,8 @@ class Event final {
         : type_(EventType::kPcmStreamLowWater), timestamp_(low_water.timestamp()), pcm_stream_(low_water) {}
 
     EventType type_{EventType::kUnknown};
+    uint32_t origin_service_{}, origin_handle_{};
+    LifecycleEvent lifecycle_{};
     TimePoint timestamp_{};
     TimerEvent timer_{};
     TouchEvent touch_{TimePoint{}, TouchPhase::kCancel, 0U, 0, 0, false, 0U};

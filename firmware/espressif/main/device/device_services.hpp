@@ -115,6 +115,7 @@ class GraphicsService final {
     [[nodiscard]] DeviceResult<void> ShowLaunchBitmap(const BitmapView& bitmap) const;
     void DismissLaunchBitmap() const;
     void ReleaseGuestResources() const;
+    void ReleaseActivityResources() const;
     [[nodiscard]] DeviceResult<DirectSurfaceInfo> CreateDirectSurface(const DirectSurfaceConfig& config,
                                                                       const DirectSurfaceReleaseSink& sink) const;
     [[nodiscard]] DeviceResult<void> PresentDirectSurface(const DirectSurfacePresentation& presentation) const;
@@ -163,6 +164,9 @@ class AudioService final {
     [[nodiscard]] DeviceResult<void> StopAll() const;
     [[nodiscard]] DeviceResult<void> SuspendAll() const;
     [[nodiscard]] DeviceResult<void> ResumeAll() const;
+
+    void SetComponentScope(uint32_t token) { implementation_.SetComponentScope(token); }
+    void StopComponent(uint32_t token) { implementation_.StopComponent(token); }
 
    private:
     Audio& implementation_;

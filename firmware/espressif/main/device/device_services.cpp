@@ -243,6 +243,7 @@ DeviceResult<void> GraphicsService::ShowLaunchBitmap(const BitmapView& bitmap) c
 void GraphicsService::DismissLaunchBitmap() const { implementation_.DismissLaunchBitmap(); }
 
 void GraphicsService::ReleaseGuestResources() const { implementation_.ReleaseGuestResources(); }
+void GraphicsService::ReleaseActivityResources() const { implementation_.ReleaseActivityResources(); }
 
 DeviceResult<DirectSurfaceInfo> GraphicsService::CreateDirectSurface(const DirectSurfaceConfig& config,
                                                                      const DirectSurfaceReleaseSink& sink) const {

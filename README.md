@@ -19,9 +19,11 @@ This repository also includes a Linux/WSL2 PC Host for developing and running Gu
 | Network and audio | POSIX sockets and mbedTLS, asynchronous Guest HTTP/HTTPS, Host MQTT/MQTTS diagnostics, and local/network MP3, WAV, and Ogg/Opus playback through SDL stereo audio. |
 | Guest UI SDK | IconButton, ListItem, ScrollView, and Slider widgets, plus PNG/JPEG texture decoding for downloaded images. |
 
-The current PC Host runs one Guest at a time. Returning to Home preserves that session; launching another
-Guest stops the previous one. Multi-Guest AppManager, Activity/Service, and Home widgets are described in
-the [architecture proposal](docs/design/app-manager.zh-CN.html), and are not implemented yet.
+The PC Host keeps the single-slot profile by default. `--multi-app` enables four native Wasm instances
+with AppManager, Activity/Service lifecycle callbacks, per-instance resources, and foreground input routing.
+See the [component contract](docs/design/app-components.zh-CN.md) and
+[component example](guest/apps/components-demo/README.zh-CN.md). Home widgets, music Service migration,
+Jobs and alarms remain later deliveries; MCU and RV32 multi-instance support are not enabled yet.
 The new HTTP and URL audio adapters currently target PC; MCU support requires platform adapters.
 
 ## Run on a PC

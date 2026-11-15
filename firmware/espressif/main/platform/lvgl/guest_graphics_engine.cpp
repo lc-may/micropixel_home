@@ -953,7 +953,28 @@ void GuestGraphicsEngine::EmitTelemetryReportJob(void*) {}
 void GuestGraphicsEngine::EmitTelemetryReport() {}
 #endif
 
-void GuestGraphicsEngine::Release() {
+void GuestGraphicsEngine::Shutdown() {
+    if (display_ == nullptr) return;
+    Release();
+    direct_surface_presenter_.Shutdown();
+    if (esp_lv_adapter_lock(-1) == ESP_OK) {
+        if (publish_timer_) lv_timer_delete(publish_timer_);
+        publish_timer_ = nullptr;
+        lv_display_remove_event_cb_with_user_data(display_, DisplayRefreshStartEvent, this);
+        lv_display_remove_event_cb_with_user_data(display_, DisplayRefreshReadyEvent, this);
+        esp_lv_adapter_unlock();
+    }
+    heap_caps_free(app_surface_pixels_);
+    app_surface_pixels_ = nullptr;
+    app_surface_layer_pixels_ = nullptr;
+    heap_caps_free(software_transform_scratch_);
+    software_transform_scratch_ = nullptr;
+    if (display_refresh_ready_) vSemaphoreDelete(display_refresh_ready_);
+    display_refresh_ready_ = nullptr;
+    display_ = nullptr;
+}
+
+void GuestGraphicsEngine::Release(bool release_fonts) {
     if (display_ == nullptr) {
         return;
     }
@@ -990,7 +1011,7 @@ void GuestGraphicsEngine::Release() {
     scratch_fonts_ = nullptr;
     guest_scene_.reset();
     scene_storage_.Reset();
-    fonts_.ReleaseGuestFonts();
+    if (release_fonts) fonts_.ReleaseGuestFonts();
     esp_lv_adapter_unlock();
 }
 

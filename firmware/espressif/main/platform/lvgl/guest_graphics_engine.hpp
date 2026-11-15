@@ -66,7 +66,9 @@ class GuestGraphicsEngine final {
     [[nodiscard]] int32_t CopyOpaqueBlocks(const device::PixelTarget& target, const device::OpaqueCopyBlock* blocks,
                                            uint32_t count);
     [[nodiscard]] bool ScaleBitmapSoftware(const device::BitmapView& source, const device::BitmapView& destination);
-    void Release();
+    void Release(bool release_fonts = true);
+    // Called only after the owning execution context has stopped and drained.
+    void Shutdown();
 
     // Direct Surface. While one exists Scene submits are rejected; the
     // presenter owns the panel.

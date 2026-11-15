@@ -222,11 +222,15 @@ void Session::RunRv32() {
     auto arguments = launch_arguments_;
     arguments.size = sizeof(arguments);
     Memory memory{machine.ram};
-    runtime::GuestContext context(app_.package, devices_, background, "en", arguments, this);
+    auto owned_context = std::make_unique<runtime::GuestContext>(app_.package, devices_, background, "en", arguments,
+                                                                 this, component_flags_);
+    auto& context = *owned_context;
     context.BindGuestMemory({.context = &memory, .resolve = Memory::Resolve, .stable_base = false});
     {
         std::lock_guard lock(mutex_);
         context_ = &context;
+        ready_.store(true, std::memory_order_release);
+        control_wake_.notify_all();
         if (stop_requested_) (void)context.RequestStop();
     }
     if (context.valid()) {

@@ -22,7 +22,8 @@
     "sensor",
     "gpio",
     "haptics",
-    "network"
+    "network",
+    "lifecycle"
   ],
   "layouts": [
     "square",

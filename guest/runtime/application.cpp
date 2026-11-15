@@ -47,6 +47,8 @@ bool Application::WaitEventInternal(Event& event, uint64_t timeout_us) const {
     if (!DecodeEventInternal(event, timeout_us)) {
         return false;
     }
+    event.origin_service_ = event_service_;
+    event.origin_handle_ = event_source_;
     RouteToGamepad(event);
     return true;
 }
@@ -62,7 +64,19 @@ bool Application::DecodeEventInternal(Event& event, uint64_t timeout_us) const {
         runtime::Panic("application.wait_event.size", MICROPIXEL_STATUS_INTERNAL);
     }
 
+    event_service_ = raw.service_id;
+    event_source_ = raw.source;
     TimePoint timestamp{raw.timestamp_us};
+    if (raw.service_id == MICROPIXEL_SERVICE_LIFECYCLE && raw.event_id == MICROPIXEL_LIFECYCLE_EVENT) {
+        micropixel_component_event_payload_t payload{};
+        CopyBytes(&payload, raw.payload, sizeof(payload));
+        if (payload.reserved0 || payload.token != raw.source || payload.transition != raw.sequence ||
+            (payload.token & 3) < 1 || (payload.token & 3) > 2)
+            runtime::Panic("component.event.payload", MICROPIXEL_STATUS_INTERNAL);
+        event = Event{EventType::kLifecycle, timestamp};
+        event.lifecycle_ = {payload.token, payload.command, payload.transition};
+        return true;
+    }
     if (raw.service_id == 0U && raw.event_id == MICROPIXEL_CORE_EVENT_RESUME) {
         event = Event{EventType::kResume, timestamp};
         return true;
@@ -219,8 +233,8 @@ bool Application::DecodeEventInternal(Event& event, uint64_t timeout_us) const {
         const bool trigger =
             payload.axis == MICROPIXEL_AXIS_LEFT_TRIGGER || payload.axis == MICROPIXEL_AXIS_RIGHT_TRIGGER;
         if (payload.axis < MICROPIXEL_AXIS_LEFT_X || payload.axis > MICROPIXEL_AXIS_RIGHT_TRIGGER ||
-            payload.axis != raw.source || payload.reserved0 != 0U || payload.reserved1 != 0U ||
-            payload.value > 32767 || payload.value < (trigger ? 0 : -32767)) {
+            payload.axis != raw.source || payload.reserved0 != 0U || payload.reserved1 != 0U || payload.value > 32767 ||
+            payload.value < (trigger ? 0 : -32767)) {
             runtime::Panic("application.wait_event.axis_payload", MICROPIXEL_STATUS_INTERNAL);
         }
         event = Event{AxisEvent{timestamp, static_cast<GamepadAxis>(payload.axis),

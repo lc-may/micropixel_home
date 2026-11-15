@@ -1,0 +1,12 @@
+{
+  "core_abi": 131072,
+  "requirements": {
+    "schema_version": 2,
+    "display": {"layouts": ["square", "portrait", "landscape"], "min_width": 240, "min_height": 240},
+    "required": [],
+    "optional": [],
+    "any_of": [],
+    "services": {"lifecycle": 65536},
+    "components": {"activity": true, "service": true, "background": ["task"], "widgets": 0}
+  }
+}

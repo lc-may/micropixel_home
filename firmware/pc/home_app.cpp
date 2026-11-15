@@ -44,7 +44,7 @@ lv_obj_t* Button(lv_obj_t* parent, int x, int y, int width, int height, const ch
 }
 }  // namespace
 HomeApp::HomeApp(std::vector<std::unique_ptr<PortableApp>>& apps, MediaPlayer& media, SdlAudio& audio)
-    : apps_(apps), media_(media), audio_(audio) {}
+    : apps_(apps), media_(&media), audio_(audio) {}
 HomeApp::~HomeApp() { Hide(); }
 void HomeApp::Launch(lv_event_t* event) {
     auto& home = *static_cast<HomeApp*>(lv_event_get_user_data(event));
@@ -69,14 +69,15 @@ void HomeApp::Action(lv_event_t* event) {
             home.audio_.SetMasterVolume(lv_slider_get_value(lv_event_get_target_obj(event)));
             break;
         case kPause:
-            home.media_.Pause(!home.media_.Paused());
+            home.media_->Pause(!home.media_->Paused());
             home.updated_at_ = 0;
-            std::fprintf(stderr, "HOME_MEDIA paused=%d position_ms=%.0f\n", home.media_.Paused(),
-                         home.media_.PositionSeconds() * 1000);
+            std::fprintf(stderr, "HOME_MEDIA paused=%d position_ms=%.0f\n", home.media_->Paused(),
+                         home.media_->PositionSeconds() * 1000);
             break;
     }
 }
 void HomeApp::SetRunning(const PortableApp* app) {
+    if (running_ == app) return;
     running_ = app;
     updated_at_ = 0;
     Update();
@@ -170,15 +171,15 @@ void HomeApp::Update() {
     lv_label_set_text(running_title_, running_ ? running_->title.c_str() : "没有正在运行的应用");
     lv_obj_set_state(resume_, LV_STATE_DISABLED, !running_);
     lv_obj_set_state(close_, LV_STATE_DISABLED, !running_);
-    const bool active = !media_.Finished() && !media_.Failed();
+    const bool active = !media_->Finished() && !media_->Failed();
     lv_obj_set_hidden(pause_, !active);
     auto* pause_label = lv_obj_get_child(pause_, 0);
-    lv_label_set_text(pause_label, media_.Paused() ? "继续" : "暂停");
+    lv_label_set_text(pause_label, media_->Paused() ? "继续" : "暂停");
     char status[96]{};
     if (active) {
-        const auto position = static_cast<unsigned>(media_.PositionSeconds());
-        const auto duration = static_cast<unsigned>(media_.DurationSeconds());
-        std::snprintf(status, sizeof(status), "%s  %02u:%02u / %02u:%02u", media_.Paused() ? "已暂停" : "正在播放",
+        const auto position = static_cast<unsigned>(media_->PositionSeconds());
+        const auto duration = static_cast<unsigned>(media_->DurationSeconds());
+        std::snprintf(status, sizeof(status), "%s  %02u:%02u / %02u:%02u", media_->Paused() ? "已暂停" : "正在播放",
                       position / 60, position % 60, duration / 60, duration % 60);
     } else
         std::snprintf(status, sizeof(status), "%s", running_ ? "应用在后台运行" : "打开一个应用开始使用");

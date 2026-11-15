@@ -211,7 +211,73 @@ typedef enum micropixel_service_id {
     MICROPIXEL_SERVICE_GPIO = 21,
     MICROPIXEL_SERVICE_HAPTICS = 22,
     MICROPIXEL_SERVICE_POWER = 23,
+    MICROPIXEL_SERVICE_LIFECYCLE = 24,
 } micropixel_service_id_t;
+
+/* Lifecycle 1.0. Component tokens are local to one Guest instance. */
+#define MICROPIXEL_LIFECYCLE_INTERFACE_MAJOR 1U
+#define MICROPIXEL_LIFECYCLE_INTERFACE_MINOR 0U
+#define MICROPIXEL_COMPONENT_ACTIVITY 1U
+#define MICROPIXEL_COMPONENT_SERVICE 2U
+#define MICROPIXEL_COMPONENT_FLAG_ACTIVITY 1U
+#define MICROPIXEL_COMPONENT_FLAG_SERVICE 2U
+#define MICROPIXEL_COMPONENT_FLAG_BACKGROUND 4U
+#define MICROPIXEL_COMPONENT_FLAG_REGISTERED 32768U
+#define MICROPIXEL_LIFECYCLE_REGISTER 1U
+#define MICROPIXEL_LIFECYCLE_ACK 2U
+#define MICROPIXEL_LIFECYCLE_SCOPE 3U
+#define MICROPIXEL_LIFECYCLE_REQUEST 4U
+#define MICROPIXEL_LIFECYCLE_ROUTE 5U
+#define MICROPIXEL_LIFECYCLE_QUERY 6U
+#define MICROPIXEL_COMPONENT_CREATE 1U
+#define MICROPIXEL_COMPONENT_RESUME 2U
+#define MICROPIXEL_COMPONENT_STOP 3U
+#define MICROPIXEL_COMPONENT_DESTROY 4U
+#define MICROPIXEL_COMPONENT_START 5U
+#define MICROPIXEL_LIFECYCLE_EVENT 1U
+typedef struct micropixel_component_register_request {
+    uint16_t size;
+    uint16_t flags;
+    uint32_t start_service;
+} micropixel_component_register_request_t;
+typedef struct micropixel_component_request {
+    uint16_t size;
+    uint16_t kind;
+    uint32_t command;
+} micropixel_component_request_t;
+typedef struct micropixel_component_scope {
+    uint16_t size;
+    uint16_t reserved0;
+    uint32_t token;
+} micropixel_component_scope_t;
+typedef struct micropixel_component_ack {
+    uint16_t size;
+    uint16_t reserved0;
+    uint32_t token;
+    uint32_t transition;
+    uint32_t command;
+} micropixel_component_ack_t;
+typedef struct micropixel_component_route {
+    uint16_t size;
+    uint16_t reserved0;
+    uint32_t service_id;
+    uint32_t handle;
+} micropixel_component_route_t;
+typedef struct micropixel_component_info {
+    uint16_t size;
+    uint16_t flags;
+    uint32_t activity_token;
+    uint32_t activity_state;
+    uint32_t service_token;
+    uint32_t service_state;
+    uint32_t resource_count;
+} micropixel_component_info_t;
+typedef struct micropixel_component_event_payload {
+    uint32_t token;
+    uint32_t command;
+    uint32_t transition;
+    uint32_t reserved0;
+} micropixel_component_event_payload_t;
 
 typedef enum micropixel_service_flag {
     MICROPIXEL_SERVICE_FLAG_CALL = 1U << 0U,
@@ -1823,6 +1889,13 @@ typedef struct micropixel_event {
 #define MICROPIXEL_ABI_STATIC_ASSERT(condition, message) _Static_assert(condition, message)
 #endif
 
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_component_register_request_t) == 8U, "Component register layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_component_request_t) == 8U, "Component request layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_component_scope_t) == 8U, "Component scope layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_component_ack_t) == 16U, "Component ack layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_component_route_t) == 12U, "Component route layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_component_info_t) == 24U, "Component info layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_component_event_payload_t) == 16U, "Component event layout");
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_texture_decode_request_t) == 12U, "Texture decode layout");
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_http_timed_start_request_t) == 24U, "HTTP timed start layout");
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_http_metadata_t) == 8U, "HTTP metadata layout");

@@ -7,6 +7,7 @@ import argparse
 import contextlib
 import base64
 import hashlib
+import functools
 import json
 import os
 import re
@@ -18,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import types
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -27,7 +29,7 @@ from pathlib import Path
 from typing import Any, Callable, TextIO
 
 
-VERSION = "0.20.2"
+VERSION = "0.21.0"
 MINIMUM_FIRMWARE_VERSION = "0.4.0"
 BUNDLE_MAGIC = b"MPXBNDL\0"
 BUNDLE_HEADER_SIZE = 128
@@ -1865,6 +1867,7 @@ def _run_build_sources(args: argparse.Namespace) -> None:
             root / "guest/runtime/sphere_view.cpp",
             root / "guest/runtime/mode7_plane.cpp",
             root / "guest/runtime/application.cpp",
+            root / "guest/runtime/components.cpp",
             root / "guest/runtime/gamepad.cpp",
             root / "guest/runtime/scene_graph.cpp",
             *sources,
@@ -1959,6 +1962,16 @@ def _bundle_builder_command(arguments: list[str]) -> list[str]:
 
 def _run_bundle_builder(arguments: list[str]) -> None:
     _run_process(_bundle_builder_command(arguments), check=True)
+
+
+@functools.lru_cache(maxsize=1)
+def _requirements_validator():
+    command = _bundle_builder_command([])
+    source = command[-1] if command[-2] == "-c" else Path(command[-1]).read_text(encoding="utf-8")
+    module = types.ModuleType("micropixel_requirements_validator")
+    sys.modules[module.__name__] = module
+    exec(compile(source, "<bundle-builder>", "exec"), module.__dict__)
+    return module.validate_requirements
 
 
 def _manifest_child(root: Path, value: object, label: str) -> Path:
@@ -2144,6 +2157,14 @@ def load_project_manifest(path: Path) -> ProjectManifest:
         threading = "none"
     elif threading not in {"none", "shared-memory"}:
         raise CliError("app.json threading must be none or shared-memory")
+
+    if package_type == "app" and "requirements" in value:
+        try:
+            requirement = _requirements_validator()(value["requirements"])
+        except ValueError as error:
+            raise CliError(str(error)) from error
+        if requirement["schema_version"] == 2 and threading != "none":
+            raise CliError("Activity / Service components require single-threaded Guest execution")
 
     pinned_memory = value.get("pinned_memory", False)
     if package_type == "component":

@@ -19,6 +19,7 @@
 #include <thread>
 #include <vector>
 
+#include "app_sessions.hpp"
 #include "audio.hpp"
 #include "device/device_registry.hpp"
 #include "esp_lv_adapter.h"
@@ -107,7 +108,7 @@ std::optional<device::KeyCode> Key(SDL_Keycode code) {
 struct Options {
     int width = 720, height = 720;
     double seconds = 0;
-    bool headless{}, exit_when_done{}, autostart{}, market{}, music{}, home{};
+    bool headless{}, exit_when_done{}, autostart{}, market{}, music{}, home{}, multi_app{};
     std::string music_query = "纯音乐";
     bool music_query_explicit{};
     uint64_t music_song{};
@@ -127,7 +128,7 @@ bool Parse(int argc, char** argv, Options& options) {
                 "Usage: micropixel-pc [--headless] [--seconds N] [--width N --height N]\n"
                 "       [--screenshot file.png] [--autostart] [--exit-on-app-complete]\n"
                 "       [--play local.wav|https://... --exit-on-audio-complete]\n"
-                "       [--home | --market | --market-app APP_ID]\n"
+                "       [--home | --market | --market-app APP_ID] [--multi-app]\n"
                 "       [--install-app APP_ID] (download and run official RV32 Bundle)\n"
                 "       [--music | --music-login | --music-query TEXT | --music-song SONG_ID] [--guest-arg TEXT ...]\n"
                 "       [--http URL --output file | --mqtt URL --topic TOPIC --message TEXT]\n"
@@ -137,6 +138,8 @@ bool Parse(int argc, char** argv, Options& options) {
             return false;
         } else if (arg == "--headless")
             options.headless = true;
+        else if (arg == "--multi-app")
+            options.multi_app = true;
         else if (arg == "--market")
             options.market = true;
         else if (arg == "--home")
@@ -370,14 +373,6 @@ int main(int argc, char** argv) {
     int exit_code = 0;
     {
         ScreenFont screen_font;
-        graphics::FontRegistry fonts;
-        if (screen_font.font) (void)fonts.Activate(screen_font.guest_fonts);
-        graphics::GuestGraphicsEngine engine(options.width, options.height, fonts);
-        if (engine.Initialize(display, nullptr) != ESP_OK) return 1;
-        graphics::GuestGraphicsOperationsContext graphics_context{.engine = &engine};
-        micropixel::platform::adapters::GraphicsAdapter graphics_device(
-            graphics::MakeGuestGraphicsOperations(graphics_context));
-        pc::PcInput input(options.width, options.height);
         pc::SdlAudio audio;
         if (!audio.Initialize()) {
             std::fprintf(stderr, "SDL audio: %s\n", SDL_GetError());
@@ -398,10 +393,6 @@ int main(int argc, char** argv) {
                                  .width_pixels = static_cast<uint32_t>(options.width),
                                  .height_pixels = static_cast<uint32_t>(options.height),
                                  .refresh_rate_hz = 60};
-        pc::GuestHttp guest_http;
-        pc::GuestMedia guest_media(media);
-        device::DeviceServices devices(graphics_device, info, input, audio, random, registry, registry, registry,
-                                       registry, battery, &guest_http, &guest_media);
         std::vector<std::unique_ptr<pc::PortableApp>> apps;
         std::vector<std::filesystem::path> files;
         if (options.paths.empty()) {
@@ -429,6 +420,11 @@ int main(int argc, char** argv) {
             if (!app->Load(file, error)) {
                 std::fprintf(stderr, "%s: %s\n", file.c_str(), error.c_str());
                 exit_code = 1;
+                continue;
+            }
+            if (std::any_of(apps.begin(), apps.end(),
+                            [&](const auto& current) { return current->app_id == app->app_id; })) {
+                std::fprintf(stderr, "Duplicate app ID ignored: %s\n", app->app_id.c_str());
                 continue;
             }
             apps.push_back(std::move(app));
@@ -465,6 +461,8 @@ int main(int argc, char** argv) {
                 return 1;
             }
         }
+        pc::AppSessions sessions(apps, display, info, screen_font.guest_fonts, audio, random, registry, battery,
+                                 options.multi_app);
         pc::HomeApp home(apps, media, audio);
         pc::Market market;
         if (options.market)
@@ -473,30 +471,17 @@ int main(int argc, char** argv) {
             home.Show(options.width, options.height);
         if (options.music) home.requested = music_index;
         if (!options.music && (options.autostart || options.exit_when_done) && !apps.empty()) home.requested = 0;
-        std::unique_ptr<pc::Session> session;
-        int active_index = -1;
+        int active_index = -1, requested_front = -1, exit_index = -1;
         bool foreground = false;
+        std::array<bool, 64> seen_running{};
         const auto started = std::chrono::steady_clock::now();
         bool finger_down = false;
         bool text_active = false;
-        auto stop_session = [&] {
-            if (!session) return;
-            // Joining the Guest must never hold the display lock.
-            session.reset();
-            std::fprintf(stderr, "APP_SHELL stopped: %s\n", apps[active_index]->app_id.c_str());
-            active_index = -1;
-            foreground = finger_down = false;
-            esp_lv_adapter_lock(-1);
-            home.SetRunning(nullptr);
-            esp_lv_adapter_unlock();
-        };
         auto show_home = [&] {
-            if (session && foreground) {
-                if (finger_down)
-                    (void)input.InjectTouch(
-                        {static_cast<uint64_t>(esp_timer_get_time()), 1, 0, 0, 0, device::TouchPhase::kCancel});
+            if (active_index >= 0 && foreground)
                 std::fprintf(stderr, "APP_SHELL background: %s\n", apps[active_index]->app_id.c_str());
-            }
+            sessions.ShowHome();
+            requested_front = -1;
             foreground = finger_down = false;
             esp_lv_adapter_lock(-1);
             market.Hide();
@@ -506,18 +491,57 @@ int main(int argc, char** argv) {
             esp_lv_adapter_unlock();
         };
         auto resume_session = [&] {
-            if (!session || session->Done()) return;
-            esp_lv_adapter_lock(-1);
-            market.Hide();
-            home.Hide();
-            lv_indev_reset(mouse, nullptr);
-            lv_indev_reset(keyboard, nullptr);
-            esp_lv_adapter_unlock();
-            foreground = true;
+            if (active_index < 0 || !sessions.Find(active_index)) return;
+            requested_front = active_index;
+            (void)sessions.Activate(active_index);
             std::fprintf(stderr, "APP_SHELL foreground: %s reused=1\n", apps[active_index]->app_id.c_str());
         };
         while (!events.quit) {
+            sessions.Process();
+            const auto& snapshot = sessions.Snapshot();
+            if (options.exit_when_done && exit_index >= 0 && seen_running[exit_index] &&
+                snapshot.apps[exit_index].state == micropixel::host::AppState::kStopped &&
+                !sessions.Pending(exit_index)) {
+                exit_code = snapshot.apps[exit_index].result;
+                break;
+            }
+            if (active_index >= 0 && !sessions.Find(active_index) && !sessions.Pending(active_index)) {
+                active_index = snapshot.foreground;
+                if (active_index < 0)
+                    for (uint32_t i = 0; i < snapshot.count; ++i)
+                        if (sessions.Find(i)) {
+                            active_index = i;
+                            break;
+                        }
+                if (!market.Visible() && snapshot.foreground < 0) {
+                    esp_lv_adapter_lock(-1);
+                    home.Show(options.width, options.height);
+                    esp_lv_adapter_unlock();
+                }
+            }
+            if (requested_front >= 0 && !sessions.Find(requested_front) && !sessions.Pending(requested_front))
+                requested_front = -1;
+            if (requested_front >= 0 && snapshot.foreground == requested_front) {
+                active_index = requested_front;
+                requested_front = -1;
+                esp_lv_adapter_lock(-1);
+                home.Hide();
+                market.Hide();
+                lv_indev_reset(mouse, nullptr);
+                lv_indev_reset(keyboard, nullptr);
+                esp_lv_adapter_unlock();
+            }
+            if (snapshot.foreground < 0 && requested_front < 0 && !home.Visible() && !market.Visible()) {
+                esp_lv_adapter_lock(-1);
+                home.Show(options.width, options.height);
+                esp_lv_adapter_unlock();
+            }
+            auto* session = active_index >= 0 ? sessions.Find(active_index) : nullptr;
+            foreground = session && snapshot.foreground == active_index && !home.Visible() && !market.Visible();
+            auto& input = sessions.Input();
             esp_lv_adapter_lock(-1);
+            home.SetMedia(active_index >= 0 && sessions.Media(active_index) ? *sessions.Media(active_index) : media);
+            home.SetRunning(session ? apps[active_index].get() : nullptr);
             home.Update();
             market.Update();
             lv_timer_handler();
@@ -616,6 +640,8 @@ int main(int argc, char** argv) {
             }
             if (home.market_requested) {
                 home.market_requested = false;
+                sessions.ShowHome();
+                requested_front = -1;
                 foreground = finger_down = false;
                 esp_lv_adapter_lock(-1);
                 home.Hide();
@@ -637,16 +663,14 @@ int main(int argc, char** argv) {
                         size_t index = 0;
                         while (index < apps.size() && apps[index]->app_id != app->app_id) ++index;
                         if (index < 64) {
-                            // A running session borrows this package. Stop before replacement.
-                            if (session && static_cast<int>(index) == active_index) stop_session();
-                            if (index == apps.size())
-                                apps.push_back(std::move(app));
-                            else
-                                apps[index] = std::move(app);
-                            esp_lv_adapter_lock(-1);
-                            market.Hide();
-                            esp_lv_adapter_unlock();
-                            home.requested = index;
+                            if (sessions.Install(index, std::move(app))) {
+                                active_index = index;
+                                requested_front = index;
+                                seen_running[index] = true;
+                                esp_lv_adapter_lock(-1);
+                                market.Hide();
+                                esp_lv_adapter_unlock();
+                            }
                         } else {
                             std::fputs("Local app capacity reached (64)\n", stderr);
                             esp_lv_adapter_lock(-1);
@@ -661,14 +685,9 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            if (session && (stop || session->Done())) {
-                if (session->Done()) exit_code = session->Result();
-                stop_session();
-                if (options.exit_when_done) break;
-                esp_lv_adapter_lock(-1);
-                if (!market.Visible()) home.Show(options.width, options.height);
-                esp_lv_adapter_unlock();
-                finger_down = false;
+            if (stop && active_index >= 0) {
+                sessions.Stop(active_index);
+                show_home();
             }
             if (home.requested >= 0) {
                 const int index = home.requested;
@@ -678,11 +697,6 @@ int main(int argc, char** argv) {
                     resume_session();
                     continue;
                 }
-                stop_session();
-                esp_lv_adapter_lock(-1);
-                home.Hide();
-                market.Hide();
-                esp_lv_adapter_unlock();
                 auto& launch = apps[index]->launch_arguments;
                 // Reset generic arguments on every launch; music startup options occupy the prefix.
                 if (!options.music || index != music_index) {
@@ -702,20 +716,19 @@ int main(int argc, char** argv) {
                     launch.bytes_length += argument.size() + 1;
                 }
                 if (events.quit) break;
-                session = std::make_unique<pc::Session>(*apps[index], devices);
-                active_index = index;
-                foreground = true;
-                esp_lv_adapter_lock(-1);
-                home.SetRunning(apps[index].get());
-                esp_lv_adapter_unlock();
-                std::fprintf(stderr, "APP_SHELL started: %s\n", apps[index]->app_id.c_str());
-                session->Start();
-                launch = {};
-                launch.size = sizeof(launch);
+                if (!sessions.Activate(index)) {
+                    std::fputs("APP_MANAGER rejected: no capacity or busy\n", stderr);
+                    continue;
+                }
+                requested_front = index;
+                seen_running[index] = true;
+                if (options.exit_when_done) exit_index = index;
+                sessions.Process();
             }
             if (options.seconds > 0 &&
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() >= options.seconds) {
-                if ((options.exit_when_done && session && !session->Done()) ||
+                if ((options.exit_when_done && exit_index >= 0 && sessions.Find(exit_index) &&
+                     !sessions.Find(exit_index)->Done()) ||
                     (options.exit_when_audio_done && !media.Finished()))
                     exit_code = 124;
                 break;
@@ -731,7 +744,7 @@ int main(int argc, char** argv) {
             Screenshot(options.screenshot);
             esp_lv_adapter_unlock();
         }
-        stop_session();
+        sessions.Shutdown();
         market.Hide();
         home.Hide();
         pc::JoinTasks();

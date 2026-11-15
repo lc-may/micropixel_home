@@ -9,6 +9,13 @@ A restricted C++23 SDK for WebAssembly apps. No ESP-IDF, LVGL, board-specific ty
 - [Windows automation](AI.md) — managed installation and JSON commands.
 - [API reference (中文)](README.zh-CN.md) — resources, events, graphics, audio, input, and devices.
 
+## Upgrading to 0.21.0
+
+PC Guests can use `Activity`, `AppService`, `ComponentContext`, and `Application::RunComponents()`
+with requirements schema 2 and Lifecycle 1.0. Components share one event loop and AppModel.
+See the [example](../apps/components-demo/README.zh-CN.md) and
+[contract](../../docs/design/app-components.zh-CN.md). Existing `Application::Run()` apps remain supported.
+
 ## Upgrading to 0.20.2
 
 `ui::FlexContainer::intrinsic_size()` and `ui::ComputeFlexIntrinsicSize()` report the physical
@@ -88,6 +95,7 @@ already covers the need; apps must not re-implement these locally.
 
 | Need | Use | Header |
 |---|---|---|
+| Activity / Service lifecycle and resource domains | `RunComponents`, `ComponentContext` | `components.hpp` |
 | Asynchronous HTTP GET/POST | `Network`, `HttpRequest` | `network.hpp` |
 | Raw HTTP status/headers, explicit redirects | `Network::Exchange`, `HttpRequest::Metadata/ReadHeaders` | `network.hpp` |
 | Bounded PNG/JPEG decode from memory | `Resources::DecodeTexture` | `resources.hpp` |

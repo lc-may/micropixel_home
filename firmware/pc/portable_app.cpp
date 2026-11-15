@@ -66,6 +66,8 @@ bool PortableApp::Load(const std::filesystem::path& path, std::string& error) {
         const char* id = String(json.get(), "app_id");
         if (!json || !cJSON_IsNumber(schema) || schema->valueint != 1 || !wasm_name || !id)
             return fail("Invalid PC app descriptor");
+        if (!micropixel_parse_app_requirements_json(descriptor.data(), descriptor.size() - 1, &requirements))
+            return fail("Invalid PC requirements or component declaration");
         app_id = id;
         if (const char* text = String(json.get(), "title")) title = text;
         wasm_path = path.parent_path() / wasm_name;
@@ -84,6 +86,7 @@ bool PortableApp::Load(const std::filesystem::path& path, std::string& error) {
             !micropixel_open_aot_package(&source, &package))
             return fail("Invalid app Bundle: metadata, ABI, TOC or content hash");
         owns_package = true;
+        requirements = metadata->requirements;
         for (uint32_t i = 0; i < package.section_count; ++i) {
             const auto& section = package.sections[i];
             if (section.kind == MICROPIXEL_BUNDLE_SECTION_AOT &&

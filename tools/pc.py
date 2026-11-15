@@ -7,6 +7,7 @@ import importlib.machinery
 import importlib.util
 import json
 import os
+import importlib
 from pathlib import Path
 import sys
 
@@ -31,6 +32,11 @@ def main() -> None:
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     sdk = sdk_module()
+    builder_path = ROOT / "tools/build_app_bundle.py"
+    spec = importlib.util.spec_from_file_location("pc_bundle_builder", builder_path)
+    builder = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = builder
+    spec.loader.exec_module(builder)
     source = args.source.resolve()
     manifest = sdk.resolve_project_manifest(str(source))
     project = sdk.load_project_manifest(manifest) if manifest else None
@@ -57,6 +63,9 @@ def main() -> None:
         "title": title, "wasm": f"{name}.wasm",
         "resources": Path(pack).relative_to(output).as_posix() if pack else "",
     }
+    if raw.get("requirements") is not None:
+        descriptor["requirements"] = builder.validate_requirements(raw["requirements"])
+        descriptor["core_abi"] = builder.CORE_ABI_VERSION
     path = output / f"{name}.pc.json"
     path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\n")
     print(f"PC app ready: {path}")

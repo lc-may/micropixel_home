@@ -72,7 +72,8 @@ Service（Timer、Sensors、GPIO、Haptics）直接用动词（`CREATE`、`START
 
 当前 Service ID：Timer `1`、Storage `2`、Resource `3`、Random `4`、System `5`、Devices `6`、
 Graphics `16`、Input `17`、Audio `18`、Sensors `20`、GPIO `21`、Haptics `22`、Power `23`；
-Network `19` 只预留 ID，尚未实现。
+PC Host 已实现 Network `19`（1.2）和 Lifecycle `24`（1.0）；MCU 未注册对应平台能力。
+Lifecycle 协议、requirements v2 与兼容规则见[组件契约](../../docs/design/app-components.zh-CN.md)。
 
 System 提供最长 31 bytes 的 BCP 47 locale tag。Host 返回当前 Catalog 和字体确实可用的 effective
 Locale；基础固件只有 `en`，以后安装语言组件并改变设备语言不需要修改 Guest ABI。Locale 在一个

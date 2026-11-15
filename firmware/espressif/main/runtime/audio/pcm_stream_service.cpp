@@ -8,6 +8,7 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "runtime/audio/pcm_notification.hpp"
 
 namespace micropixel::runtime {
 namespace {
@@ -234,9 +235,7 @@ void PcmStreamService::PostLowWater(Stream& stream, uint32_t free_frames) {
     std::memcpy(event.payload, &payload, sizeof(payload));
     // Advisory: when the queue is full the stream stays armed and the next
     // chunk tries again, so the Guest still hears about the crossing.
-    if (events_.PushAdvisory(event)) {
-        stream.low_water_armed.store(false, std::memory_order_release);
-    }
+    (void)PublishPcmLowWater(stream.low_water_armed, [&] { return events_.PushAdvisory(event); });
 }
 
 device::PcmReadResult PcmStreamService::ReadPcm(void* context, int16_t* samples, uint32_t capacity) {

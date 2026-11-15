@@ -8,6 +8,13 @@ SDK 让应用通过强类型对象使用图形、输入、音频和设备能力�
 驱动更新；Host 管理硬件、资源和系统 UI。本文介绍编程模型与易错边界，完整可运行用法见
 [Demo](../apps/sdk-demo/)，底层协议见 [ABI](../abi/README.zh-CN.md)。
 
+## 升级到 0.21.0
+
+PC Guest 新增 `Activity`、`AppService`、`ComponentContext` 和 `Application::RunComponents()`，
+通过 requirements schema 2 要求 Lifecycle 1.0。组件共享单一事件循环与 AppModel。
+详见[最小示例](../apps/components-demo/README.zh-CN.md)和[组件契约](../../docs/design/app-components.zh-CN.md)。
+已有 `Application::Run()` 应用继续兼容；MCU 组合根尚未启用新组件。
+
 ## 升级到 0.20.2
 
 新增 `ui::FlexContainer::intrinsic_size()` 和 `ui::ComputeFlexIntrinsicSize()`，返回横排或竖排
@@ -34,6 +41,7 @@ SDK 让应用通过强类型对象使用图形、输入、音频和设备能力�
 
 | 需求 | 使用 | 头文件 |
 |---|---|---|
+| Activity / Service、组件资源域 | `RunComponents`、`ComponentContext` | `components.hpp` |
 | 事件循环、Service view、`Result<T>` | `Application`、`app.xxx()` | `application.hpp`、`result.hpp` |
 | retained 2D UI、精灵、文字、布局 | `Scene`、`SpriteBatch`、`ui::FlexContainer`、`ui::TextButton` | `scene.hpp`、`ui/*.hpp` |
 | Host 光栅帧、INDEX8 纹理、调色板 | `HostSurface`、`RasterDrawList`、`RasterResources` | `graphics.hpp` |

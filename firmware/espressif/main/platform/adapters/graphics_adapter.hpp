@@ -20,6 +20,7 @@ struct GraphicsOperations final {
     int32_t (*show_launch_bitmap)(void*, const device::BitmapView&){};
     void (*dismiss_launch_bitmap)(void*){};
     void (*release_guest_resources)(void*){};
+    void (*release_activity_resources)(void*){};
     int32_t (*create_direct_surface)(void*, const device::DirectSurfaceConfig&, const device::DirectSurfaceReleaseSink&,
                                      device::DirectSurfaceInfo&){};
     int32_t (*present_direct_surface)(void*, const device::DirectSurfacePresentation&){};
@@ -48,6 +49,7 @@ class GraphicsAdapter final : public device::Graphics {
     [[nodiscard]] int32_t ShowLaunchBitmap(const device::BitmapView& bitmap) override;
     void DismissLaunchBitmap() override;
     void ReleaseGuestResources() override;
+    void ReleaseActivityResources() override;
     [[nodiscard]] int32_t CreateDirectSurface(const device::DirectSurfaceConfig& config,
                                               const device::DirectSurfaceReleaseSink& sink,
                                               device::DirectSurfaceInfo& info_out) override;

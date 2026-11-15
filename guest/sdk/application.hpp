@@ -25,6 +25,8 @@
 #include "sdk/types.hpp"
 
 namespace micropixel {
+class Activity;
+class AppService;
 
 // The result of dispatching one Event through Application::Run(). Returning
 // kExit lets the Guest finish successfully without waiting for a Host Stop.
@@ -99,6 +101,7 @@ class Application final {
     [[nodiscard]] Event WaitEvent() const;
     [[nodiscard]] bool WaitEventFor(Event& event, Duration timeout) const;
     [[nodiscard]] bool PollEvent(Event& event) const;
+    void RunComponents(Activity* activity, AppService* service = nullptr, bool start_service = true) const;
 
    private:
     void BeginRun() const;
@@ -109,6 +112,7 @@ class Application final {
     static void RouteToGamepad(Event& event);
 
     mutable bool running_{};
+    mutable uint32_t event_service_{}, event_source_{};
 };
 
 }  // namespace micropixel

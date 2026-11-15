@@ -19,9 +19,10 @@
 | 网络与音频 | POSIX socket、mbedTLS、Guest 异步 HTTP/HTTPS、Host MQTT/MQTTS 连通性测试，以及本地／网络 MP3、WAV、Ogg/Opus 文件的 SDL 立体声播放。 |
 | Guest UI SDK | 新增 IconButton、ListItem、ScrollView、Slider 控件，以及下载图片的 PNG/JPEG 纹理解码。 |
 
-当前 PC Host 同时运行一个 Guest。返回 Home 保留原会话，启动另一个 Guest 会停止前一个。
-多 Guest AppManager、Activity/Service 和 Home Widget 仍属于
-[架构设计提案](docs/design/app-manager.zh-CN.html)，尚未实现。
+PC 默认保持单槽；`--multi-app` 启用四个原生 Wasm 实例、AppManager、Activity/Service 生命周期、
+独立资源域与前台输入路由。详见[组件契约](docs/design/app-components.zh-CN.md)与
+[最小示例](guest/apps/components-demo/README.zh-CN.md)。音乐 Service 迁移、Home Widget、Job 和闹钟
+属于后续交付；MCU 与 RV32 多实例尚未启用。
 新增 HTTP 与 URL 音频适配器目前用于 PC，MCU 需要补齐对应平台适配。
 
 ## 在 PC 上运行

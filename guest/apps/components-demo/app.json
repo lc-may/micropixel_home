@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "app_id": "micropixel.components-demo",
+  "version": "0.1.0",
+  "threading": "none",
+  "title": "Activity + Service",
+  "sources": ["main.cpp"],
+  "requirements": {
+    "schema_version": 2,
+    "display": {"layouts": ["square", "portrait", "landscape"], "min_width": 240, "min_height": 240},
+    "required": ["input.touch", "audio.output"],
+    "optional": ["input.keys"],
+    "any_of": [],
+    "services": {"lifecycle": 65536, "resource": 65537, "input": 65538, "audio": 65537, "network": 65538},
+    "components": {"activity": true, "service": true, "background": ["task"], "widgets": 0}
+  }
+}

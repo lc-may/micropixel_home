@@ -544,7 +544,8 @@ static bool parse_app_requirements(const cJSON* root, micropixel_app_requirement
             return false;
         memcpy(output->system_font, font->valuestring, strlen(font->valuestring) + 1U);
     }
-    if (!unique_object_keys(source) || cJSON_GetArraySize(source) != (font == NULL ? 6 : 7) ||
+    if (!unique_object_keys(source) ||
+        cJSON_GetArraySize(source) != (font == NULL ? 6 : 7) + (cJSON_HasObjectItem(source, "components") ? 1 : 0) ||
         !requirement_number(root, "core_abi", UINT32_MAX, &output->core_abi))
         return false;
     uint32_t schema = 0, width = 0, height = 0;
@@ -552,7 +553,7 @@ static bool parse_app_requirements(const cJSON* root, micropixel_app_requirement
     const cJSON* alternatives = cJSON_GetObjectItemCaseSensitive(source, "any_of");
     const cJSON* services = cJSON_GetObjectItemCaseSensitive(source, "services");
     static const char* const layouts[] = {"square", "portrait", "landscape"};
-    if (!requirement_number(source, "schema_version", 1, &schema) || !unique_object_keys(display) ||
+    if (!requirement_number(source, "schema_version", 2, &schema) || !unique_object_keys(display) ||
         cJSON_GetArraySize(display) != 3 || !requirement_number(display, "min_width", 4096, &width) ||
         !requirement_number(display, "min_height", 4096, &height) ||
         !requirement_names(cJSON_GetObjectItemCaseSensitive(display, "layouts"), layouts, 3, &output->layouts) ||
@@ -564,6 +565,29 @@ static bool parse_app_requirements(const cJSON* root, micropixel_app_requirement
         (output->required & output->optional) != 0 || !cJSON_IsArray(alternatives) ||
         cJSON_GetArraySize(alternatives) > 8 || !unique_object_keys(services))
         return false;
+    if (schema != 1U && schema != 2U) return false;
+    output->schema_version = (uint16_t)schema;
+    const cJSON* components = cJSON_GetObjectItemCaseSensitive(source, "components");
+    if (schema == 1U && components != NULL) return false;
+    if (schema == 2U) {
+        const cJSON* activity = cJSON_GetObjectItemCaseSensitive(components, "activity");
+        const cJSON* service = cJSON_GetObjectItemCaseSensitive(components, "service");
+        static const char* const backgrounds[] = {"media", "task"};
+        uint8_t background = 0;
+        uint32_t widgets = 0;
+        const cJSON* widget_value = cJSON_GetObjectItemCaseSensitive(components, "widgets");
+        if (!unique_object_keys(components) || cJSON_GetArraySize(components) != 4 || !cJSON_IsBool(activity) ||
+            !cJSON_IsBool(service) || (!cJSON_IsTrue(activity) && !cJSON_IsTrue(service)) ||
+            !requirement_names(cJSON_GetObjectItemCaseSensitive(components, "background"), backgrounds, 2,
+                               &background) ||
+            (background && !cJSON_IsTrue(service)) || !cJSON_IsNumber(widget_value) || widget_value->valuedouble < 0 ||
+            widget_value->valuedouble > 2 || widget_value->valuedouble != (double)(uint32_t)widget_value->valuedouble)
+            return false;
+        widgets = (uint32_t)widget_value->valuedouble;
+        output->component_flags =
+            (cJSON_IsTrue(activity) ? 1U : 0U) | (cJSON_IsTrue(service) ? 2U : 0U) | (background ? 4U : 0U);
+        output->widget_count = (uint8_t)widgets;
+    }
     uint32_t index = 0;
     for (const cJSON* group = alternatives->child; group != NULL; group = group->next) {
         if (!requirement_names(group, kMicropixelAppCapabilities, 8, &output->any_of[index]) ||
@@ -581,10 +605,25 @@ static bool parse_app_requirements(const cJSON* root, micropixel_app_requirement
             return false;
         output->services[index] = minimum;
     }
+    if (schema == 2U && output->services[12] < 65536U) return false;
     output->min_width = (uint16_t)width;
     output->min_height = (uint16_t)height;
     output->declared = true;
     return true;
+}
+
+bool micropixel_parse_app_requirements_json(const uint8_t* bytes, uint32_t length,
+                                            micropixel_app_requirements_t* output) {
+    if (!bytes || !output || !safe_json_envelope(bytes, length) || contains_escaped_nul(bytes, length)) return false;
+    cJSON* root = cJSON_ParseWithLength((const char*)bytes, length);
+    if (!root || !unique_object_keys(root)) {
+        cJSON_Delete(root);
+        return false;
+    }
+    memset(output, 0, sizeof(*output));
+    const bool valid = parse_app_requirements(root, output);
+    cJSON_Delete(root);
+    return valid;
 }
 
 static bool parse_package_metadata_json(const uint8_t* bytes, uint32_t length, const char* effective_locale,

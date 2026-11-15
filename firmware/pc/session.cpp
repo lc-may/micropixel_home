@@ -5,38 +5,91 @@
 #include <chrono>
 #include <csignal>
 #include <cstdio>
+#include <memory>
 
 #include "work/background_executor.hpp"
 
 namespace micropixel::pc {
 Session::Session(PortableApp& app, device::DeviceServices& devices)
-    : app_(app), devices_(devices), launch_arguments_(app.launch_arguments) {}
+    : app_(app),
+      devices_(devices),
+      launch_arguments_(app.launch_arguments),
+      component_flags_(app.requirements.component_flags) {}
 Session::~Session() { Stop(); }
 void Session::Start() {
+    controller_ = std::thread([this] { Control(); });
     worker_ = std::thread([this] { Run(); });
+}
+void Session::RequestStop() {
+    stop_requested_.store(true);
+    control_wake_.notify_all();
+}
+void Session::RequestSuspend() {
+    want_suspended_.store(true);
+    control_wake_.notify_all();
+}
+void Session::RequestResume() {
+    ensure_activity_.store(true);
+    want_suspended_.store(false);
+    control_wake_.notify_all();
+}
+void Session::Control() {
+    bool stopping = false, forced = false, applied_visible = false;
+    std::chrono::steady_clock::time_point stop_time{};
+    std::unique_lock lock(mutex_);
+    while (!Done()) {
+        if (context_) {
+            if (component_flags_) {
+                const bool visible = visible_.load();
+                if (visible != applied_visible) {
+                    context_->components().SetVisible(visible);
+                    applied_visible = visible;
+                }
+                if (ensure_activity_.exchange(false)) context_->components().EnsureActivity();
+                const auto info = context_->components().Info();
+                components_registered_.store((info.flags & MICROPIXEL_COMPONENT_FLAG_REGISTERED) != 0);
+                activity_state_.store(info.activity_state);
+                activity_token_.store(info.activity_token);
+                service_token_.store(info.service_token);
+                service_state_.store(info.service_state);
+                resource_count_.store(info.resource_count);
+            }
+            if (stop_requested_.load()) {
+                if (!stopping) {
+                    (void)context_->RequestStop();
+                    stopping = true;
+                    stop_time = std::chrono::steady_clock::now();
+                }
+                if (!forced && std::chrono::steady_clock::now() - stop_time > std::chrono::milliseconds(500)) {
+                    if (instance_) wasm_runtime_terminate(instance_);
+                    if (child_pid_ > 0) kill(child_pid_, SIGTERM);
+                    if (!app_.rv32) context_->ForceStop();
+                    forced = true;
+                }
+            } else if (want_suspended_.load() != suspended_.load()) {
+                if (want_suspended_.load()) {
+                    if (context_->Suspend(pdMS_TO_TICKS(100))) suspended_.store(true);
+                } else if (context_->Resume())
+                    suspended_.store(false);
+            }
+        }
+        control_wake_.wait_for(lock, std::chrono::milliseconds(5));
+    }
 }
 void Session::Stop() {
     if (!worker_.joinable()) return;
-    stop_requested_ = true;
-    {
-        std::lock_guard lock(mutex_);
-        if (context_) (void)context_->RequestStop();
-    }
-    for (unsigned i = 0; i < 50 && !Done(); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    if (!Done()) {
-        std::lock_guard lock(mutex_);
-        if (instance_) wasm_runtime_terminate(instance_);
-        if (child_pid_ > 0) kill(child_pid_, SIGTERM);
-        if (context_ && !app_.rv32) context_->ForceStop();
-    }
+    RequestStop();
     worker_.join();
-    JoinTasks();
+    control_wake_.notify_all();
+    if (controller_.joinable()) controller_.join();
+    JoinTasks(this);
 }
 void Session::WriteGuestLog(const char* id, uint32_t level, const uint8_t* bytes, size_t length, uint64_t) {
     std::fprintf(stderr, "[Guest %s level=%u] %.*s\n", id, level, static_cast<int>(length),
                  reinterpret_cast<const char*>(bytes));
 }
 void Session::Run() {
+    BindTaskOwner(this);
     if (app_.rv32) {
         RunRv32();
         done_.store(true, std::memory_order_release);
@@ -63,10 +116,12 @@ void Session::Run() {
         work::BackgroundExecutor background;
         auto arguments = launch_arguments_;
         arguments.size = sizeof(arguments);
-        runtime::GuestContext context(app_.package, devices_, background, "en", arguments, this);
+        auto owned_context = std::make_unique<runtime::GuestContext>(app_.package, devices_, background, "en",
+                                                                     arguments, this, component_flags_);
+        auto& context = *owned_context;
         InstantiationArgs config{};
         config.default_stack_size = 64U * 1024;
-        config.max_memory_pages = 1024;
+        config.max_memory_pages = 256;
         // A smaller module ceiling is already a sufficient bound. WAMR rejects
         // attempts to override it with a larger value.
         for (int32_t i = 0; i < wasm_runtime_get_export_count(module); ++i) {
@@ -104,6 +159,8 @@ void Session::Run() {
                 std::lock_guard lock(mutex_);
                 context_ = &context;
                 instance_ = instance;
+                ready_.store(true, std::memory_order_release);
+                control_wake_.notify_all();
                 if (stop_requested_) (void)context.RequestStop();
             }
             uint32_t result = 0;
@@ -167,11 +224,35 @@ void PcInput::UnbindKeySink(void* ctx) {
 }
 bool PcInput::InjectTouch(const device::TouchSample& sample) {
     std::lock_guard lock(mutex_);
+    if (!focused_) return false;
+    last_touch_ = sample;
+    touching_ = sample.phase == device::TouchPhase::kDown || sample.phase == device::TouchPhase::kMove;
     return touch_ && touch_(touch_context_, sample);
 }
 bool PcInput::InjectKey(const device::KeySample& sample) {
     std::lock_guard lock(mutex_);
+    if (!focused_) return false;
+    const auto index = static_cast<size_t>(sample.code);
+    if (index < down_keys_.size())
+        down_keys_[index] = sample.phase == device::KeyPhase::kDown || sample.phase == device::KeyPhase::kRepeat;
     return key_ && key_(key_context_, sample);
+}
+void PcInput::SetFocused(bool value) {
+    std::lock_guard lock(mutex_);
+    if (focused_.exchange(value) == value) return;
+    text_length_ = 0;
+    if (value) return;
+    if (touching_ && touch_) {
+        last_touch_.phase = device::TouchPhase::kCancel;
+        (void)touch_(touch_context_, last_touch_);
+    }
+    touching_ = false;
+    for (size_t i = 0; i < down_keys_.size(); ++i) {
+        if (down_keys_[i] && key_)
+            (void)key_(key_context_, {static_cast<uint64_t>(esp_timer_get_time()), static_cast<device::KeyCode>(i),
+                                      device::KeyPhase::kCancel, 0});
+        down_keys_[i] = false;
+    }
 }
 }  // namespace micropixel::pc
 
@@ -184,7 +265,9 @@ int32_t PcInput::EnableText(bool enabled) {
 }
 void PcInput::InjectText(std::string_view text) {
     std::lock_guard lock(mutex_);
-    if (!text_enabled_ || text.empty() || text.size() > 31 || text.size() > text_bytes_.size() - text_length_) return;
+    if (!focused_ || !text_enabled_ || text.empty() || text.size() > 31 ||
+        text.size() > text_bytes_.size() - text_length_)
+        return;
     std::memcpy(text_bytes_.data() + text_length_, text.data(), text.size());
     text_length_ += text.size();
 }

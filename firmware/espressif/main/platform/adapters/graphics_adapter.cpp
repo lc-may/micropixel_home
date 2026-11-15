@@ -52,6 +52,12 @@ int32_t GraphicsAdapter::ShowLaunchBitmap(const device::BitmapView& bitmap) {
 void GraphicsAdapter::DismissLaunchBitmap() { operations_.dismiss_launch_bitmap(operations_.context); }
 
 void GraphicsAdapter::ReleaseGuestResources() { operations_.release_guest_resources(operations_.context); }
+void GraphicsAdapter::ReleaseActivityResources() {
+    if (operations_.release_activity_resources)
+        operations_.release_activity_resources(operations_.context);
+    else
+        ReleaseGuestResources();
+}
 
 int32_t GraphicsAdapter::CreateDirectSurface(const device::DirectSurfaceConfig& config,
                                              const device::DirectSurfaceReleaseSink& sink,

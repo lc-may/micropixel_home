@@ -760,7 +760,7 @@ def parse_titles(value: object, fallback_default: object = "en") -> LocalizedTit
 
 
 CAPABILITY_NAMES = {"input.touch", "input.keys", "audio.output", "sensor.acceleration", "sensor.gyroscope", "sensor.magnetometer", "haptics", "gpio"}
-SERVICE_NAMES = {"system", "input", "graphics", "audio", "storage", "timer", "resource", "device", "sensor", "gpio", "haptics", "network"}
+SERVICE_NAMES = {"system", "input", "graphics", "audio", "storage", "timer", "resource", "device", "sensor", "gpio", "haptics", "network", "lifecycle"}
 
 
 def validate_requirements(value: object) -> dict:
@@ -775,10 +775,10 @@ def validate_requirements(value: object) -> dict:
         return items
 
     require(isinstance(value, dict), "expected object")
-    require(set(value) - {"system_font"} == {"schema_version", "display", "required", "optional", "any_of", "services"}, "invalid fields")
+    require(set(value) - {"system_font", "components"} == {"schema_version", "display", "required", "optional", "any_of", "services"}, "invalid fields")
     if "system_font" in value:
         require(isinstance(value["system_font"], str) and value["system_font"] in {"en", "zh-CN", "zh-TW", "ja-JP", "ko-KR"}, "invalid system font locale")
-    require(type(value["schema_version"]) is int and value["schema_version"] == 1, "unsupported schema")
+    require(type(value["schema_version"]) is int and value["schema_version"] in {1, 2}, "unsupported schema")
     display = value["display"]
     require(isinstance(display, dict) and set(display) == {"layouts", "min_width", "min_height"}, "invalid display")
     require(bool(names(display["layouts"], {"square", "portrait", "landscape"}, 3)), "empty layouts")
@@ -793,6 +793,17 @@ def validate_requirements(value: object) -> dict:
     require(isinstance(value["services"], dict), "invalid services")
     for name, minimum in value["services"].items():
         require(name in SERVICE_NAMES and type(minimum) is int and 65536 <= minimum <= 0xffffffff, "invalid service version")
+    if value["schema_version"] == 1:
+        require("components" not in value, "components require schema_version 2")
+    else:
+        components = value.get("components")
+        require(isinstance(components, dict) and set(components) == {"activity", "service", "background", "widgets"}, "invalid components")
+        require(type(components["activity"]) is bool and type(components["service"]) is bool, "component presence must be boolean")
+        require(components["activity"] or components["service"], "at least one component required")
+        background = names(components["background"], {"media", "task"}, 2)
+        require(not background or components["service"], "background requires service")
+        require(type(components["widgets"]) is int and 0 <= components["widgets"] <= 2, "invalid widget count")
+        require(value["services"].get("lifecycle", 0) >= 65536, "components require lifecycle 1.0")
     return value
 
 
@@ -846,6 +857,9 @@ def load_package_manifest(path: Path) -> PackageManifest:
             threading = value.get("threading", "none")
             if threading not in {"none", "shared-memory"}:
                 raise ValueError("app manifest threading must be none or shared-memory")
+            requirements = validate_requirements(value["requirements"]) if "requirements" in value else None
+            if requirements and requirements["schema_version"] == 2 and threading != "none":
+                raise ValueError("Activity / Service components require single-threaded Guest execution")
             pinned_memory = value.get("pinned_memory", False)
             if not isinstance(pinned_memory, bool):
                 raise ValueError("app manifest pinned_memory must be true or false")
@@ -863,7 +877,7 @@ def load_package_manifest(path: Path) -> PackageManifest:
                 threading=threading,
                 pinned_memory=pinned_memory,
                 version=version,
-                requirements=validate_requirements(value["requirements"]) if "requirements" in value else None,
+                requirements=requirements,
             )
         except (KeyError, TypeError) as error:
             raise ValueError(

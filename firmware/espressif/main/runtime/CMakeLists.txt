@@ -19,6 +19,7 @@ list(APPEND micropixel_sources
     "runtime/event_queue.cpp"
     "runtime/graphics/raster_kernels.cpp"
     "runtime/guest_context.cpp"
+    "runtime/components.cpp"
     "runtime/key_event_bridge.cpp"
     "runtime/memory/guest_psram.cpp"
     "runtime/resources/bitmap_decoder.cpp"

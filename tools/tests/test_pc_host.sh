@@ -4,6 +4,28 @@ pc_test_root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$pc_test_root"
 pc_test_binary="${MICROPIXEL_PC_BINARY:-$pc_test_root/build/pc/micropixel-pc}"
 mkdir -p build/pc-test-results
+if [[ "${1:-}" == "--render" ]]; then
+    exec python3 tools/tests/test_pc_render.py
+fi
+if [[ "${1:-}" == "--components" ]]; then
+    bash tools/pc.sh build > build/pc-test-results/components-host.build.log 2>&1
+    python3 tools/pc.py guest/apps/components-demo
+    python3 tools/pc.py guest/tests/conformance/components_contract.cpp
+    python3 tools/pc.py guest/tests/conformance/legacy_heartbeat.cpp
+    exec python3 tools/tests/test_pc_components.py
+fi
+if [[ "${1:-}" == "--multi-app" ]]; then
+    python3 tools/pc.py guest/apps/components-demo > build/pc-test-results/components-demo.build.log 2>&1
+    bash tools/pc.sh build > build/pc-test-results/components-host.build.log 2>&1
+    framework_data_dir="$(mktemp -d "$pc_test_root/build/pc-test-results/framework-data.XXXXXX")"
+    trap 'rm -rf "$framework_data_dir"' EXIT
+    MICROPIXEL_PC_DATA_DIR="$framework_data_dir" timeout -k 2s 90s \
+        "$(dirname "$pc_test_binary")/pc-app-framework-test" \
+        "$pc_test_root/build/pc-apps/components-demo/components-demo.pc.json" \
+        > build/pc-test-results/app-framework.log 2>&1
+    rg '^PASS' build/pc-test-results/app-framework.log
+    exit
+fi
 if [[ "${1:-}" == "--run" ]]; then
     shift
     exec timeout -k 2s 30s "$pc_test_binary" "$@"

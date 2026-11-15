@@ -20,6 +20,7 @@ struct PortableApp {
     std::vector<uint8_t> wasm, resources;
     std::array<micropixel_bundle_section_t, MICROPIXEL_BUNDLE_MAX_SECTIONS> sections{};
     micropixel_aot_package_t package{};
+    micropixel_app_requirements_t requirements{};
     bool Load(const std::filesystem::path&, std::string& error);
 };
 bool ReadFile(const std::filesystem::path&, std::vector<uint8_t>&, size_t maximum_bytes);

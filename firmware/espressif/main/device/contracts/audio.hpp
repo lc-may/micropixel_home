@@ -47,6 +47,8 @@ class Audio {
     // ResumeAll keeps output ready, while SuspendAll permits idle shutdown.
     [[nodiscard]] virtual int32_t SuspendAll() = 0;
     [[nodiscard]] virtual int32_t ResumeAll() = 0;
+    virtual void SetComponentScope(uint32_t) {}
+    virtual void StopComponent(uint32_t) {}
 };
 
 }  // namespace micropixel::device

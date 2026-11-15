@@ -10,6 +10,7 @@ struct PcTask {
     std::condition_variable ready;
     uint32_t notifications{};
     std::atomic<bool> finished{true};
+    const void* owner{};
 };
 using TaskHandle_t = PcTask*;
 using TaskFunction_t = void (*)(void*);
@@ -27,5 +28,6 @@ uint32_t ulTaskNotifyTake(BaseType_t clear, TickType_t timeout);
 inline unsigned uxTaskGetStackHighWaterMark(void*) { return 0; }
 inline unsigned uxTaskGetStackHighWaterMark2(void*) { return 0; }
 namespace micropixel::pc {
-void JoinTasks();
-}
+void BindTaskOwner(const void* owner);
+void JoinTasks(const void* owner = nullptr);
+}  // namespace micropixel::pc

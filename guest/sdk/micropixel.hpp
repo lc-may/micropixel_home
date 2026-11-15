@@ -3,6 +3,7 @@
 
 #include "sdk/application.hpp"
 #include "sdk/audio.hpp"
+#include "sdk/components.hpp"
 #include "sdk/cyclic_pool.hpp"
 #include "sdk/devices.hpp"
 #include "sdk/fixed_string.hpp"

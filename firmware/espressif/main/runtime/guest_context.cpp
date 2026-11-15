@@ -21,7 +21,7 @@ constexpr char kTag[] = "micropixel_guest";
 GuestContext::GuestContext(const micropixel_aot_package_t& package, device::DeviceServices& devices,
                            work::BackgroundExecutor& background_executor, std::string_view effective_locale,
                            const micropixel_system_launch_arguments_response_t& launch_arguments,
-                           GuestLogSink* log_sink)
+                           GuestLogSink* log_sink, uint16_t component_flags)
     : devices_(devices),
       log_sink_(log_sink),
       clock_origin_us_(esp_timer_get_time()),
@@ -42,6 +42,8 @@ GuestContext::GuestContext(const micropixel_aot_package_t& package, device::Devi
       storage_(package),
       touch_events_(events_, devices_.input(), clock_origin_us_),
       key_events_(events_, devices_.input(), clock_origin_us_),
+      components_(*this, component_flags),
+      lifecycle_endpoint_(*this),
       timer_endpoint_(*this),
       system_endpoint_(effective_locale, launch_arguments),
       storage_endpoint_(*this),
@@ -59,7 +61,8 @@ GuestContext::GuestContext(const micropixel_aot_package_t& package, device::Devi
       url_media_(devices.media()),
       service_registry_(timer_endpoint_, system_endpoint_, storage_endpoint_, resource_endpoint_, random_endpoint_,
                         graphics_endpoint_, input_endpoint_, audio_endpoint_, devices_endpoint_, sensors_endpoint_,
-                        gpio_endpoint_, haptics_endpoint_, power_info_endpoint_, network_endpoint_) {
+                        gpio_endpoint_, haptics_endpoint_, power_info_endpoint_, network_endpoint_,
+                        lifecycle_endpoint_) {
     (void)std::snprintf(app_id_.data(), app_id_.size(), "%s", reinterpret_cast<const char*>(package.app_id));
     const auto audio_result = devices_.audio().ResumeAll();
     audio_foreground_ready_ = audio_result || audio_result.error().status == MICROPIXEL_STATUS_UNSUPPORTED;
@@ -98,6 +101,38 @@ GuestContext::~GuestContext() {
     micropixel_check_heap("after Guest graphics release");
     resources_.Shutdown();
     micropixel_check_heap("after Guest textures release");
+}
+
+EventWaitResult GuestContext::WaitEvent(micropixel_event_t& event, uint64_t timeout_us) {
+    const auto start = static_cast<uint64_t>(esp_timer_get_time());
+    for (;;) {
+        if (!stopping_.load() && components_.TakeEvent(event)) return EventWaitResult::kReceived;
+        uint64_t remaining = timeout_us;
+        if (timeout_us != UINT64_MAX) {
+            const auto elapsed = static_cast<uint64_t>(esp_timer_get_time()) - start;
+            remaining = elapsed >= timeout_us ? 0 : timeout_us - elapsed;
+        }
+        const auto result = events_.Wait(event, remaining);
+        if (result != EventWaitResult::kReceived || event.service_id != MICROPIXEL_SERVICE_LIFECYCLE ||
+            event.event_id != 0)
+            return result;
+    }
+}
+int32_t GuestContext::ServiceCall(micropixel_service_handle_t handle, uint32_t method, const uint8_t* request,
+                                  uint32_t request_size, uint8_t* response, uint32_t capacity, uint32_t& written) {
+    written = 0;
+    const auto service = service_registry_.ServiceId(handle);
+    if (service == MICROPIXEL_SERVICE_AUDIO && method == MICROPIXEL_AUDIO_METHOD_STOP_ALL && request_size == 0 &&
+        components_.StopAudioScoped())
+        return MICROPIXEL_STATUS_OK;
+    const auto allowed = components_.BeforeCall(service, method);
+    if (allowed != MICROPIXEL_STATUS_OK) return allowed;
+    const auto result = service_registry_.Call(handle, method, request, request_size, response, capacity, written);
+    if (service != MICROPIXEL_SERVICE_LIFECYCLE &&
+        (result == MICROPIXEL_STATUS_OK || result == MICROPIXEL_STATUS_NOT_FOUND ||
+         result == MICROPIXEL_STATUS_CLOSED || result == MICROPIXEL_STATUS_STALE_STATE))
+        components_.AfterCall(handle, service, method, request, request_size, response, written, result);
+    return result;
 }
 
 void GuestContext::WriteLog(uint32_t level, const uint8_t* bytes, uint32_t length) {
@@ -185,6 +220,7 @@ bool GuestContext::Resume() {
 }
 
 bool GuestContext::RequestStop() {
+    stopping_.store(true);
     touch_events_.Suspend();
     key_events_.Suspend();
     sensors_.Suspend();

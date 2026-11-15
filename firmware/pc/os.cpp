@@ -18,6 +18,7 @@ std::recursive_timed_mutex lvgl_mutex;
 std::array<PcTask, 32> tasks;
 std::mutex tasks_mutex;
 thread_local TaskHandle_t current_task{};
+thread_local const void* current_owner{};
 
 template <typename Predicate>
 bool Wait(std::condition_variable& cv, std::unique_lock<std::mutex>& lock, TickType_t timeout, Predicate predicate) {
@@ -96,10 +97,12 @@ BaseType_t xTaskCreatePinnedToCore(TaskFunction_t fn, const char*, uint32_t, voi
     if (!task) return pdFALSE;
     if (task->worker.joinable()) task->worker.join();
     task->notifications = 0;
+    task->owner = current_owner;
     task->finished = false;
     *out = task;
     task->worker = std::thread([task, fn, ctx] {
         current_task = task;
+        current_owner = task->owner;
         fn(ctx);
         current_task = nullptr;
         task->finished.store(true, std::memory_order_release);
@@ -116,9 +119,12 @@ void vTaskDelete(TaskHandle_t task) {
     // thread cancellation is deliberately unsupported; owners signal and join.
     if (task && task != current_task && task->worker.joinable()) task->worker.join();
 }
-void micropixel::pc::JoinTasks() {
+void micropixel::pc::BindTaskOwner(const void* owner) { current_owner = owner; }
+void micropixel::pc::JoinTasks(const void* owner) {
+    std::lock_guard lock(tasks_mutex);
     for (auto& task : tasks) {
-        if (task.finished.load(std::memory_order_acquire) && task.worker.joinable()) task.worker.join();
+        if ((owner ? task.owner == owner : task.finished.load(std::memory_order_acquire)) && task.worker.joinable())
+            task.worker.join();
     }
 }
 void vTaskDelay(TickType_t ticks) { std::this_thread::sleep_for(std::chrono::milliseconds(ticks)); }

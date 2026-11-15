@@ -15,7 +15,7 @@
 #include "portable_app.hpp"
 
 namespace micropixel::pc {
-MediaPlayer::MediaPlayer(SdlAudio& audio) : audio_(audio), worker_([this] { Run(); }) {}
+MediaPlayer::MediaPlayer(SdlAudio& audio, uint64_t owner) : audio_(audio), owner_(owner), worker_([this] { Run(); }) {}
 MediaPlayer::~MediaPlayer() {
     {
         std::lock_guard lock(mutex_);
@@ -41,6 +41,7 @@ void MediaPlayer::Play(std::string source) {
         cancel_ = true;
         StopAudioLocked();
         pending_ = std::move(source);
+        pending_component_ = audio_.ComponentScope(owner_);
         ++generation_;
         finished_ = false;
         failed_ = false;
@@ -87,6 +88,7 @@ void MediaPlayer::Run() {
     for (;;) {
         std::string source;
         uint64_t generation;
+        uint32_t component;
         {
             std::unique_lock lock(mutex_);
             wake_.wait(lock, [this] { return shutdown_ || pending_.has_value(); });
@@ -94,11 +96,12 @@ void MediaPlayer::Run() {
             source = std::move(*pending_);
             pending_.reset();
             generation = generation_;
+            component = pending_component_;
             cancel_ = false;
             StopAudioLocked();
         }
         samples_.clear();
-        Load(source, generation);
+        Load(source, generation, component);
     }
 }
 device::PcmReadResult MediaPlayer::Read(void* context, int16_t* out, uint32_t capacity) {
@@ -111,7 +114,7 @@ device::PcmReadResult MediaPlayer::Read(void* context, int16_t* out, uint32_t ca
     if (finished) player.finished_ = true;
     return {count, finished};
 }
-void MediaPlayer::Load(const std::string& source, uint64_t generation) {
+void MediaPlayer::Load(const std::string& source, uint64_t generation, uint32_t component) {
     auto fail = [this, generation](std::string error) {
         std::lock_guard lock(mutex_);
         if (cancel_ || generation != generation_) return;
@@ -238,7 +241,7 @@ void MediaPlayer::Load(const std::string& source, uint64_t generation) {
     position_ = 0;
     total_samples_ = samples_.size() / 2;
     (void)audio_.ResumeAll();
-    const auto status = audio_.StartStereoPcm({Read, this}, handle_);
+    const auto status = audio_.StartStereoPcm({Read, this}, handle_, owner_, component);
     if (status != MICROPIXEL_STATUS_OK) {
         status_ = "No audio playback slot available";
         failed_ = true;
