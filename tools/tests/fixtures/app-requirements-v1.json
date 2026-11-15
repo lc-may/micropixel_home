@@ -23,7 +23,9 @@
     "gpio",
     "haptics",
     "network",
-    "lifecycle"
+    "lifecycle",
+    "widget",
+    "message"
   ],
   "layouts": [
     "square",

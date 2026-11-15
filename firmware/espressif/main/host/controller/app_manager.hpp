@@ -13,6 +13,7 @@ enum class ManagerResult : uint8_t { kAccepted, kInvalidApp, kBusy, kNoCapacity,
 struct AppPolicy final {
     bool background{};
     bool activity{true};
+    bool messages{};
 };
 struct AppSnapshot final {
     AppState state{AppState::kStopped};

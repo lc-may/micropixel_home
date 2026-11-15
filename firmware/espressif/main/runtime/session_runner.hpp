@@ -14,6 +14,7 @@ struct SessionObservation final {
     bool exited{};
     bool activity_available{true};
     bool background_eligible{true};
+    bool work_pending{};
     int32_t result{};
 };
 

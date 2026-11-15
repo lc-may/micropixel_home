@@ -7,6 +7,12 @@ namespace netease {
 enum class LoginAction { kNone, kBack, kRefresh, kRemember, kLogout };
 class LoginView {
    public:
+    void CancelInput() {
+        back_.Reset();
+        refresh_.Reset();
+        remember_.Reset();
+        logout_.Reset();
+    }
     explicit LoginView(micropixel::Scene& scene) {
         using namespace micropixel;
         root_ = scene.CreateContainer({.clip = {0, 0, 720, 720}, .z_order = 100, .visible = false}).value();

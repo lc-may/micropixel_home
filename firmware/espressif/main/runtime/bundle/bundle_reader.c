@@ -587,6 +587,7 @@ static bool parse_app_requirements(const cJSON* root, micropixel_app_requirement
         output->component_flags =
             (cJSON_IsTrue(activity) ? 1U : 0U) | (cJSON_IsTrue(service) ? 2U : 0U) | (background ? 4U : 0U);
         output->widget_count = (uint8_t)widgets;
+        if (widgets && !cJSON_IsTrue(service)) return false;
         output->background_kinds = background;
     }
     uint32_t index = 0;
@@ -606,7 +607,8 @@ static bool parse_app_requirements(const cJSON* root, micropixel_app_requirement
             return false;
         output->services[index] = minimum;
     }
-    if (schema == 2U && output->services[12] < 65536U) return false;
+    if (schema == 2U && (output->services[12] < 65536U || (output->widget_count && output->services[13] < 65536U)))
+        return false;
     output->min_width = (uint16_t)width;
     output->min_height = (uint16_t)height;
     output->declared = true;

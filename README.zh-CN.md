@@ -22,7 +22,7 @@
 PC 默认保持单槽；`--multi-app` 启用四个原生 Wasm 实例、AppManager、Activity/Service 生命周期、
 独立资源域与前台输入路由。详见[组件契约](docs/design/app-components.zh-CN.md)与
 [最小示例](guest/apps/components-demo/README.zh-CN.md)。音乐已迁移为 Activity/PlaybackService，并预留独立播放 HTTP 通道，见
-[D4 说明](docs/development/app-manager-d4.zh-CN.md)。Home Widget、Job 和闹钟属于后续交付；MCU 与 RV32 多实例尚未启用。
+[D4 说明](docs/development/app-manager-d4.zh-CN.md)。Home 支持天气、时钟和媒体卡片，通过有界消息控制应用，见[D5 说明](docs/development/app-manager-d5.zh-CN.md)。Job 和闹钟属于后续交付；MCU 与 RV32 多实例尚未启用。
 新增 HTTP 与 URL 音频适配器目前用于 PC，MCU 需要补齐对应平台适配。
 
 ## 在 PC 上运行

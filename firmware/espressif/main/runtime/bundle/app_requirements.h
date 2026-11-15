@@ -6,13 +6,13 @@
 #include <string.h>
 
 #define MICROPIXEL_APP_CAPABILITY_COUNT 8U
-#define MICROPIXEL_APP_SERVICE_COUNT 13U
+#define MICROPIXEL_APP_SERVICE_COUNT 15U
 static const char* const kMicropixelAppCapabilities[MICROPIXEL_APP_CAPABILITY_COUNT] = {
     "input.touch",      "input.keys",          "audio.output", "sensor.acceleration",
     "sensor.gyroscope", "sensor.magnetometer", "haptics",      "gpio"};
 static const char* const kMicropixelAppServices[MICROPIXEL_APP_SERVICE_COUNT] = {
-    "system", "input",  "graphics", "audio",   "storage", "timer",    "resource",
-    "device", "sensor", "gpio",     "haptics", "network", "lifecycle"};
+    "system", "input", "graphics", "audio",   "storage",   "timer",  "resource", "device",
+    "sensor", "gpio",  "haptics",  "network", "lifecycle", "widget", "message"};
 
 typedef struct {
     uint32_t core_abi;
@@ -89,7 +89,8 @@ static inline bool micropixel_app_runtime_compatible(const micropixel_app_requir
     if (environment == NULL || requirements->core_abi >> 16U != environment->core_abi >> 16U ||
         (requirements->core_abi & 65535U) > (environment->core_abi & 65535U))
         return false;
-    if (requirements->schema_version == 2U && (environment->services[12] < 65536U || requirements->widget_count != 0U))
+    if (requirements->schema_version == 2U &&
+        (environment->services[12] < 65536U || (requirements->widget_count && environment->services[13] < 65536U)))
         return false;
     for (uint32_t index = 0; index < MICROPIXEL_APP_SERVICE_COUNT; ++index) {
         if (requirements->services[index] != 0U &&

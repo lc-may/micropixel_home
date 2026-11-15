@@ -10,6 +10,16 @@
 
 namespace micropixel::runtime {
 class GuestContext;
+class ApplicationServiceEndpoint final : public ServiceHandler {
+   public:
+    ApplicationServiceEndpoint(GuestContext& context, uint32_t id) : context_(context), id_(id) {}
+    ServiceDescriptor Describe() const override;
+    int32_t Call(uint32_t, const uint8_t*, uint32_t, uint8_t*, uint32_t, uint32_t&) override;
+
+   private:
+    GuestContext& context_;
+    const uint32_t id_;
+};
 
 class LifecycleServiceEndpoint final : public ServiceHandler {
    public:

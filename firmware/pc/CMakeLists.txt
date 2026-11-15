@@ -68,7 +68,7 @@ target_compile_definitions(pc_protocols PRIVATE
     HTTP_RECV_RETRY_TIMEOUT_MS=10000U HTTP_SEND_RETRY_TIMEOUT_MS=10000U)
 
 set(SHARED_SOURCES
-    host/controller/app_manager.cpp
+    host/controller/app_manager.cpp host/controller/app_hub.cpp
     host/ui/system_locale.cpp host/ui/lvgl/square_common/hall_card_ui.cpp
     device/device_registry.cpp device/device_services.cpp device/text.cpp
     runtime/abi/guest_abi.cpp runtime/abi/native_symbols.c runtime/abi/service_endpoints.cpp runtime/abi/service_registry.cpp

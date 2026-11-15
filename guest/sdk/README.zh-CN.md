@@ -8,6 +8,11 @@ SDK 让应用通过强类型对象使用图形、输入、音频和设备能力�
 驱动更新；Host 管理硬件、资源和系统 UI。本文介绍编程模型与易错边界，完整可运行用法见
 [Demo](../apps/sdk-demo/)，底层协议见 [ABI](../abi/README.zh-CN.md)。
 
+## 升级到 0.22.0
+
+`Widgets`, `Messages` and `MessageEvent` use Widget/Message 1.0 on the PC Host.
+See [D5](../../docs/development/app-manager-d5.zh-CN.md) for limits, identity and request_id rules.
+
 ## 升级到 0.21.0
 
 PC Guest 新增 `Activity`、`AppService`、`ComponentContext` 和 `Application::RunComponents()`，

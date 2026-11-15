@@ -85,8 +85,12 @@ void TestRequirements(const char* path) {
     assert(!micropixel_app_runtime_compatible(&value, &environment));
     environment.services[12] = 65536;
     cJSON_ReplaceItemInObject(components, "widgets", cJSON_CreateNumber(1));
+    cJSON_AddNumberToObject(cJSON_GetObjectItem(requirement, "services"), "widget", 65536);
     assert(parse(value));
+    environment.services[13] = 0;
     assert(!micropixel_app_runtime_compatible(&value, &environment));
+    environment.services[13] = 65536;
+    assert(micropixel_app_runtime_compatible(&value, &environment));
     for (double invalid : {-1.0, 0.5, 3.0}) {
         cJSON_ReplaceItemInObject(components, "widgets", cJSON_CreateNumber(invalid));
         assert(!parse(value));

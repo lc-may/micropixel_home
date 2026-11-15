@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "app_id": "micropixel.netease-music",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "threading": "none",
   "title": {
     "default": "zh-CN",
@@ -36,7 +36,9 @@
       "audio": 65537,
       "input": 65538,
       "resource": 65537,
-      "lifecycle": 65536
+      "lifecycle": 65536,
+      "widget": 65536,
+      "message": 65536
     },
     "system_font": "zh-CN",
     "components": {
@@ -45,7 +47,7 @@
       "background": [
         "media"
       ],
-      "widgets": 0
+      "widgets": 1
     }
   }
 }

@@ -39,7 +39,7 @@ class MusicModel final {
             StartInitial();
         Draw();
         app_.log().Info("NETEASE_GUEST started: SDK Scene + Network HTTP + Audio URL");
-        app_.log().Info("NETEASE_GUEST version: 0.5.0");
+        app_.log().Info("NETEASE_GUEST version: 0.6.0");
         initialized_ = true;
     }
 
@@ -580,6 +580,65 @@ class MusicModel final {
             ComponentContext context(app_, activity_token_);
             context.WithScope([&] { TickPage(); });
         }
+        PublishWidget(false);
+    }
+    void PublishWidget(bool force) {
+        const auto now = app_.clock().Now().microseconds();
+        const bool playing = play_stage_ != PlayStage::kNone || play_client_.busy() ||
+                             (playback_.valid() && media_.phase != MediaPhase::kPaused &&
+                              media_.phase != MediaPhase::kFailed && media_.phase != MediaPhase::kFinished);
+        const bool transition = widget_playing_ != playing || widget_track_ != current_.id;
+        if (!force && !transition && (widget_seen_ == dirty_ || now - widget_at_ < 1000000)) return;
+        const auto result = app_.widgets().Publish(
+            1,
+            {.kind = WidgetTemplate::kMedia,
+             .title = Clip(current_.title.empty() ? "网易云音乐" : current_.title, 63),
+             .subtitle = Clip(current_.artists.empty() ? (account_.verified() ? account_.nickname : "打开应用选择音乐")
+                                                       : current_.artists,
+                              95),
+             .valid_for_seconds = 0,
+             .position_ms = media_.position_ms,
+             .duration_ms = media_.duration_ms,
+             .value = static_cast<int32_t>(current_.id),
+             .auxiliary = static_cast<int32_t>(current_.id >> 32),
+             .playing = playing,
+             .failed = state_.failed || media_.phase == MediaPhase::kFailed});
+        if (result) {
+            widget_seen_ = dirty_;
+            widget_at_ = now;
+            widget_playing_ = playing;
+            widget_track_ = current_.id;
+        }
+    }
+    int32_t Command(const AppMessage& message) {
+        if (message.type == static_cast<uint16_t>(AppAction::kNextTrack))
+            Step(1);
+        else if (message.type == static_cast<uint16_t>(AppAction::kSetPlaying)) {
+            const auto value = message.U32();
+            if (!value || *value > 1) return -1;
+            if (*value) {
+                if (playback_.valid() && media_.phase != MediaPhase::kFinished && media_.phase != MediaPhase::kFailed)
+                    (void)playback_.Pause(false);
+                else if (current_.id && !play_client_.busy() && play_stage_ == PlayStage::kNone)
+                    StartTrack(current_, false);
+            } else {
+                if (playback_.valid())
+                    (void)playback_.Pause(true);
+                else {
+                    play_client_.Cancel();
+                    play_stage_ = PlayStage::kNone;
+                }
+            }
+            app_.log().Info(*value ? "NETEASE_WIDGET playing=1" : "NETEASE_WIDGET playing=0");
+        } else
+            return -1;
+        if (playback_.valid()) {
+            auto state = playback_.State();
+            if (state) media_ = *state;
+        }
+        Draw();
+        PublishWidget(true);
+        return 0;
     }
     friend class MusicActivity;
     friend class PlaybackService;
@@ -601,6 +660,10 @@ class MusicModel final {
     uint32_t service_token_{}, activity_token_{}, dirty_{1}, avatar_revision_{}, cover_revision_{};
     std::vector<uint8_t> avatar_image_, cover_image_;
     bool initialized_{}, destroy_test_done_{};
+    uint32_t widget_seen_{};
+    uint64_t widget_at_{};
+    uint64_t widget_track_{};
+    bool widget_playing_{};
     MusicState state_;
     MusicScreen return_screen_{MusicScreen::kSearch};
     MediaPlayback playback_;

@@ -15,6 +15,7 @@
 #include "sdk/launch_arguments.hpp"
 #include "sdk/localization.hpp"
 #include "sdk/log.hpp"
+#include "sdk/messages.hpp"
 #include "sdk/network.hpp"
 #include "sdk/power_info.hpp"
 #include "sdk/random.hpp"
@@ -23,6 +24,7 @@
 #include "sdk/storage.hpp"
 #include "sdk/timer.hpp"
 #include "sdk/types.hpp"
+#include "sdk/widgets.hpp"
 
 namespace micropixel {
 class Activity;
@@ -102,6 +104,8 @@ class Application final {
     [[nodiscard]] bool WaitEventFor(Event& event, Duration timeout) const;
     [[nodiscard]] bool PollEvent(Event& event) const;
     void RunComponents(Activity* activity, AppService* service = nullptr, bool start_service = true) const;
+    [[nodiscard]] Widgets widgets() const { return {}; }
+    [[nodiscard]] Messages messages() const { return {}; }
 
    private:
     void BeginRun() const;

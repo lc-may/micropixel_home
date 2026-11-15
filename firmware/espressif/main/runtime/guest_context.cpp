@@ -44,6 +44,8 @@ GuestContext::GuestContext(const micropixel_aot_package_t& package, device::Devi
       key_events_(events_, devices_.input(), clock_origin_us_),
       components_(*this, component_flags),
       lifecycle_endpoint_(*this),
+      widget_endpoint_(*this, MICROPIXEL_SERVICE_WIDGET),
+      message_endpoint_(*this, MICROPIXEL_SERVICE_MESSAGE),
       timer_endpoint_(*this),
       system_endpoint_(effective_locale, launch_arguments),
       storage_endpoint_(*this),
@@ -61,9 +63,16 @@ GuestContext::GuestContext(const micropixel_aot_package_t& package, device::Devi
       url_media_(devices.media()),
       service_registry_(timer_endpoint_, system_endpoint_, storage_endpoint_, resource_endpoint_, random_endpoint_,
                         graphics_endpoint_, input_endpoint_, audio_endpoint_, devices_endpoint_, sensors_endpoint_,
-                        gpio_endpoint_, haptics_endpoint_, power_info_endpoint_, network_endpoint_,
-                        lifecycle_endpoint_) {
+                        gpio_endpoint_, haptics_endpoint_, power_info_endpoint_, network_endpoint_, lifecycle_endpoint_,
+                        widget_endpoint_, message_endpoint_) {
     (void)std::snprintf(app_id_.data(), app_id_.size(), "%s", reinterpret_cast<const char*>(package.app_id));
+    if (auto* apps = devices_.applications())
+        apps->BindEvents({this, [](void* raw, const micropixel_event_t& event) {
+                              auto& context = *static_cast<GuestContext*>(raw);
+                              auto copy = event;
+                              copy.timestamp_us = context.AppTimeNow();
+                              return context.events_.PushAdvisory(copy);
+                          }});
     const auto audio_result = devices_.audio().ResumeAll();
     audio_foreground_ready_ = audio_result || audio_result.error().status == MICROPIXEL_STATUS_UNSUPPORTED;
     if (!valid()) {
@@ -78,6 +87,7 @@ GuestContext::GuestContext(const micropixel_aot_package_t& package, device::Devi
 }
 
 GuestContext::~GuestContext() {
+    if (auto* apps = devices_.applications()) apps->BindEvents({});
     micropixel_check_heap("GuestContext teardown begin");
     // Returns the panel to LVGL and drains in-flight Guest buffers while the
     // event queue and the release sink (this object) are still alive.
@@ -221,6 +231,7 @@ bool GuestContext::Resume() {
 
 bool GuestContext::RequestStop() {
     stopping_.store(true);
+    if (auto* apps = devices_.applications()) apps->Quiesce();
     touch_events_.Suspend();
     key_events_.Suspend();
     sensors_.Suspend();

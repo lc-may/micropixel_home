@@ -213,7 +213,92 @@ typedef enum micropixel_service_id {
     MICROPIXEL_SERVICE_HAPTICS = 22,
     MICROPIXEL_SERVICE_POWER = 23,
     MICROPIXEL_SERVICE_LIFECYCLE = 24,
+    MICROPIXEL_SERVICE_WIDGET = 25,
+    MICROPIXEL_SERVICE_MESSAGE = 26,
 } micropixel_service_id_t;
+
+/* Widget / Message 1.0: bounded snapshots and instance-scoped delivery. */
+#define MICROPIXEL_WIDGET_PUBLISH 1U
+#define MICROPIXEL_WIDGET_WEATHER 1U
+#define MICROPIXEL_WIDGET_CLOCK 2U
+#define MICROPIXEL_WIDGET_MEDIA 3U
+#define MICROPIXEL_WIDGET_PLAYING 1U
+#define MICROPIXEL_WIDGET_ERROR 2U
+#define MICROPIXEL_MESSAGE_SEND 1U
+#define MICROPIXEL_MESSAGE_READ 2U
+#define MICROPIXEL_MESSAGE_ACK 3U
+#define MICROPIXEL_MESSAGE_RESULT 4U
+#define MICROPIXEL_MESSAGE_ALLOW 5U
+#define MICROPIXEL_MESSAGE_EVENT 1U
+#define MICROPIXEL_MESSAGE_LOGICAL 1U
+#define MICROPIXEL_ACTION_SET_PLAYING 1U
+#define MICROPIXEL_ACTION_NEXT_TRACK 2U
+#define MICROPIXEL_ACTION_REFRESH 3U
+#define MICROPIXEL_MESSAGE_PAYLOAD_BYTES 128U
+typedef struct micropixel_widget_snapshot {
+    uint16_t size;
+    uint16_t template_id;
+    uint32_t widget_id;
+    uint32_t revision;
+    uint32_t flags;
+    uint64_t updated_utc;
+    uint32_t valid_for_seconds;
+    uint32_t position_ms;
+    uint32_t duration_ms;
+    int32_t value;
+    int32_t auxiliary;
+    char title[64];
+    char subtitle[96];
+    uint32_t reserved0;
+} micropixel_widget_snapshot_t;
+typedef struct micropixel_message_send {
+    uint16_t size;
+    uint16_t type;
+    uint32_t flags;
+    uint64_t sequence;
+    uint64_t target_boot;
+    uint32_t target_slot;
+    uint32_t target_epoch;
+    uint32_t target_component;
+    uint32_t ttl_ms;
+    uint32_t payload_length;
+    uint32_t reserved0;
+    uint8_t payload[MICROPIXEL_MESSAGE_PAYLOAD_BYTES];
+    char target_app[68];
+    uint32_t reserved1;
+} micropixel_message_send_t;
+typedef struct micropixel_message_received {
+    uint16_t size;
+    uint16_t type;
+    uint32_t source_component;
+    uint64_t source_boot;
+    uint32_t source_slot;
+    uint32_t source_epoch;
+    uint64_t sequence;
+    uint32_t payload_length;
+    uint32_t reserved0;
+    uint8_t payload[MICROPIXEL_MESSAGE_PAYLOAD_BYTES];
+    char source_app[68];
+    uint32_t reserved1;
+} micropixel_message_received_t;
+typedef struct micropixel_message_ack {
+    uint16_t size;
+    uint16_t reserved0;
+    uint32_t ticket;
+    int32_t result;
+} micropixel_message_ack_t;
+typedef struct micropixel_message_result {
+    uint16_t size;
+    uint16_t complete;
+    uint32_t ticket;
+    int32_t result;
+} micropixel_message_result_t;
+typedef struct micropixel_message_allow {
+    uint16_t size;
+    uint16_t reserved0;
+    uint32_t types;
+    char caller[68];
+} micropixel_message_allow_t;
 
 /* Lifecycle 1.0. Component tokens are local to one Guest instance. */
 #define MICROPIXEL_LIFECYCLE_INTERFACE_MAJOR 1U
@@ -1891,6 +1976,12 @@ typedef struct micropixel_event {
 #endif
 
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_component_register_request_t) == 8U, "Component register layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_widget_snapshot_t) == 208U, "Widget snapshot layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_message_send_t) == 248U, "Message send layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_message_received_t) == 240U, "Message receive layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_message_allow_t) == 76U, "Message allow layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_message_ack_t) == 12U, "Message ack layout");
+MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_message_result_t) == 12U, "Message result layout");
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_component_request_t) == 8U, "Component request layout");
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_component_scope_t) == 8U, "Component scope layout");
 MICROPIXEL_ABI_STATIC_ASSERT(sizeof(micropixel_component_ack_t) == 16U, "Component ack layout");

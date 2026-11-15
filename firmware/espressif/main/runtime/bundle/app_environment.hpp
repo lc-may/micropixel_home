@@ -50,6 +50,10 @@ inline micropixel_app_environment_t AppEnvironment(device::DeviceServices& devic
         devices.http() ? MICROPIXEL_INTERFACE_VERSION(1U, devices.http()->MaxConcurrentRequests() >= 2 ? 3U : 2U) : 0U;
 #if defined(MICROPIXEL_PC_COMPONENTS)
     result.services[12] = MICROPIXEL_INTERFACE_VERSION(1U, 0U);
+    if (devices.applications()) {
+        result.services[13] = MICROPIXEL_INTERFACE_VERSION(1U, 0U);
+        result.services[14] = MICROPIXEL_INTERFACE_VERSION(1U, 0U);
+    }
 #endif
     return result;
 }

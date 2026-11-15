@@ -463,7 +463,7 @@ int main(int argc, char** argv) {
         }
         pc::AppSessions sessions(apps, display, info, screen_font.guest_fonts, audio, random, registry, battery,
                                  options.multi_app);
-        pc::HomeApp home(apps, media, audio);
+        pc::HomeApp home(apps, media, audio, &sessions);
         pc::Market market;
         if (options.market)
             market.Show(options.market_app);
@@ -629,6 +629,11 @@ int main(int argc, char** argv) {
             if (home.close_requested) {
                 home.close_requested = false;
                 stop = true;
+            }
+            if (home.stop_requested >= 0) {
+                sessions.Stop(static_cast<uint32_t>(home.stop_requested));
+                home.stop_requested = -1;
+                show_home();
             }
             if (home.music_requested) {
                 home.music_requested = false;

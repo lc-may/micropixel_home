@@ -150,7 +150,8 @@ void AppManager::Process(uint64_t now_ms) {
         }
         if (snapshot_.foreground == slot.app && !observation.activity_available) HideForeground();
         if (observation.ready && snapshot_.foreground != slot.app && snapshot_.pending != slot.app) {
-            const bool background = policies_[slot.app].background && observation.background_eligible;
+            const bool background = (policies_[slot.app].background && observation.background_eligible) ||
+                                    (policies_[slot.app].messages && observation.work_pending);
             if (!background && !observation.suspended) slot.runner->RequestSuspend();
             if (background && observation.suspended) slot.runner->RequestBackgroundResume();
         }

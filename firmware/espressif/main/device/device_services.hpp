@@ -5,6 +5,7 @@
 #include <expected>
 
 #include "abi/micropixel_abi.h"
+#include "device/contracts/application.hpp"
 #include "device/contracts/audio.hpp"
 #include "device/contracts/battery.hpp"
 #include "device/contracts/board_info.hpp"
@@ -188,7 +189,7 @@ class DeviceServices final {
    public:
     DeviceServices(Graphics& graphics, DisplayInfo display, Input& input, Audio& audio, Random& random,
                    DeviceCatalog& devices, Sensors& sensors, Gpio& gpio, Haptics& haptics, Battery& battery,
-                   HttpClient* http = nullptr, UrlMedia* media = nullptr)
+                   HttpClient* http = nullptr, UrlMedia* media = nullptr, ApplicationServices* applications = nullptr)
         : graphics_(graphics, display),
           input_(input),
           audio_(audio),
@@ -199,7 +200,8 @@ class DeviceServices final {
           haptics_(haptics),
           power_info_(devices, battery),
           http_(http),
-          media_(media) {}
+          media_(media),
+          applications_(applications) {}
     DeviceServices(const DeviceServices&) = delete;
     DeviceServices& operator=(const DeviceServices&) = delete;
 
@@ -233,6 +235,7 @@ class DeviceServices final {
 
     [[nodiscard]] HttpClient* http() { return http_; }
     [[nodiscard]] UrlMedia* media() { return media_; }
+    [[nodiscard]] ApplicationServices* applications() { return applications_; }
 
    private:
     GraphicsService graphics_;
@@ -246,6 +249,7 @@ class DeviceServices final {
     PowerInfoService power_info_;
     HttpClient* http_{};
     UrlMedia* media_{};
+    ApplicationServices* applications_{};
 };
 
 }  // namespace micropixel::device

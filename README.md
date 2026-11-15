@@ -23,7 +23,7 @@ The PC Host keeps the single-slot profile by default. `--multi-app` enables four
 with AppManager, Activity/Service lifecycle callbacks, per-instance resources, and foreground input routing.
 See the [component contract](docs/design/app-components.zh-CN.md) and
 [component example](guest/apps/components-demo/README.zh-CN.md). Music now uses Activity/PlaybackService with a reserved HTTP lane; see the
-[D4 guide](docs/development/app-manager-d4.zh-CN.md). Home widgets, Jobs and alarms remain later deliveries; MCU and RV32 multi-instance support are not enabled yet.
+[D4 guide](docs/development/app-manager-d4.zh-CN.md). Home renders weather, clock and media widgets with bounded message-based controls; see the [D5 guide](docs/development/app-manager-d5.zh-CN.md). Jobs and alarms remain later deliveries; MCU and RV32 multi-instance support are not enabled yet.
 The new HTTP and URL audio adapters currently target PC; MCU support requires platform adapters.
 
 ## Run on a PC

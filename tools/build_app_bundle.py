@@ -760,7 +760,7 @@ def parse_titles(value: object, fallback_default: object = "en") -> LocalizedTit
 
 
 CAPABILITY_NAMES = {"input.touch", "input.keys", "audio.output", "sensor.acceleration", "sensor.gyroscope", "sensor.magnetometer", "haptics", "gpio"}
-SERVICE_NAMES = {"system", "input", "graphics", "audio", "storage", "timer", "resource", "device", "sensor", "gpio", "haptics", "network", "lifecycle"}
+SERVICE_NAMES = {"system", "input", "graphics", "audio", "storage", "timer", "resource", "device", "sensor", "gpio", "haptics", "network", "lifecycle", "widget", "message"}
 
 
 def validate_requirements(value: object) -> dict:
@@ -803,7 +803,9 @@ def validate_requirements(value: object) -> dict:
         background = names(components["background"], {"media", "task"}, 2)
         require(not background or components["service"], "background requires service")
         require(type(components["widgets"]) is int and 0 <= components["widgets"] <= 2, "invalid widget count")
+        require(not components["widgets"] or components["service"], "widgets require service")
         require(value["services"].get("lifecycle", 0) >= 65536, "components require lifecycle 1.0")
+        require(not components["widgets"] or value["services"].get("widget", 0) >= 65536, "widgets require widget 1.0")
     return value
 
 

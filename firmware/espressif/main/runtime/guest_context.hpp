@@ -62,6 +62,7 @@ class GuestContext final {
     [[nodiscard]] micropixel_app_time_t AppTimeNow() const { return timers_.Now(); }
     [[nodiscard]] EventWaitResult WaitEvent(micropixel_event_t& event, uint64_t timeout_us);
     Components& components() { return components_; }
+    device::ApplicationServices* ApplicationControl() { return devices_.applications(); }
     [[nodiscard]] bool PushRequired(const micropixel_event_t& event) { return events_.PushRequired(event); }
     [[nodiscard]] bool PushTouch(const device::TouchSample& sample) { return touch_events_.Push(sample); }
     [[nodiscard]] bool PushKey(const device::KeySample& sample) { return key_events_.Push(sample); }
@@ -370,6 +371,7 @@ class GuestContext final {
     KeyEventBridge key_events_;
     Components components_;
     LifecycleServiceEndpoint lifecycle_endpoint_;
+    ApplicationServiceEndpoint widget_endpoint_, message_endpoint_;
     TimerServiceEndpoint timer_endpoint_;
     SystemServiceEndpoint system_endpoint_;
     StorageServiceEndpoint storage_endpoint_;

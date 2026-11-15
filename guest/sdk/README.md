@@ -2,6 +2,11 @@
 
 A restricted C++23 SDK for WebAssembly apps. No ESP-IDF, LVGL, board-specific types, threads, exceptions, or RTTI.
 
+## Upgrading to 0.22.0
+
+`Widgets`, `Messages` and `MessageEvent` use Widget/Message 1.0 on the PC Host.
+See [D5](../../docs/development/app-manager-d5.zh-CN.md) for limits, identity and request_id rules.
+
 ## Start here
 
 - [Quickstart](QUICKSTART.md) — create and run an app.

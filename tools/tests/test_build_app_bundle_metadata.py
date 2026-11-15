@@ -33,6 +33,7 @@ class PackageMetadataTests(unittest.TestCase):
                 bundle.validate_requirements(value)
         value = copy.deepcopy(valid)
         value["components"].update(activity=False, widgets=2)
+        value["services"]["widget"] = 65536
         self.assertEqual(bundle.validate_requirements(value), value)  # Parsed, Host D3 rejects unsupported widgets.
 
     def test_system_font_requirement(self):

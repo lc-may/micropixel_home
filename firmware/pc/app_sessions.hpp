@@ -6,6 +6,7 @@
 
 #include "device/device_registry.hpp"
 #include "home_app.hpp"
+#include "host/controller/app_hub.hpp"
 #include "host/controller/app_manager.hpp"
 #include "platform/lvgl/fonts/font_registry.hpp"
 #include "session.hpp"
@@ -28,6 +29,10 @@ class AppSessions final {
     MediaPlayer* Media(uint32_t app);
     const host::ManagerSnapshot& Snapshot() const;
     void Shutdown();
+    bool Widget(uint32_t index, host::WidgetSnapshot& out);
+    int32_t WidgetAction(const host::WidgetSnapshot&, uint16_t type, uint32_t value, uint64_t sequence,
+                         uint32_t& ticket);
+    micropixel_message_result_t WidgetResult(uint32_t ticket);
 
    private:
     struct Impl;

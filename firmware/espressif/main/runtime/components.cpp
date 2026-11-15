@@ -113,6 +113,10 @@ int32_t Components::Call(uint32_t method, const uint8_t* request, uint32_t size,
         model_.current_scope = wire.token;
         portEXIT_CRITICAL(&lock_);
         context_.devices_.audio().SetComponentScope(wire.token);
+        if (auto* apps = context_.devices_.applications()) {
+            apps->SetComponents(Info());
+            apps->SetComponentScope(wire.token);
+        }
         if (auto* http = context_.devices_.http()) http->SetComponentScope(wire.token);
         return MICROPIXEL_STATUS_OK;
     }
@@ -158,6 +162,7 @@ int32_t Components::Call(uint32_t method, const uint8_t* request, uint32_t size,
         portENTER_CRITICAL(&lock_);
         valid = model_.Ack(wire);
         portEXIT_CRITICAL(&lock_);
+        if (auto* apps = context_.devices_.applications()) apps->SetComponents(Info());
         Wake();
         return valid ? MICROPIXEL_STATUS_OK : MICROPIXEL_STATUS_STALE_STATE;
     }
@@ -172,6 +177,9 @@ int32_t Components::Call(uint32_t method, const uint8_t* request, uint32_t size,
                 token = model_.activity.token;
                 found = true;
             }
+        } else if (wire.service_id == MICROPIXEL_SERVICE_MESSAGE) {
+            token = wire.handle;
+            found = model_.Alive(token);
         } else
             for (const auto& resource : resources_)
                 if (resource.service_handle && resource.service == wire.service_id && resource.handle == wire.handle) {

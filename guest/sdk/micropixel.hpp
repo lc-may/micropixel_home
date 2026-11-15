@@ -17,6 +17,7 @@
 #include "sdk/launch_arguments.hpp"
 #include "sdk/localization.hpp"
 #include "sdk/math.hpp"
+#include "sdk/messages.hpp"
 #include "sdk/panic.hpp"
 #include "sdk/power_info.hpp"
 #include "sdk/random.hpp"
@@ -40,5 +41,6 @@
 #include "sdk/ui/scroll_view.hpp"
 #include "sdk/ui/slider.hpp"
 #include "sdk/ui/text_button.hpp"
+#include "sdk/widgets.hpp"
 
 #endif

@@ -34,12 +34,16 @@ enum class EventType : uint16_t {
     // Input 1.1: analog gamepad axis.
     kAxis,
     kLifecycle,
+    kMessage,
 };
 
 struct LifecycleEvent final {
     uint32_t token{};
     uint32_t command{};
     uint32_t transition{};
+};
+struct MessageEvent final {
+    uint32_t ticket{};
 };
 
 enum class TouchPhase : uint8_t {
@@ -340,6 +344,9 @@ class Event final {
     [[nodiscard]] constexpr const LifecycleEvent* lifecycle() const {
         return type_ == EventType::kLifecycle ? &lifecycle_ : nullptr;
     }
+    [[nodiscard]] constexpr const MessageEvent* message() const {
+        return type_ == EventType::kMessage ? &message_ : nullptr;
+    }
     // The pointer remains valid until this Event is destroyed or reassigned.
     [[nodiscard]] const TimerEvent* TimerFrom(const Timer& source) const;
     [[nodiscard]] const AudioPlaybackEvent* PlaybackFrom(const Playback& source) const;
@@ -410,6 +417,7 @@ class Event final {
     EventType type_{EventType::kUnknown};
     uint32_t origin_service_{}, origin_handle_{};
     LifecycleEvent lifecycle_{};
+    MessageEvent message_{};
     TimePoint timestamp_{};
     TimerEvent timer_{};
     TouchEvent touch_{TimePoint{}, TouchPhase::kCancel, 0U, 0, 0, false, 0U};

@@ -9,7 +9,14 @@ if [[ "${1:-}" == "--app-framework" ]]; then
         "$framework_root/tools/tests/test_app_framework.cpp" \
         "$framework_root/firmware/espressif/main/host/controller/app_manager.cpp" \
         -o "$framework_root/build/host-tests/app_framework_test"
-    exec "$framework_root/build/host-tests/app_framework_test"
+    "$framework_root/build/host-tests/app_framework_test"
+    python3 "$framework_root/tools/tests/build_host_test.py" "${CXX:-/usr/bin/clang++}" \
+        -std=c++2b -Wall -Wextra -Werror -I "$framework_root/firmware/espressif/main" -I "$framework_root/guest" \
+        "$framework_root/tools/tests/test_app_hub.cpp" \
+        "$framework_root/firmware/espressif/main/host/controller/app_hub.cpp" \
+        "$framework_root/firmware/espressif/main/device/text.cpp" \
+        -o "$framework_root/build/host-tests/app_hub_test"
+    exec "$framework_root/build/host-tests/app_hub_test"
 fi
 
 if [[ "${1:-}" == "--pc" ]]; then

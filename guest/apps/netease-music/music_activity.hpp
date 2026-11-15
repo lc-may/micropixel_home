@@ -31,6 +31,10 @@ class MusicActivity final : public micropixel::Activity {
     }
     void OnStop(micropixel::ComponentContext&) override {
         visible_ = false;
+        if (ui_) {
+            ui_->view.CancelInput();
+            ui_->login.CancelInput();
+        }
         model_.StopEditing();
         model_.app_.log().Info("NETEASE_ACTIVITY stopped");
     }
@@ -153,6 +157,7 @@ class PlaybackService final : public micropixel::AppService {
         timer_.emplace(model_.app_.timers().Every(micropixel::Duration::Milliseconds(100)).value());
         model_.app_.log().Info("NETEASE_SERVICE started");
         model_.PumpPlayback();
+        model_.PublishWidget(true);
     }
     void OnStop(micropixel::ComponentContext&) override {
         model_.play_client_.Cancel();
@@ -162,6 +167,11 @@ class PlaybackService final : public micropixel::AppService {
         model_.app_.log().Info("NETEASE_SERVICE stopped");
     }
     void OnEvent(micropixel::ComponentContext&, const micropixel::Event& event) override {
+        if (const auto* incoming = event.message()) {
+            const auto message = model_.app_.messages().Read(incoming->ticket);
+            if (message) (void)model_.app_.messages().Ack(incoming->ticket, model_.Command(*message));
+            return;
+        }
         if (timer_ && event.TimerFrom(*timer_)) model_.Tick();
     }
 

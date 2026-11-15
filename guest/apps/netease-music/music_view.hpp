@@ -14,6 +14,16 @@ inline std::string TimeText(uint32_t ms) {
 }
 class MusicView final {
    public:
+    void CancelInput() {
+        for (auto& button : buttons_) button.Reset();
+        for (auto& row : rows_) row.Reset();
+        scroll_.Cancel();
+        seek_.Cancel();
+        mini_body_.Reset();
+        for (auto* button : {&mini_like_, &mini_play_, &mini_next_, &player_back_, &player_stop_, &previous_, &play_,
+                             &next_, &player_like_})
+            button->Reset();
+    }
     explicit MusicView(micropixel::Scene& scene) {
         using namespace micropixel;
         browser_ = scene.CreateContainer().value();
