@@ -36,11 +36,16 @@ std::string MediaPlayer::Status() {
     std::lock_guard lock(mutex_);
     return status_;
 }
+MediaPlayer::Intent MediaPlayer::PlaybackIntent() {
+    std::lock_guard lock(mutex_);
+    return {owner_, generation_, intent_version_, handle_};
+}
 void MediaPlayer::Play(std::string source) {
     {
         std::lock_guard lock(mutex_);
         cancel_ = true;
         StopAudioLocked();
+        ++intent_version_;
         pending_ = std::move(source);
         pending_component_ = audio_.ComponentScope(owner_);
         ended_at_ms_ = 0;
@@ -62,6 +67,7 @@ void MediaPlayer::Stop() {
     cancel_ = true;
     ended_at_ms_ = 0;
     pending_.reset();
+    ++intent_version_;
     ++generation_;
     StopAudioLocked();
     position_ = total_samples_ = 0;
@@ -72,6 +78,7 @@ void MediaPlayer::Stop() {
 }
 void MediaPlayer::Pause(bool paused) {
     std::lock_guard lock(mutex_);
+    ++intent_version_;
     if (paused) paused_at_ms_ = esp_timer_get_time() / 1000;
     paused_ = paused;
     if (handle_) {
@@ -84,6 +91,7 @@ void MediaPlayer::Pause(bool paused) {
 bool MediaPlayer::Seek(double seconds) {
     std::lock_guard lock(mutex_);
     if (!handle_ || finished_ || !std::isfinite(seconds) || seconds < 0 || total_samples_ == 0) return false;
+    ++intent_version_;
     const auto sample = std::min(seconds, double(total_samples_.load()) / 48000) * 48000;
     position_ = std::min(static_cast<size_t>(sample), total_samples_.load() - 1);
     return true;

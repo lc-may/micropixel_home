@@ -164,6 +164,26 @@ void TestHub() {
     assert(hub.Widget(0, 20000, view) && !view.online && view.expired);
     assert(hub.Action(view, MICROPIXEL_ACTION_NEXT_TRACK, 0, 133, 20000, ticket) == MICROPIXEL_STATUS_STALE_STATE);
 }
+void TestHostClock() {
+    auto hub = std::make_unique<host::AppHub>(9);
+    assert(hub->Register(0, "clock", 1) && hub->KeepClock(0, 1));
+    host::WidgetSnapshot widget{};
+    assert(hub->Widget(0, 1000, widget) && widget.data.template_id == 2 && !widget.online);
+    for (uint32_t app = 1; app < 10; ++app) {
+        auto name = std::string("app.") + std::to_string(app);
+        assert(hub->Register(app, name, 2));
+        host::AppCaller caller{app, {9, app, 1}, 6};
+        hub->Bind(app, caller.instance);
+        hub->Components(caller, Ready());
+        micropixel_handle_response_t response{};
+        auto value = Snapshot(1, 1);
+        assert(Call(*hub, caller, 25, 1, value, response) == 0);
+        hub->Unbind(caller);
+    }
+    assert(hub->Widget(0, 2000, widget) && widget.app == 0);
+    hub->Remove(0);
+    assert(!hub->Widget(0, 2000, widget));
+}
 void TestColdPolicy() {
     auto owned = std::make_unique<host::AppHub>(123);
     auto& hub = *owned;
@@ -232,6 +252,7 @@ int main() {
     TestHub();
     TestQuota();
     TestColdPolicy();
+    TestHostClock();
     std::puts(
         "PASS Widget quotas/revisions and Broker identity, allowlist, dedup, result eviction, deadlines and stale "
         "instances");

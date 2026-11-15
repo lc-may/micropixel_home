@@ -3,6 +3,7 @@
 
 #include <type_traits>
 
+#include "sdk/alarms.hpp"
 #include "sdk/audio.hpp"
 #include "sdk/clock.hpp"
 #include "sdk/devices.hpp"
@@ -108,6 +109,7 @@ class Application final {
     [[nodiscard]] Widgets widgets() const { return {}; }
     [[nodiscard]] Messages messages() const { return {}; }
     [[nodiscard]] Jobs jobs() const { return {}; }
+    [[nodiscard]] Alarms alarms() const { return {}; }
 
    private:
     void BeginRun() const;

@@ -47,6 +47,7 @@ GuestContext::GuestContext(const micropixel_aot_package_t& package, device::Devi
       widget_endpoint_(*this, MICROPIXEL_SERVICE_WIDGET),
       message_endpoint_(*this, MICROPIXEL_SERVICE_MESSAGE),
       job_endpoint_(*this, MICROPIXEL_SERVICE_JOB),
+      alarm_endpoint_(*this, MICROPIXEL_SERVICE_ALARM),
       timer_endpoint_(*this),
       system_endpoint_(effective_locale, launch_arguments),
       storage_endpoint_(*this),
@@ -65,7 +66,7 @@ GuestContext::GuestContext(const micropixel_aot_package_t& package, device::Devi
       service_registry_(timer_endpoint_, system_endpoint_, storage_endpoint_, resource_endpoint_, random_endpoint_,
                         graphics_endpoint_, input_endpoint_, audio_endpoint_, devices_endpoint_, sensors_endpoint_,
                         gpio_endpoint_, haptics_endpoint_, power_info_endpoint_, network_endpoint_, lifecycle_endpoint_,
-                        widget_endpoint_, message_endpoint_, job_endpoint_) {
+                        widget_endpoint_, message_endpoint_, job_endpoint_, alarm_endpoint_) {
     (void)std::snprintf(app_id_.data(), app_id_.size(), "%s", reinterpret_cast<const char*>(package.app_id));
     if (auto* apps = devices_.applications())
         apps->BindEvents({this, [](void* raw, const micropixel_event_t& event) {

@@ -6,7 +6,8 @@ Applies to the entire repository. Use source code, ABI headers, and executable t
 
 MicroPixel runs WebAssembly apps on Espressif MCUs using ESP-IDF 6.1 and a pinned WAMR fork (AOT v6).
 Guests use a restricted C++23 SDK and a single-threaded event loop. MCU composition still allows one AppSession.
-PC defaults to one slot; `--multi-app` enables four native Wasm instances with Activity/Service components.
+PC Home defaults to four native Wasm slots with Activity/Service, widgets, jobs and Host alarms.
+`--single-app` keeps compatibility; explicit `--multi-app` also permits legacy task demos.
 See docs/design/app-components.zh-CN.md. RV32 multi-instance composition is not enabled.
 Supported boards are Metalio-Claw4, ESP-Mosaico, ESP32-S3-BOX-3, LCKFB SZPI, and M5Stack CoreS3.
 Bundle v1 distributes apps; BundleFS v3 provides copy-on-write storage and power-loss recovery with

@@ -45,7 +45,7 @@ def main():
             env = dict(os.environ, MICROPIXEL_PC_DATA_DIR=str(output / "data"), SDL_AUDIODRIVER="disk",
                        SDL_DISKAUDIOFILE=str(pcm),
                        MICROPIXEL_PC_MARKET_URL=f"http://127.0.0.1:{servers[1].server_port}")
-            args = ["--home", str(music), str(other), "--guest-arg", "--login",
+            args = ["--home", "--single-app", str(music), str(other), "--guest-arg", "--login",
                     "--guest-arg", "--test-origin", "--guest-arg", f"http://127.0.0.1:{servers[0].server_port}"]
 
             def scenario(name, driver, seconds):

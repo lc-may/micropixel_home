@@ -16,12 +16,15 @@ class AppSessions final {
    public:
     AppSessions(std::vector<std::unique_ptr<PortableApp>>& apps, lv_display_t* display, device::DisplayInfo info,
                 const platform::lvgl::SystemFontSet& fonts, SdlAudio& audio, device::Random& random,
-                device::DeviceRegistry& registry, device::Battery& battery, bool multi);
+                device::DeviceRegistry& registry, device::Battery& battery, bool multi, bool development_tasks = true);
     ~AppSessions();
     void Process();
     bool Activate(uint32_t app);
     bool EnsureWork(uint32_t app, bool explicit_user = false);
     bool ClearSchedules(uint32_t app);
+    bool Remove(uint32_t app, bool uninstall);
+    bool Removing(uint32_t app) const;
+    int32_t RemovalResult(uint32_t app) const;
     void ShowHome();
     void Stop(uint32_t app, bool user = true);
     bool Install(uint32_t app, std::unique_ptr<PortableApp> package);
@@ -35,6 +38,16 @@ class AppSessions final {
     int32_t WidgetAction(const host::WidgetSnapshot&, uint16_t type, uint32_t value, uint64_t sequence,
                          uint32_t& ticket);
     micropixel_message_result_t WidgetResult(uint32_t ticket);
+    struct AlarmState {
+        bool ringing{};
+        uint32_t count{};
+        uint64_t revision{};
+        std::array<char, 64> label{};
+    };
+    AlarmState Alarm();
+    uint64_t NextHomeRequest();
+    void StopAlarm();
+    micropixel_wall_time_t Clock();
 
    private:
     struct Impl;

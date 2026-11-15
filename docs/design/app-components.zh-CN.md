@@ -1,6 +1,6 @@
 # PC AppManager 与组件契约
 
-D1–D3 的实现使用原生 WAMR 解释器。默认单槽保持旧应用行为，`--multi-app` 显式启用四槽开发配置。
+组件实现使用原生 WAMR 解释器。PC Home 默认四槽，`--single-app` 保留兼容路径，`--multi-app` 显式启用开发配置。
 MCU 组合根尚未接入多会话；RV32 多实例在 D8 接入。七个 Core imports、Core ABI 2.0、AOT v6 和
 Bundle v1 外壳保持原样。后续阶段见[交付计划](../development/app-manager-plan.zh-CN.html)。
 
@@ -18,7 +18,7 @@ Guest safe point。退出后先排空本实例任务再归还槽位；这属于�
 
 多槽下 v1 应用为 LegacyActivity：隐藏后在 WaitEvent 安全点挂起，恢复同一实例。
 v2 的后台资格来自 Host 解析的组件声明。D3 开发配置允许声明后台 task / media 的 Service 常驻；
-后续 JobScheduler 将负责有限任务的运行资格。单槽下旧音乐在 Home 后继续运行，切换另一应用才结束它。
+JobScheduler 提供有限任务资格；默认 Home 使用 MEDIA / JOB / 待处理消息决定后台运行。单槽下旧音乐在 Home 后继续运行，切换另一应用才结束它。
 
 ## Activity 与 Service
 
@@ -32,7 +32,7 @@ v2 的后台资格来自 Host 解析的组件声明。D3 开发配置允许声�
 
 隐藏 Activity 保留页面资源；DestroyActivity 销毁其资源域，Service 继续。CreateActivity 分配新组件代次，
 Guest main 不重启。StopService 关闭 Service 域，前台 Activity 保留。Exit 或 Host Stop 结束整个 App。
-Service 的单次工作完成可通过 StopService 表达；Job work ticket 在 D6 增加。
+单次工作通过 Job work ticket Complete 结束；StopService 结束整个 Service 代次并取消其未完成工作。
 
 组件 token 是实例内能力编号，低两位表示种类，高位表示代次。相同数字可在不同实例出现，不能作为跨实例地址。
 Host 在当前 GuestContext 中校验 token、transition sequence 和 ACK command；不接受重复或过期 ACK。
@@ -72,7 +72,7 @@ Bundle metadata 中还必须带 `core_abi: 131072`，CLI 自动写入。
 
 Registry 固定容量从 16 扩至 24，目前使用 15 个端点；新增存储为
 `8 × (sizeof(ServiceHandler*) + sizeof(ServiceDescriptor))`，64-bit PC 为 384 bytes。
-组件记录另占 `128 × 20 = 2560 bytes` 加状态机/锁；MCU 对齐与总上下文内存在 D9 构建时核算。Message / Widget / Job / Alarm 的需求已盘点：后续最多再加四个端点，19/24 可容纳。
+组件记录另占 `128 × 20 = 2560 bytes` 加状态机/锁；MCU 对齐与总上下文内存在 D9 构建时核算。Widget 25、Message 26、Job 27、Alarm 28 已接入，固定目录使用 19/24。服务目录数量从名称表推导，避免扩展遗漏空项。
 它们在 D3 不注册、不宣称能力，不提前占用公开数字 ID。
 
 ## 资源归属和上限
@@ -105,3 +105,5 @@ PC 的测试结果不能作为 RTOS/no-MMU 已通过的证据。
 
 [components-demo](../../guest/apps/components-demo/) 演示共享 AppModel、Activity 重建、Service PCM 和定时器。
 [阶段验证记录](../development/app-manager-d1-d3.zh-CN.md)列出 wrapper 和覆盖范围。
+
+后台任务与界面交互见 [D6](../development/app-manager-d6.zh-CN.md) 和 [D7](../development/app-manager-d7.zh-CN.md)。

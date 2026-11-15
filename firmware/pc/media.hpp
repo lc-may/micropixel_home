@@ -24,6 +24,11 @@ class MediaPlayer {
     std::string Status();
     bool Finished() const { return finished_.load(); }
     bool Failed() const { return failed_.load(); }
+    struct Intent {
+        uint64_t owner{}, generation{}, version{};
+        device::PcmStreamHandle handle{};
+    };
+    Intent PlaybackIntent();
     bool HasBackgroundLease(uint64_t now_ms) const {
         return !Failed() && ((!Finished() && (!Paused() || now_ms - paused_at_ms_.load() < 30000)) ||
                              (ended_at_ms_.load() != 0 && now_ms - ended_at_ms_.load() < 1500));
@@ -42,6 +47,7 @@ class MediaPlayer {
     std::condition_variable wake_;
     std::optional<std::string> pending_;
     uint64_t generation_{};
+    uint64_t intent_version_{};
     uint32_t pending_component_{};
     std::atomic<uint64_t> paused_at_ms_{};
     std::atomic<uint64_t> ended_at_ms_{};

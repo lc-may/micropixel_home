@@ -104,7 +104,7 @@ int32_t Components::Call(uint32_t method, const uint8_t* request, uint32_t size,
         model_.registered = true;
         // Foreground activation sets want_activity through EnsureActivity.
         // A Host job cold start creates only the Service.
-        model_.want_service = wire.start_service;
+        model_.want_service = model_.want_service || wire.start_service;
         portEXIT_CRITICAL(&lock_);
         Wake();
         return Write(Info(), output, capacity, written);
@@ -184,7 +184,8 @@ int32_t Components::Call(uint32_t method, const uint8_t* request, uint32_t size,
                 token = model_.activity.token;
                 found = true;
             }
-        } else if ((wire.service_id == MICROPIXEL_SERVICE_MESSAGE || wire.service_id == MICROPIXEL_SERVICE_JOB)) {
+        } else if ((wire.service_id == MICROPIXEL_SERVICE_MESSAGE || wire.service_id == MICROPIXEL_SERVICE_JOB ||
+                    wire.service_id == MICROPIXEL_SERVICE_ALARM)) {
             token = wire.handle;
             found = model_.Alive(token);
         } else

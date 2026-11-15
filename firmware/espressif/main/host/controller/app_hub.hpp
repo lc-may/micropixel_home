@@ -26,6 +26,8 @@ class AppHub final {
     static constexpr uint32_t kMaxApps = 64, kMaxWidgets = 8, kMaxMessages = 32;
     explicit AppHub(uint64_t boot) : boot_(boot) {}
     bool Register(uint32_t app, std::string_view id, uint8_t widgets);
+    bool KeepClock(uint32_t app, uint64_t now_ms);
+    void Remove(uint32_t app);
     void Bind(uint32_t app, runtime::InstanceKey instance);
     void SetSink(const AppCaller&, device::AppEventSink);
     void Components(const AppCaller&, const micropixel_component_info_t&);
@@ -46,6 +48,9 @@ class AppHub final {
     }
     bool AllowWake(uint32_t app, std::string_view caller, uint32_t types);
     int32_t WakeTarget(const AppCaller&, const micropixel_message_send_t&) const;
+    bool Accepting(const AppCaller& caller) const {
+        return caller.app < 64 && apps_[caller.app].accepting && AliveCaller(caller);
+    }
     bool AliveCaller(const AppCaller& caller) const {
         return Valid(caller) && (!caller.component || ComponentAlive(caller));
     }
@@ -69,7 +74,7 @@ class AppHub final {
     };
     struct Published {
         WidgetSnapshot snapshot{};
-        bool used{};
+        bool used{}, pinned{};
     };
     struct Message {
         AppCaller source{}, target{};

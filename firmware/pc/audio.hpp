@@ -17,6 +17,8 @@ class SdlAudio final : public device::Audio {
     bool Initialize();
     void SetMasterVolume(uint8_t percent);
     uint8_t MasterVolume() const { return master_percent_.load(); }
+    void SetAlarmFocus(bool active);
+    bool AlarmFocus() const { return alarm_active_.load(); }
     int32_t GetInfo(micropixel_audio_info_t&) override;
     int32_t PlayTone(const micropixel_audio_tone_t&) override;
     int32_t StartPcm(const device::PcmSource&, uint32_t, uint16_t, device::PcmStreamHandle&) override;
@@ -71,6 +73,8 @@ class SdlAudio final : public device::Audio {
     uint16_t master_{10000};
     std::atomic<uint8_t> master_percent_{70};
     bool suspended_{};
+    std::atomic<bool> alarm_active_{};
+    uint64_t alarm_frame_{};
     friend class ScopedAudio;
 };
 

@@ -216,7 +216,34 @@ typedef enum micropixel_service_id {
     MICROPIXEL_SERVICE_WIDGET = 25,
     MICROPIXEL_SERVICE_MESSAGE = 26,
     MICROPIXEL_SERVICE_JOB = 27,
+    MICROPIXEL_SERVICE_ALARM = 28,
 } micropixel_service_id_t;
+
+/* Alarm 1.0: Host time, durable one-shot/weekly plans and focus events. */
+#define MICROPIXEL_ALARM_NOW 1U
+#define MICROPIXEL_ALARM_REGISTER 2U
+#define MICROPIXEL_ALARM_REMOVE 3U
+#define MICROPIXEL_ALARM_GET 4U
+#define MICROPIXEL_ALARM_STOP 5U
+#define MICROPIXEL_ALARM_CONFIGURE_TIME 6U
+#define MICROPIXEL_ALARM_EVENT_FOCUS 1U
+#define MICROPIXEL_ALARM_ENABLED 1U
+#define MICROPIXEL_ALARM_WEEKLY 2U
+typedef struct micropixel_alarm_plan {
+    uint16_t size, flags;
+    uint32_t id;
+    uint64_t once_utc;
+    uint16_t minute_of_day, weekdays;
+    uint32_t reserved0;
+    char label[64];
+} micropixel_alarm_plan_t;
+typedef struct micropixel_alarm_focus {
+    uint32_t active, gain_per_mille;
+} micropixel_alarm_focus_t;
+#if defined(__cplusplus)
+static_assert(sizeof(micropixel_alarm_plan_t) == 88);
+static_assert(sizeof(micropixel_alarm_focus_t) == 8);
+#endif
 
 /* Job 1.0: durable plans, bounded boot-local work leases. */
 #define MICROPIXEL_JOB_REGISTER 1U
@@ -260,6 +287,7 @@ static_assert(sizeof(micropixel_job_event_t) == 16);
 #define MICROPIXEL_MESSAGE_ACK 3U
 #define MICROPIXEL_MESSAGE_RESULT 4U
 #define MICROPIXEL_MESSAGE_ALLOW 5U
+/* Message 1.1: durable explicit cold-start consent. */
 #define MICROPIXEL_MESSAGE_ALLOW_WAKE 6U
 #define MICROPIXEL_MESSAGE_EVENT 1U
 #define MICROPIXEL_MESSAGE_LOGICAL 1U

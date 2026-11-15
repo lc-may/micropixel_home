@@ -17,12 +17,15 @@
 | 官方应用市场 | 浏览、搜索和查看版本，下载校验并安装支持的官方 RV32 AOT Bundle，由 QEMU 执行；portable Wasm 直接由本机 WAMR 解释执行。 |
 | 网易云音乐 Guest | 无 API 网关直连，支持官网微信扫码登录、个人资料与歌单、每日推荐、搜索、红星收藏、滚动列表与播放控制；完整播放或试听以服务端权限为准。 |
 | 网络与音频 | POSIX socket、mbedTLS、Guest 异步 HTTP/HTTPS、Host MQTT/MQTTS 连通性测试，以及本地／网络 MP3、WAV、Ogg/Opus 文件的 SDL 立体声播放。 |
+| 天气与后台任务 | Open-Meteo 直连、三座城市、成功缓存；持久 Job、有限工作票据、冷/热/挂起唤醒与用户关闭策略。 |
+| 时钟闹钟 | Host 时间卡片、单次/每周重复、持久登记；关闭时钟仍响铃，弹窗输入优先，压低音乐音量并保留用户播放意图。 |
 | Guest UI SDK | 新增 IconButton、ListItem、ScrollView、Slider 控件，以及下载图片的 PNG/JPEG 纹理解码。 |
 
-PC 默认保持单槽；`--multi-app` 启用四个原生 Wasm 实例、AppManager、Activity/Service 生命周期、
-独立资源域与前台输入路由。详见[组件契约](docs/design/app-components.zh-CN.md)与
-[最小示例](guest/apps/components-demo/README.zh-CN.md)。音乐已迁移为 Activity/PlaybackService，并预留独立播放 HTTP 通道，见
-[D4 说明](docs/development/app-manager-d4.zh-CN.md)。Home 支持天气、时钟和媒体卡片，通过有界消息控制应用，见[D5 说明](docs/development/app-manager-d5.zh-CN.md)。天气应用、持久 Job 和受控冷唤醒已接入，见[D6 说明](docs/development/app-manager-d6.zh-CN.md)。闹钟属于后续交付；MCU 与 RV32 多实例尚未启用。
+PC Home 默认四个原生 Wasm 槽，天气、时钟与音乐共存；`--single-app` 保留单槽兼容路径。
+Activity/Service、资源归属、Widget、消息、Job、闹钟与焦点使用同一套 SDK，见
+[组件契约](docs/design/app-components.zh-CN.md)、[D4](docs/development/app-manager-d4.zh-CN.md)、
+[D5](docs/development/app-manager-d5.zh-CN.md)、[D6](docs/development/app-manager-d6.zh-CN.md)和
+[D7](docs/development/app-manager-d7.zh-CN.md)。MCU 与 RV32 多实例尚未启用。
 新增 HTTP 与 URL 音频适配器目前用于 PC，MCU 需要补齐对应平台适配。
 
 ## 在 PC 上运行
@@ -42,7 +45,7 @@ bash tools/pc.sh run --market
 bash tools/pc.sh run --music-login
 ```
 
-`--home` 和音乐命令会自动构建音乐 Wasm Guest。按 `Home` 或 `F1` 返回 Home，保留后台运行；
+`--home` 会构建天气、时钟和音乐 Guest；音乐命令自动构建音乐 Guest。按 `Home` 或 `F1` 返回 Home，保留后台运行；
 Guest 在前台时按 `Esc` 停止应用。
 运行官方 RV32 AOT 还需要 `qemu-system-riscv32` 和支持 `rv32imafc/ilp32f` Newlib 的裸机 GCC，
 先执行 `bash tools/pc.sh rv32-build`，再从市场安装。当前不支持 Xtensa AOT 或 Wi-Fi 硬件模拟，

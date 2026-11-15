@@ -36,12 +36,17 @@ enum class EventType : uint16_t {
     kLifecycle,
     kMessage,
     kJob,
+    kAudioFocus,
 };
 
 struct LifecycleEvent final {
     uint32_t token{};
     uint32_t command{};
     uint32_t transition{};
+};
+struct AudioFocusEvent final {
+    bool interrupted{};
+    uint32_t gain_per_mille{1000};
 };
 struct JobEvent final {
     uint32_t ticket{}, job_id{}, reason{}, deadline_ms{};
@@ -349,6 +354,9 @@ class Event final {
     [[nodiscard]] constexpr const LifecycleEvent* lifecycle() const {
         return type_ == EventType::kLifecycle ? &lifecycle_ : nullptr;
     }
+    [[nodiscard]] constexpr const AudioFocusEvent* audio_focus() const {
+        return type_ == EventType::kAudioFocus ? &audio_focus_ : nullptr;
+    }
     [[nodiscard]] constexpr const JobEvent* job() const { return type_ == EventType::kJob ? &job_ : nullptr; }
     [[nodiscard]] constexpr const MessageEvent* message() const {
         return type_ == EventType::kMessage ? &message_ : nullptr;
@@ -425,6 +433,7 @@ class Event final {
     LifecycleEvent lifecycle_{};
     MessageEvent message_{};
     JobEvent job_{};
+    AudioFocusEvent audio_focus_{};
     TimePoint timestamp_{};
     TimerEvent timer_{};
     TouchEvent touch_{TimePoint{}, TouchPhase::kCancel, 0U, 0, 0, false, 0U};

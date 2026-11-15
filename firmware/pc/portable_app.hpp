@@ -15,7 +15,7 @@ struct PortableApp {
     PortableApp(const PortableApp&) = delete;
     PortableApp& operator=(const PortableApp&) = delete;
     std::string title, app_id;
-    bool rv32{}, owns_package{};
+    bool rv32{}, owns_package{}, available{true};
     micropixel_system_launch_arguments_response_t launch_arguments{};
     std::vector<uint8_t> wasm, resources;
     std::array<micropixel_bundle_section_t, MICROPIXEL_BUNDLE_MAX_SECTIONS> sections{};

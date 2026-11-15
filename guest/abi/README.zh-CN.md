@@ -72,7 +72,7 @@ Service（Timer、Sensors、GPIO、Haptics）直接用动词（`CREATE`、`START
 
 当前 Service ID：Timer `1`、Storage `2`、Resource `3`、Random `4`、System `5`、Devices `6`、
 Graphics `16`、Input `17`、Audio `18`、Sensors `20`、GPIO `21`、Haptics `22`、Power `23`；
-PC Host 已实现 Network `19`（1.2）和 Lifecycle `24`（1.0）；MCU 未注册对应平台能力。
+PC Host 已实现 Network `19`（1.3）、Lifecycle `24`（1.0）、Widget `25`、Message `26`（1.1）、Job `27` 和 Alarm `28`（Widget/Job/Alarm 1.0）；MCU 未注册对应平台能力。
 Lifecycle 协议、requirements v2 与兼容规则见[组件契约](../../docs/design/app-components.zh-CN.md)。
 
 System 提供最长 31 bytes 的 BCP 47 locale tag。Host 返回当前 Catalog 和字体确实可用的 effective
@@ -414,3 +414,21 @@ EXCHANGE 不跟随跳转并暴露原始 HTTP 状态，响应头保留重复 Set-
 Network 1.2 追加 TIMED_EXCHANGE(8)：固定头为原 20 字节 HTTP 请求头加 uint32 接收空闲时限，
 `size=24`，变长 URL/header/body 紧随其后。Host 与 SDK 均校验 100–60000 ms；默认值为 10000 ms。
 旧方法与结构布局不变。时限只作用于该请求接收，连接/TLS 限制独立，CLOSE 可中断长轮询。
+
+## PC 应用控制服务（SDK 0.24.0）
+
+七个 Core imports 不变，下列服务通过原有 open/call/event_wait 协商。平台未注入实现时 capabilities 为零。
+
+| ID | 接口 | 有界协议 | 契约 |
+|---|---|---|---|
+| 25 | Widget 1.0 | 208 字节快照，三种模板，最多 2/App、8/Host | [D5](../../docs/development/app-manager-d5.zh-CN.md) |
+| 26 | Message 1.1 | 248 字节发送、240 字节接收、128 字节载荷，Read/Ack/Result | [D5](../../docs/development/app-manager-d5.zh-CN.md)、[冷唤醒](../../docs/development/app-manager-d6.zh-CN.md) |
+| 27 | Job 1.0 | 24 字节持久计划、16 字节工作事件，Enter/Complete/Cancel/Now | [D6](../../docs/development/app-manager-d6.zh-CN.md) |
+| 28 | Alarm 1.0 | 88 字节计划、24 字节 Host 时间、8 字节 focus 事件 | [D7](../../docs/development/app-manager-d7.zh-CN.md) |
+
+Job/Message/focus 事件的 source 是接收组件 token，经 Lifecycle ROUTE 校验代次后由同一事件循环分发。
+Host 注入消息来源并检查 owner、权限、大小与期限；不保留 Guest 线性地址。
+网络 1.3 的两个执行通道分别服务 Activity/App 和 Service，每通道一个请求，避免登录长轮询阻塞播放。
+新服务不改变 AOT v6 和 checked-memory 规则。
+
+Message 1.1 在 1.0 后追加 ALLOW_WAKE(6)。需要冷唤醒的发送方/接收方在 requirements 声明 message 65537；普通实例消息仍兼容 1.0。

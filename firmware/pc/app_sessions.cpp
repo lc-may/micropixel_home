@@ -15,7 +15,9 @@
 #include "platform/lvgl/guest_graphics_operations.hpp"
 #include "remote.hpp"
 #include "runtime/bundle/app_environment.hpp"
+#include "runtime/services/app_storage.hpp"
 #include "schedule_store.hpp"
+#include "store.hpp"
 
 namespace micropixel::pc {
 namespace {
@@ -24,9 +26,13 @@ struct HubState {
     std::mutex mutex;
     host::AppHub hub;
     host::JobScheduler jobs;
+    host::AlarmScheduler alarms;
+    host::SystemClock clock;
     ScheduleStore store;
     std::array<std::string, 64> ids;
     std::array<bool, 64> stopped{};
+    uint64_t home_sequence{};
+    std::atomic<bool> input_blocked{};
     struct Wake {
         uint32_t app{UINT32_MAX};
         host::AppCaller source{};
@@ -39,6 +45,12 @@ struct HubState {
                                  auto& self = *static_cast<HubState*>(raw);
                                  return app < self.ids.size() && self.store.SaveJob(self.ids[app], id, plan);
                              }});
+        store.LoadTime(clock);
+        alarms.SetPersistence(
+            {this, [](void* raw, const host::AlarmScheduler::Record* record, uint32_t app, uint32_t id) {
+                 auto& self = *static_cast<HubState*>(raw);
+                 return app < self.ids.size() && self.store.SaveAlarm(self.ids[app], id, record);
+             }});
     }
 };
 class ScopedApplications final : public device::ApplicationServices {
@@ -48,6 +60,8 @@ class ScopedApplications final : public device::ApplicationServices {
     void Bind(uint32_t app, runtime::InstanceKey instance) {
         std::lock_guard lock(state_.mutex);
         caller_ = {app, instance, 0};
+        service_token_ = 0;
+        http_.SetWorkScope(0);
         state_.hub.Bind(app, instance);
     }
     void End() {
@@ -62,6 +76,14 @@ class ScopedApplications final : public device::ApplicationServices {
     void SetComponentScope(uint32_t token) override { caller_.component = token; }
     void SetComponents(const micropixel_component_info_t& info) override {
         std::lock_guard lock(state_.mutex);
+        if (service_token_ && service_token_ != info.service_token) {
+            auto retired = caller_;
+            retired.component = service_token_;
+            for (auto ticket : state_.jobs.Retire(retired))
+                if (ticket) http_.CancelWork(ticket);
+            http_.SetWorkScope(0);
+        }
+        service_token_ = info.service_token;
         state_.hub.Components(caller_, info);
     }
     void Quiesce() override {
@@ -72,13 +94,67 @@ class ScopedApplications final : public device::ApplicationServices {
     int32_t Call(uint32_t service, uint32_t method, const uint8_t* request, uint32_t size, uint8_t* output,
                  uint32_t capacity, uint32_t& written) override {
         std::lock_guard lock(state_.mutex);
+        if (service == MICROPIXEL_SERVICE_ALARM) {
+            written = 0;
+            auto now = state_.clock.Now(std::time(nullptr));
+            if (method == MICROPIXEL_ALARM_NOW) {
+                if (size) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+                if (capacity < sizeof(now)) return MICROPIXEL_STATUS_BUFFER_TOO_SMALL;
+                std::memcpy(output, &now, sizeof(now));
+                written = sizeof(now);
+                return 0;
+            }
+            if (!caller_.component || !state_.hub.Accepting(caller_)) return MICROPIXEL_STATUS_PERMISSION_DENIED;
+            if (method == MICROPIXEL_ALARM_CONFIGURE_TIME) {
+                if (state_.ids[caller_.app] != "micropixel.clock-alarm" ||
+                    (caller_.component & 3) != MICROPIXEL_COMPONENT_ACTIVITY)
+                    return MICROPIXEL_STATUS_PERMISSION_DENIED;
+                micropixel_wall_time_t value{};
+                if (size != sizeof(value)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+                std::memcpy(&value, request, sizeof(value));
+                if (value.size != sizeof(value) || value.valid > 1 || value.reserved0 || value.reserved1 ||
+                    value.offset_minutes < -720 || value.offset_minutes > 840 ||
+                    (value.utc && (value.utc < 1577836800ULL || value.utc > 4102444800ULL)))
+                    return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+                host::SystemClock::Settings settings{
+                    value.offset_minutes, value.valid != 0,
+                    value.utc ? static_cast<int64_t>(value.utc) - static_cast<int64_t>(std::time(nullptr)) : 0};
+                if (!state_.store.SaveTime(settings)) return MICROPIXEL_STATUS_INTERNAL;
+                return state_.clock.Restore(settings) ? 0 : MICROPIXEL_STATUS_INVALID_ARGUMENT;
+            }
+            if (method == MICROPIXEL_ALARM_REGISTER) {
+                micropixel_alarm_plan_t plan{};
+                if (size != sizeof(plan)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+                std::memcpy(&plan, request, sizeof(plan));
+                return state_.alarms.Register(caller_.app, plan, now.utc, now.valid);
+            }
+            if (method == MICROPIXEL_ALARM_STOP) {
+                if (size) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+                state_.alarms.StopRinging(caller_.app);
+                return 0;
+            }
+            micropixel_handle_request_t id{};
+            if (size != sizeof(id)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+            std::memcpy(&id, request, sizeof(id));
+            if (id.size != sizeof(id) || id.reserved0 || id.handle < 1 || id.handle > 8)
+                return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+            if (method == MICROPIXEL_ALARM_REMOVE) return state_.alarms.Remove(caller_.app, id.handle);
+            if (method == MICROPIXEL_ALARM_GET) {
+                if (capacity < sizeof(micropixel_alarm_plan_t)) return MICROPIXEL_STATUS_BUFFER_TOO_SMALL;
+                auto* record = state_.alarms.Get(caller_.app, id.handle);
+                if (!record) return MICROPIXEL_STATUS_NOT_FOUND;
+                std::memcpy(output, &record->plan, sizeof(record->plan));
+                written = sizeof(record->plan);
+                return 0;
+            }
+            return MICROPIXEL_STATUS_UNSUPPORTED;
+        }
         if (service == MICROPIXEL_SERVICE_JOB) {
             written = 0;
             if (method == MICROPIXEL_JOB_NOW) {
                 if (size) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
                 if (capacity < sizeof(micropixel_wall_time_t)) return MICROPIXEL_STATUS_BUFFER_TOO_SMALL;
-                const auto utc = static_cast<uint64_t>(std::time(nullptr));
-                micropixel_wall_time_t now{sizeof(now), static_cast<uint16_t>(utc >= 1577836800ULL), 0, utc, 480, 0};
+                const auto now = state_.clock.Now(std::time(nullptr));
                 std::memcpy(output, &now, sizeof(now));
                 written = sizeof(now);
                 return 0;
@@ -92,7 +168,7 @@ class ScopedApplications final : public device::ApplicationServices {
                 micropixel_job_plan_t plan{};
                 if (size != sizeof(plan) || !request) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
                 std::memcpy(&plan, request, sizeof(plan));
-                return state_.jobs.Register(caller_.app, plan, std::time(nullptr));
+                return state_.jobs.Register(caller_.app, plan, state_.clock.Now(std::time(nullptr)).utc);
             }
             micropixel_handle_request_t value{};
             if (size != sizeof(value) || !request) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
@@ -159,12 +235,15 @@ class ScopedApplications final : public device::ApplicationServices {
     HubState& state_;
     GuestHttp& http_;
     host::AppCaller caller_{UINT32_MAX, {}, 0};
+    uint32_t service_token_{};
 };
 struct Slot final : runtime::SessionRunner {
     Slot(HubState& hub, uint32_t index, std::vector<std::unique_ptr<PortableApp>>& catalog, lv_display_t* display,
          device::DisplayInfo info, const graphics::SystemFontSet& system_fonts, SdlAudio& physical_audio,
-         device::Random& random, device::DeviceRegistry& registry, device::Battery& battery)
-        : apps(catalog),
+         device::Random& random, device::DeviceRegistry& registry, device::Battery& battery, bool legacy_tasks)
+        : allow_legacy_tasks(legacy_tasks),
+          system_hub(hub),
+          apps(catalog),
           engine(info.width_pixels, info.height_pixels, fonts),
           graphics_context{.engine = &engine},
           graphics_device(graphics::MakeGuestGraphicsOperations(graphics_context)),
@@ -200,6 +279,7 @@ struct Slot final : runtime::SessionRunner {
         app_index = app;
         visible = false;
         frame_ready = false;
+        service_bootstrap_until = 0;
         (void)audio.ResumeAll();
         audio.SetComponentScope(0);
         http.SetComponentScope(0);
@@ -224,12 +304,16 @@ struct Slot final : runtime::SessionRunner {
         if (session) session->RequestResume(false);
     }
     void RequestWork() override {
-        if (session) session->RequestWork();
+        if (session) {
+            if (session->ComponentInfo().service_state != 2 && !service_bootstrap_until)
+                service_bootstrap_until = static_cast<uint64_t>(esp_timer_get_time() / 1000) + 10000;
+            session->RequestWork();
+        }
     }
     void SetVisible(bool value) override {
         visible.store(value);
         if (session) session->SetVisible(value);
-        input.SetFocused(value);
+        input.SetFocused(value && !system_hub.input_blocked.load());
         esp_lv_adapter_lock(-1);
         if (auto* frame = engine.FrameLocked()) {
             lv_obj_set_hidden(frame, !value);
@@ -247,10 +331,13 @@ struct Slot final : runtime::SessionRunner {
         value.suspended = session->Suspended();
         value.activity_available = session->ActivityAvailable();
         const auto& requirement = apps[app_index]->requirements;
-        value.background_eligible = !requirement.component_flags ||
-                                    ((requirement.background_kinds & 2) && !(requirement.services[15])) ||
-                                    media.HasBackgroundLease(esp_timer_get_time() / 1000) || http.ServiceBusy();
-        value.work_pending = applications.Pending();
+        value.background_eligible =
+            !requirement.component_flags ||
+            (allow_legacy_tasks && (requirement.background_kinds & 2) && !(requirement.services[15])) ||
+            media.HasBackgroundLease(esp_timer_get_time() / 1000) || http.ServiceBusy();
+        if (session->ComponentInfo().service_state == 2) service_bootstrap_until = 0;
+        value.work_pending =
+            applications.Pending() || static_cast<uint64_t>(esp_timer_get_time() / 1000) < service_bootstrap_until;
         esp_lv_adapter_lock(-1);
         value.frame_ready = engine.FrameLocked() != nullptr;
         esp_lv_adapter_unlock();
@@ -263,6 +350,8 @@ struct Slot final : runtime::SessionRunner {
         }
         return value;
     }
+    const bool allow_legacy_tasks;
+    HubState& system_hub;
     std::vector<std::unique_ptr<PortableApp>>& apps;
     graphics::FontRegistry fonts;
     graphics::GuestGraphicsEngine engine;
@@ -278,6 +367,7 @@ struct Slot final : runtime::SessionRunner {
     std::unique_ptr<Session> session;
     runtime::InstanceKey owner{};
     uint32_t app_index{};
+    uint64_t service_bootstrap_until{};
     std::atomic<bool> visible{}, frame_ready{};
     bool valid{};
 };
@@ -288,6 +378,14 @@ struct AppSessions::Impl {
     std::array<runtime::SessionRunner*, 4> runners{};
     std::vector<std::unique_ptr<PortableApp>>& apps;
     const uint32_t capacity;
+    SdlAudio& physical_audio;
+    bool focus_active{};
+    struct Focus {
+        runtime::InstanceKey instance{};
+        MediaPlayer::Intent intent{};
+        bool notified{};
+    };
+    std::array<Focus, 4> focus{};
     std::optional<host::AppManager> manager;
     PcInput empty_input;
     int32_t deferred{-1};
@@ -302,12 +400,18 @@ struct AppSessions::Impl {
     };
     std::array<PendingAction, 8> actions{};
     uint32_t action_sequence{};
+    std::array<uint8_t, 64> removing{};
+    std::array<int32_t, 64> removal_result{};
     Impl(std::vector<std::unique_ptr<PortableApp>>& catalog, lv_display_t* display, device::DisplayInfo info,
          const graphics::SystemFontSet& fonts, SdlAudio& audio, device::Random& random,
-         device::DeviceRegistry& registry, device::Battery& battery, bool multi)
-        : apps(catalog), capacity(multi ? 4 : 1), empty_input(info.width_pixels, info.height_pixels) {
+         device::DeviceRegistry& registry, device::Battery& battery, bool multi, bool development_tasks)
+        : apps(catalog),
+          capacity(multi ? 4 : 1),
+          physical_audio(audio),
+          empty_input(info.width_pixels, info.height_pixels) {
         for (uint32_t i = 0; i < capacity; ++i) {
-            slots[i] = std::make_unique<Slot>(hub, i, apps, display, info, fonts, audio, random, registry, battery);
+            slots[i] = std::make_unique<Slot>(hub, i, apps, display, info, fonts, audio, random, registry, battery,
+                                              development_tasks);
             runners[i] = slots[i].get();
         }
         manager.emplace(std::span(runners.data(), capacity), hub.boot);
@@ -315,8 +419,14 @@ struct AppSessions::Impl {
         for (uint32_t i = 0; i < apps.size(); ++i) {
             hub.store.LoadJobs(apps[i]->app_id, i, hub.jobs);
             hub.store.LoadWake(apps[i]->app_id, i, hub.hub);
+            hub.store.LoadAlarms(apps[i]->app_id, i, hub.alarms);
             hub.stopped[i] = hub.store.Stopped(apps[i]->app_id);
             manager->RestoreUserStopped(i, hub.stopped[i]);
+            if (hub.store.Removed(apps[i]->app_id)) {
+                apps[i]->available = false;
+                (void)manager->Deactivate(i);
+                hub.hub.Remove(i);
+            }
         }
     }
     void Register(uint32_t app) {
@@ -325,6 +435,8 @@ struct AppSessions::Impl {
             std::lock_guard lock(hub.mutex);
             hub.ids[app] = apps[app]->app_id;
             (void)hub.hub.Register(app, apps[app]->app_id, req.widget_count);
+            if (apps[app]->app_id == "micropixel.clock-alarm")
+                (void)hub.hub.KeepClock(app, esp_timer_get_time() / 1000);
         }
         (void)manager->Register(
             app, {.background = capacity == 1 || (req.component_flags & MICROPIXEL_COMPONENT_FLAG_BACKGROUND),
@@ -339,8 +451,10 @@ struct AppSessions::Impl {
 };
 AppSessions::AppSessions(std::vector<std::unique_ptr<PortableApp>>& apps, lv_display_t* display,
                          device::DisplayInfo info, const graphics::SystemFontSet& fonts, SdlAudio& audio,
-                         device::Random& random, device::DeviceRegistry& registry, device::Battery& battery, bool multi)
-    : impl_(std::make_unique<Impl>(apps, display, info, fonts, audio, random, registry, battery, multi)) {}
+                         device::Random& random, device::DeviceRegistry& registry, device::Battery& battery, bool multi,
+                         bool development_tasks)
+    : impl_(std::make_unique<Impl>(apps, display, info, fonts, audio, random, registry, battery, multi,
+                                   development_tasks)) {}
 AppSessions::~AppSessions() { Shutdown(); }
 void AppSessions::Process() {
     auto& self = *impl_;
@@ -348,7 +462,9 @@ void AppSessions::Process() {
         std::lock_guard lock(self.hub.mutex);
         const auto now = static_cast<uint64_t>(esp_timer_get_time() / 1000);
         self.hub.hub.Process(now);
-        self.hub.jobs.Process(now, std::time(nullptr));
+        const auto wall = self.hub.clock.Now(std::time(nullptr));
+        self.hub.jobs.Process(now, wall.utc);
+        self.hub.alarms.Process(now, wall.utc, wall.offset_minutes, wall.valid);
         for (auto& wake : self.hub.wakes) {
             if (wake.app == UINT32_MAX) continue;
             if (now >= wake.deadline || self.hub.stopped[wake.app] || !self.hub.hub.AliveCaller(wake.source)) {
@@ -383,15 +499,92 @@ void AppSessions::Process() {
                 continue;
             }
             (void)self.manager->EnsureWork(action.app, true);
-            auto status =
-                self.hub.hub.SendHome(action.app, action.type, action.value, action.sequence, now, action.routed);
+            host::AppCaller ready{};
+            device::AppEventSink sink{};
+            if (!self.hub.hub.ReadyService(action.app, ready, sink)) continue;
+            auto status = self.hub.hub.SendHome(action.app, action.type, action.value, ++self.hub.home_sequence, now,
+                                                action.routed);
             if (status != MICROPIXEL_STATUS_WOULD_BLOCK && status) {
                 action.complete = true;
                 action.result = status;
             }
         }
     }
+    bool ringing = false;
+    {
+        std::lock_guard lock(self.hub.mutex);
+        ringing = self.hub.alarms.Ringing();
+    }
+    if (ringing != self.focus_active) {
+        self.hub.input_blocked = ringing;
+        for (uint32_t i = 0; i < self.capacity; ++i)
+            self.slots[i]->input.SetFocused(!ringing && self.slots[i]->visible.load());
+        self.physical_audio.SetAlarmFocus(ringing);
+        for (uint32_t i = 0; i < self.capacity; ++i) {
+            auto& slot = *self.slots[i];
+            auto& focus = self.focus[i];
+            if (ringing) {
+                focus = {slot.owner, slot.media.PlaybackIntent(), false};
+            } else {
+                auto current = slot.media.PlaybackIntent();
+                const bool same = focus.instance == slot.owner && current.generation == focus.intent.generation &&
+                                  current.version == focus.intent.version;
+                std::fprintf(stderr, "AUDIO_FOCUS release: slot=%u intent_preserved=%d\n", i, same);
+                focus.notified = false;
+            }
+        }
+        self.focus_active = ringing;
+        std::fprintf(stderr, "ALARM focus active=%d\n", ringing);
+    }
+    {
+        std::lock_guard lock(self.hub.mutex);
+        for (uint32_t i = 0; i < self.capacity; ++i) {
+            auto& slot = *self.slots[i];
+            auto& focus = self.focus[i];
+            if (!slot.session) continue;
+            if (focus.instance != slot.owner) {
+                focus.instance = slot.owner;
+                focus.notified = !ringing;
+            }
+            if (focus.notified) continue;
+            host::AppCaller caller{};
+            device::AppEventSink sink{};
+            if (!self.hub.hub.ReadyService(slot.app_index, caller, sink)) continue;
+            micropixel_event_t event{};
+            event.size = sizeof(event);
+            event.service_id = MICROPIXEL_SERVICE_ALARM;
+            event.event_id = MICROPIXEL_ALARM_EVENT_FOCUS;
+            event.source = caller.component;
+            micropixel_alarm_focus_t payload{ringing ? 1U : 0U, ringing ? 200U : 1000U};
+            std::memcpy(event.payload, &payload, sizeof(payload));
+            if (sink.push(sink.context, event)) focus.notified = true;
+        }
+    }
     self.manager->Process(esp_timer_get_time() / 1000);
+    for (uint32_t app = 0; app < self.apps.size(); ++app)
+        if (self.removing[app] && self.manager->Snapshot().apps[app].state == host::AppState::kStopped) {
+            const bool uninstall = self.removing[app] == 2;
+            bool ok = ClearSchedules(app) && runtime::EraseAppStorage(self.apps[app]->app_id) == ESP_OK;
+            if (ok && uninstall) {
+                std::error_code error;
+                std::filesystem::remove(InstalledAppsDirectory() / (self.apps[app]->app_id + ".bundle.bin"), error);
+                ok = !error;
+            }
+            if (ok) {
+                std::lock_guard lock(self.hub.mutex);
+                ok = uninstall ? self.hub.store.SetRemoved(self.apps[app]->app_id, true)
+                               : self.hub.store.SetStopped(self.apps[app]->app_id, true);
+                if (ok && uninstall) {
+                    self.hub.hub.Remove(app);
+                    self.apps[app]->available = false;
+                    (void)self.manager->Deactivate(app);
+                }
+            }
+            self.removal_result[app] = ok ? 0 : MICROPIXEL_STATUS_INTERNAL;
+            self.removing[app] = 0;
+            std::fprintf(stderr, "APP_SHELL %s: %s status=%d\n", uninstall ? "uninstalled" : "data cleared",
+                         self.apps[app]->app_id.c_str(), self.removal_result[app]);
+        }
     if (self.replacement >= 0 && !self.Find(self.replacement)) {
         self.apps[self.replacement] = std::move(self.package);
         self.Register(self.replacement);
@@ -405,7 +598,7 @@ void AppSessions::Process() {
 }
 bool AppSessions::Activate(uint32_t app) {
     auto& self = *impl_;
-    if (app >= self.apps.size()) return false;
+    if (app >= self.apps.size() || !self.apps[app]->available || self.removing[app]) return false;
     if (self.capacity > 1 && self.apps[app]->rv32) {
         std::fputs("RV32 multi-app execution is reserved for D8; use the single-slot profile\n", stderr);
         return false;
@@ -434,7 +627,9 @@ void AppSessions::ShowHome() {
 }
 bool AppSessions::EnsureWork(uint32_t app, bool user) {
     auto& self = *impl_;
-    if (app >= self.apps.size() || (self.capacity > 1 && self.apps[app]->rv32)) return false;
+    if (app >= self.apps.size() || !self.apps[app]->available || self.removing[app] ||
+        (self.capacity > 1 && self.apps[app]->rv32))
+        return false;
     auto result = self.manager->EnsureWork(app, user);
     if (result != host::ManagerResult::kAccepted) return false;
     if (user) {
@@ -444,6 +639,35 @@ bool AppSessions::EnsureWork(uint32_t app, bool user) {
     }
     return true;
 }
+bool AppSessions::Remove(uint32_t app, bool uninstall) {
+    auto& self = *impl_;
+    if (app >= self.apps.size() || self.removing[app]) return false;
+    auto result = self.manager->Stop(app);
+    if (result != host::ManagerResult::kAccepted) return false;
+    if (self.replacement == static_cast<int32_t>(app)) {
+        self.package.reset();
+        self.replacement = -1;
+    }
+    if (self.deferred == static_cast<int32_t>(app)) self.deferred = -1;
+    self.removing[app] = uninstall ? 2 : 1;
+    for (auto& action : self.actions)
+        if (action.ticket && action.app == app && !action.complete) {
+            action.complete = true;
+            action.result = MICROPIXEL_STATUS_CANCELLED;
+            action.routed = 0;
+        }
+    self.removal_result[app] = MICROPIXEL_STATUS_WOULD_BLOCK;
+    {
+        std::lock_guard lock(self.hub.mutex);
+        self.hub.stopped[app] = true;
+        self.hub.jobs.Stop(app);
+    }
+    return true;
+}
+bool AppSessions::Removing(uint32_t app) const { return app < impl_->apps.size() && impl_->removing[app]; }
+int32_t AppSessions::RemovalResult(uint32_t app) const {
+    return app < impl_->apps.size() ? impl_->removal_result[app] : MICROPIXEL_STATUS_INVALID_ARGUMENT;
+}
 bool AppSessions::ClearSchedules(uint32_t app) {
     auto& self = *impl_;
     if (app >= self.apps.size()) return false;
@@ -451,6 +675,7 @@ bool AppSessions::ClearSchedules(uint32_t app) {
     if (!self.hub.store.Delete(self.apps[app]->app_id)) return false;
     self.hub.jobs.Stop(app);
     self.hub.hub.ClearWake(app);
+    self.hub.alarms.Forget(app);
     for (auto& wake : self.hub.wakes)
         if (wake.app == app) wake = {};
     for (uint32_t id = 1; id <= 2; ++id) (void)self.hub.jobs.Remove(app, id);
@@ -468,7 +693,15 @@ void AppSessions::Stop(uint32_t app, bool user) {
 }
 bool AppSessions::Install(uint32_t app, std::unique_ptr<PortableApp> package) {
     auto& self = *impl_;
-    if (self.package || app >= 64) return false;
+    if (self.package || !package || app >= 64 || app > self.apps.size() ||
+        (app < self.apps.size() && (self.removing[app] || package->app_id != self.apps[app]->app_id)))
+        return false;
+    for (uint32_t i = 0; i < self.apps.size(); ++i)
+        if (i != app && self.apps[i]->app_id == package->app_id) return false;
+    {
+        std::lock_guard lock(self.hub.mutex);
+        if (!package || !self.hub.store.SetRemoved(package->app_id, false)) return false;
+    }
     if (app == self.apps.size()) {
         self.apps.push_back(std::move(package));
         self.Register(app);
@@ -506,12 +739,38 @@ const host::ManagerSnapshot& AppSessions::Snapshot() const { return impl_->manag
 bool AppSessions::Widget(uint32_t index, host::WidgetSnapshot& out) {
     auto& shared = impl_->hub;
     std::lock_guard lock(shared.mutex);
-    return shared.hub.Widget(index, esp_timer_get_time() / 1000, out);
+    if (!shared.hub.Widget(index, esp_timer_get_time() / 1000, out)) return false;
+    if (out.data.template_id == MICROPIXEL_WIDGET_CLOCK) {
+        auto now = shared.clock.Now(std::time(nullptr));
+        if (now.valid) {
+            auto local = static_cast<int64_t>(now.utc) + int64_t(now.offset_minutes) * 60;
+            auto day = local % 86400;
+            std::snprintf(out.data.title, sizeof(out.data.title), "%02lld:%02lld:%02lld",
+                          static_cast<long long>(day / 3600), static_cast<long long>((day / 60) % 60),
+                          static_cast<long long>(day % 60));
+            const host::AlarmScheduler::Record* next = nullptr;
+            for (const auto& record : shared.alarms.Records())
+                if (record.app == out.app && (record.plan.flags & 1)) {
+                    next = &record;
+                    break;
+                }
+            std::snprintf(out.data.subtitle, sizeof(out.data.subtitle),
+                          next ? "闹钟已开启 · Host 计时" : "暂无闹钟 · Host 计时");
+            out.data.updated_utc = now.utc;
+            out.expired = false;
+        } else {
+            std::snprintf(out.data.title, sizeof(out.data.title), "时间未同步");
+            out.expired = true;
+        }
+    }
+    return true;
 }
 int32_t AppSessions::WidgetAction(const host::WidgetSnapshot& widget, uint16_t type, uint32_t value, uint64_t sequence,
                                   uint32_t& ticket) {
     auto& shared = impl_->hub;
     std::lock_guard lock(shared.mutex);
+    if (widget.app >= impl_->apps.size() || !impl_->apps[widget.app]->available || impl_->removing[widget.app])
+        return MICROPIXEL_STATUS_CANCELLED;
     if (type == MICROPIXEL_ACTION_REFRESH && widget.data.template_id == MICROPIXEL_WIDGET_WEATHER && !widget.online) {
         bool current = false;
         host::WidgetSnapshot item{};
@@ -540,6 +799,7 @@ int32_t AppSessions::WidgetAction(const host::WidgetSnapshot& widget, uint16_t t
             }
         return MICROPIXEL_STATUS_RESOURCE_EXHAUSTED;
     }
+    shared.home_sequence = std::max(shared.home_sequence, sequence);
     return shared.hub.Action(widget, type, value, sequence, esp_timer_get_time() / 1000, ticket);
 }
 micropixel_message_result_t AppSessions::WidgetResult(uint32_t ticket) {
@@ -560,8 +820,31 @@ micropixel_message_result_t AppSessions::WidgetResult(uint32_t ticket) {
     }
     return shared.hub.Result(shared.hub.Home(), ticket);
 }
+uint64_t AppSessions::NextHomeRequest() {
+    auto& state = impl_->hub;
+    std::lock_guard lock(state.mutex);
+    return state.home_sequence == UINT64_MAX ? 0 : ++state.home_sequence;
+}
+AppSessions::AlarmState AppSessions::Alarm() {
+    auto& state = impl_->hub;
+    std::lock_guard lock(state.mutex);
+    AlarmState result{state.alarms.Ringing(), state.alarms.RingCount(), state.alarms.RingRevision(), {}};
+    std::memcpy(result.label.data(), state.alarms.RingLabel(), result.label.size());
+    return result;
+}
+void AppSessions::StopAlarm() {
+    auto& state = impl_->hub;
+    std::lock_guard lock(state.mutex);
+    state.alarms.StopRinging();
+}
+micropixel_wall_time_t AppSessions::Clock() {
+    auto& state = impl_->hub;
+    std::lock_guard lock(state.mutex);
+    return state.clock.Now(std::time(nullptr));
+}
 void AppSessions::Shutdown() {
     if (!impl_) return;
+    impl_->physical_audio.SetAlarmFocus(false);
     for (uint32_t i = 0; i < impl_->capacity; ++i)
         if (impl_->slots[i]->session) impl_->slots[i]->RequestStop();
     for (uint32_t i = 0; i < impl_->capacity; ++i)

@@ -43,9 +43,9 @@ bash tools/tests/test_firmware_host.sh --pc --launcher
 bash tools/tests/test_firmware_host.sh --pc --launcher --rv32
 ```
 
-`--home` 会增量构建音乐 Guest，再打开 Home；其他已构建的应用与已安装 Bundle 也会列出。
-Home 是 `firmware/pc/home_app.*` 中的 Host 系统应用，当前普通 Guest 不能调用 SDK 启动另一个 App。
-后台音乐与 Home/市场可以共存；启动另一普通 Guest 会先停止旧 Guest，当前不支持两个 Guest 同时运行。
+`--home` 会增量构建天气、时钟和音乐 Guest，再打开四槽 Home；已安装 Bundle 也会列出。
+Home 是 `firmware/pc/home_app.*` 中的 Host 系统应用，前台 Activate 由它调度；授权逻辑消息可以冷启动目标 Service。
+天气、时钟和音乐可以共存，空闲 Job Service 挂起，媒体 Service 保持有效播放。`--single-app` 使用单槽兼容模式，切换应用会停止旧 Guest。
 生命周期与呈现边界见 [PC Home](../../docs/design/pc-home.zh-CN.md)。
 
 ## 官方应用市场
@@ -217,9 +217,9 @@ Linux 决定线程 CPU 和优先级；不模拟 FreeRTOS 的实时调度。该�
 
 ## D1–D3：多实例与组件开发配置
 
-默认单槽兼容旧应用；`--multi-app` 启用最多四个原生 Wasm 实例。
+Home 默认四槽，`--single-app` 保留旧应用兼容路径；`--multi-app` 显式启用开发配置。
 新组件使用 requirements v2 + Lifecycle 1.0，允许 Activity 销毁后 Service 保持运行。
-旧 v1 应用在该配置下隐藏即挂起；正式音乐的 Service 迁移属于 D4。
+旧 v1 应用在多槽配置下隐藏即挂起；音乐已使用独立 PlaybackService。
 
 ```sh
 bash tools/pc.sh guest guest/apps/components-demo
@@ -230,4 +230,4 @@ bash tools/tests/test_firmware_host.sh --pc --multi-app
 bash tools/tests/test_firmware_host.sh --pc --components
 ```
 
-详见[组件与资源契约](../../docs/design/app-components.zh-CN.md)。Widget、Job、Alarm、RV32 多实例与 MCU 适配按后续交付接入。
+详见[组件与资源契约](../../docs/design/app-components.zh-CN.md)及[D7](../../docs/development/app-manager-d7.zh-CN.md)。Widget、消息、Job、天气和 Host 闹钟已接入；RV32 多实例与 MCU 适配留在 D8/D9。

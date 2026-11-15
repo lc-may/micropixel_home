@@ -17,13 +17,15 @@ This repository also includes a Linux/WSL2 PC Host for developing and running Gu
 | Official app market | Browse, search, and view releases; download, validate, and install supported official RV32 AOT bundles, then execute them with QEMU. Portable Wasm runs directly in the native WAMR interpreter. |
 | NetEase Cloud Music Guest | Direct connection without an API gateway; official website WeChat QR login, account profile and playlists, daily recommendations, search, favorites, scrolling lists, and playback controls. Full playback or previews depend on the server's permissions. |
 | Network and audio | POSIX sockets and mbedTLS, asynchronous Guest HTTP/HTTPS, Host MQTT/MQTTS diagnostics, and local/network MP3, WAV, and Ogg/Opus playback through SDL stereo audio. |
+| Weather and jobs | Direct Open-Meteo weather, city selection, successful-value cache, persistent plans and bounded cold/hot work. |
+| Clock and alarms | Host clock widgets, persistent one-shot/weekly alarms, ringing after Guest close, modal input and audio ducking that preserves user intent. |
 | Guest UI SDK | IconButton, ListItem, ScrollView, and Slider widgets, plus PNG/JPEG texture decoding for downloaded images. |
 
-The PC Host keeps the single-slot profile by default. `--multi-app` enables four native Wasm instances
-with AppManager, Activity/Service lifecycle callbacks, per-instance resources, and foreground input routing.
-See the [component contract](docs/design/app-components.zh-CN.md) and
-[component example](guest/apps/components-demo/README.zh-CN.md). Music now uses Activity/PlaybackService with a reserved HTTP lane; see the
-[D4 guide](docs/development/app-manager-d4.zh-CN.md). Home renders weather, clock and media widgets with bounded message-based controls; see the [D5 guide](docs/development/app-manager-d5.zh-CN.md). Weather, persistent Jobs and controlled cold wake are available; see the [D6 guide](docs/development/app-manager-d6.zh-CN.md). Alarms remain a later delivery; MCU and RV32 multi-instance support are not enabled yet.
+PC Home defaults to four native Wasm slots with weather, clock and music; `--single-app` keeps the compatibility profile.
+Activity/Service, ownership, widgets, messages, Jobs, alarms and focus use the same SDK. See the
+[component contract](docs/design/app-components.zh-CN.md), [D4](docs/development/app-manager-d4.zh-CN.md),
+[D5](docs/development/app-manager-d5.zh-CN.md), [D6](docs/development/app-manager-d6.zh-CN.md) and
+[D7 guide](docs/development/app-manager-d7.zh-CN.md). MCU and RV32 multi-instance support remain later deliveries.
 The new HTTP and URL audio adapters currently target PC; MCU support requires platform adapters.
 
 ## Run on a PC
@@ -43,7 +45,7 @@ bash tools/pc.sh run --market
 bash tools/pc.sh run --music-login
 ```
 
-`--home` and the music commands automatically build the music Wasm Guest. Press `Home` or `F1` to return
+`--home` builds the weather, clock and music Guests; music commands build the music Guest. Press `Home` or `F1` to return
 to Home while keeping it running; press `Esc` in the foreground Guest to stop it.
 Official RV32 AOT apps additionally require `qemu-system-riscv32` and a bare-metal GCC with
 `rv32imafc/ilp32f` Newlib support. Run `bash tools/pc.sh rv32-build` before installing them from the market.

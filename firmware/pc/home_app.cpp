@@ -62,7 +62,7 @@ void HomeApp::WidgetEvent(lv_event_t* event) {
 void HomeApp::SendWidget(const host::WidgetSnapshot& widget, uint16_t type, uint32_t value) {
     if (!sessions_ || widget_ticket_) return;
     uint32_t ticket = 0;
-    const auto status = sessions_->WidgetAction(widget, type, value, ++action_sequence_, ticket);
+    const auto status = sessions_->WidgetAction(widget, type, value, sessions_->NextHomeRequest(), ticket);
     if (status) {
         std::fprintf(stderr, "HOME_WIDGET rejected: app=%u type=%u status=%d\n", widget.app, type, status);
         updated_at_ = 0;
@@ -81,8 +81,8 @@ void HomeApp::UpdateWidgets() {
         if (!widget_valid_[i]) continue;
         const auto& widget = widgets_[i];
         if (widget.revision != logged_revision_[i] || widget.online != logged_online_[i]) {
-            std::fprintf(stderr, "HOME_WIDGET snapshot: app=%u template=%u revision=%u online=%d\n", widget.app,
-                         widget.data.template_id, widget.revision, widget.online);
+            std::fprintf(stderr, "HOME_WIDGET snapshot: app=%u template=%u revision=%u online=%d index=%u\n",
+                         widget.app, widget.data.template_id, widget.revision, widget.online, i);
             logged_revision_[i] = widget.revision;
             logged_online_[i] = widget.online;
         }
@@ -104,9 +104,10 @@ void HomeApp::UpdateWidgets() {
         lv_label_set_text(widget_titles_[i], widget.data.title);
         char subtitle[160]{};
         std::snprintf(subtitle, sizeof(subtitle), "%s%s",
-                      !widget.online   ? "已停止 · "
-                      : widget.expired ? "待更新 · "
-                                       : "",
+                      !widget.online && widget.data.template_id != MICROPIXEL_WIDGET_CLOCK ? "已停止 · "
+                      : widget.expired                                                     ? "待更新 · "
+                      : (widget.data.flags & MICROPIXEL_WIDGET_ERROR)                      ? "刷新失败 · "
+                                                                                           : "",
                       widget.data.subtitle);
         lv_label_set_text(widget_subtitles_[i], subtitle);
         lv_obj_set_hidden(widget_refresh_[i], widget.data.template_id != MICROPIXEL_WIDGET_WEATHER);
@@ -204,6 +205,7 @@ void HomeApp::Show(int width, int height) {
     const int card_width = (width - 48 - (columns - 1) * 12) / columns;
     constexpr std::array<uint32_t, 6> colors{0xe33b52, 0x437fd1, 0x238b7d, 0x9966ca, 0xc67b35, 0x52798d};
     for (size_t i = 0; i < apps_.size(); ++i) {
+        if (!apps_[i]->available) continue;
         auto* card = lv_button_create(catalog_);
         lv_obj_set_pos(card, (i % columns) * (card_width + 12), (i / columns) * 116);
         lv_obj_set_size(card, card_width, 104);

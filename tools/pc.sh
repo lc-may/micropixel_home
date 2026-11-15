@@ -71,12 +71,22 @@ case "${1:-help}" in
     guest) shift; exec python3 tools/pc.py "$@" ;;
     run)
         shift
+        pc_build_home=false
+        pc_build_music=false
         for pc_argument in "$@"; do
-            if [[ "$pc_argument" == --home || "$pc_argument" == --music || "$pc_argument" == --music-login || "$pc_argument" == --music-query || "$pc_argument" == --music-song ]]; then
-                python3 tools/pc.py guest/apps/netease-music > "$pc_root/build/netease-music-build.log" 2>&1 || { cat "$pc_root/build/netease-music-build.log" >&2; exit 1; }
-                break
-            fi
+            case "$pc_argument" in
+                --home) pc_build_home=true;pc_build_music=true ;;
+                --music|--music-login|--music-query|--music-song) pc_build_music=true ;;
+            esac
         done
+        if "$pc_build_music"; then
+            python3 tools/pc.py guest/apps/netease-music > "$pc_root/build/netease-music-build.log" 2>&1 || { cat "$pc_root/build/netease-music-build.log" >&2; exit 1; }
+        fi
+        if "$pc_build_home"; then
+            for pc_builtin in weather clock-alarm; do
+                python3 tools/pc.py "guest/apps/$pc_builtin" > "$pc_root/build/$pc_builtin-build.log" 2>&1 || { cat "$pc_root/build/$pc_builtin-build.log" >&2; exit 1; }
+            done
+        fi
         exec "$pc_build/micropixel-pc" "$@"
         ;;
     test) shift; exec bash tools/tests/test_firmware_host.sh --pc "$@" ;;

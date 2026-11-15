@@ -4,6 +4,7 @@
 #include <sqlite3.h>
 
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 namespace micropixel::pc {
 namespace {
@@ -29,17 +30,21 @@ ScheduleStore::ScheduleStore() {
         Statement version(db_, "PRAGMA user_version", {});
         if (version.p && sqlite3_step(version.p) == SQLITE_ROW) schema = sqlite3_column_int(version.p, 0);
     }
-    if (schema < 0 || schema > 1) {
+    if (schema < 0 || schema > 2) {
         sqlite3_close(db_);
         db_ = nullptr;
         return;
     }
-    if (sqlite3_exec(db_,
-                     "PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS exports(app TEXT,caller TEXT,types "
-                     "INTEGER,PRIMARY KEY(app,caller)); CREATE TABLE IF NOT EXISTS jobs(app TEXT,id INTEGER,flags "
-                     "INTEGER,period INTEGER,budget INTEGER,due INTEGER,PRIMARY KEY(app,id)); CREATE TABLE IF NOT "
-                     "EXISTS stopped(app TEXT PRIMARY KEY,value INTEGER NOT NULL); PRAGMA user_version=1;",
-                     nullptr, nullptr, nullptr) != SQLITE_OK) {
+    if (sqlite3_exec(
+            db_,
+            "PRAGMA synchronous=FULL; BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS removed(app TEXT PRIMARY KEY,value "
+            "INTEGER); CREATE TABLE IF NOT EXISTS alarms(app TEXT,id INTEGER,plan "
+            "BLOB,last INTEGER,PRIMARY KEY(app,id)); CREATE TABLE IF NOT EXISTS clock(id INTEGER PRIMARY KEY,offset "
+            "INTEGER,valid INTEGER,correction INTEGER); CREATE TABLE IF NOT EXISTS exports(app TEXT,caller TEXT,types "
+            "INTEGER,PRIMARY KEY(app,caller)); CREATE TABLE IF NOT EXISTS jobs(app TEXT,id INTEGER,flags "
+            "INTEGER,period INTEGER,budget INTEGER,due INTEGER,PRIMARY KEY(app,id)); CREATE TABLE IF NOT "
+            "EXISTS stopped(app TEXT PRIMARY KEY,value INTEGER NOT NULL); PRAGMA user_version=2; COMMIT;",
+            nullptr, nullptr, nullptr) != SQLITE_OK) {
         sqlite3_close(db_);
         db_ = nullptr;
     }
@@ -85,11 +90,21 @@ bool ScheduleStore::Stopped(std::string_view app) {
     Statement s(db_, "SELECT value FROM stopped WHERE app=?", app);
     return s.p && sqlite3_step(s.p) == SQLITE_ROW && sqlite3_column_int(s.p, 0);
 }
+bool ScheduleStore::SetRemoved(std::string_view app, bool value) {
+    Statement s(db_, "INSERT OR REPLACE INTO removed VALUES(?,?)", app);
+    if (!s.p) return false;
+    sqlite3_bind_int(s.p, 2, value);
+    return sqlite3_step(s.p) == SQLITE_DONE;
+}
+bool ScheduleStore::Removed(std::string_view app) {
+    Statement s(db_, "SELECT value FROM removed WHERE app=?", app);
+    return s.p && sqlite3_step(s.p) == SQLITE_ROW && sqlite3_column_int(s.p, 0);
+}
 bool ScheduleStore::Delete(std::string_view app) {
     if (!db_ || sqlite3_exec(db_, "BEGIN IMMEDIATE", nullptr, nullptr, nullptr) != SQLITE_OK) return false;
     bool ok = true;
-    for (const char* sql :
-         {"DELETE FROM jobs WHERE app=?", "DELETE FROM stopped WHERE app=?", "DELETE FROM exports WHERE app=?"}) {
+    for (const char* sql : {"DELETE FROM jobs WHERE app=?", "DELETE FROM stopped WHERE app=?",
+                            "DELETE FROM exports WHERE app=?", "DELETE FROM alarms WHERE app=?"}) {
         Statement statement(db_, sql, app);
         ok = ok && statement.p && sqlite3_step(statement.p) == SQLITE_DONE;
     }
@@ -117,5 +132,42 @@ void ScheduleStore::LoadWake(std::string_view app, uint32_t index, host::AppHub&
         auto* caller = reinterpret_cast<const char*>(sqlite3_column_text(s.p, 0));
         if (caller) (void)hub.AllowWake(index, caller, sqlite3_column_int64(s.p, 1));
     }
+}
+bool ScheduleStore::SaveAlarm(std::string_view app, uint32_t id, const host::AlarmScheduler::Record* record) {
+    Statement s(
+        db_, record ? "INSERT OR REPLACE INTO alarms VALUES(?,?,?,?)" : "DELETE FROM alarms WHERE app=? AND id=?", app);
+    if (!s.p) return false;
+    sqlite3_bind_int(s.p, 2, id);
+    if (record) {
+        sqlite3_bind_blob(s.p, 3, &record->plan, sizeof(record->plan), SQLITE_TRANSIENT);
+        sqlite3_bind_int64(s.p, 4, record->last_occurrence);
+    }
+    return sqlite3_step(s.p) == SQLITE_DONE;
+}
+void ScheduleStore::LoadAlarms(std::string_view app, uint32_t index, host::AlarmScheduler& scheduler) {
+    Statement s(db_, "SELECT plan,last FROM alarms WHERE app=? LIMIT 8", app);
+    if (!s.p) return;
+    while (sqlite3_step(s.p) == SQLITE_ROW) {
+        if (sqlite3_column_bytes(s.p, 0) != sizeof(micropixel_alarm_plan_t)) continue;
+        host::AlarmScheduler::Record record{};
+        record.app = index;
+        std::memcpy(&record.plan, sqlite3_column_blob(s.p, 0), sizeof(record.plan));
+        record.last_occurrence = sqlite3_column_int64(s.p, 1);
+        (void)scheduler.Restore(record);
+    }
+}
+bool ScheduleStore::SaveTime(host::SystemClock::Settings settings) {
+    Statement s(db_, "INSERT OR REPLACE INTO clock VALUES(1,?,?,?)", {});
+    if (!s.p) return false;
+    sqlite3_bind_int(s.p, 1, settings.offset_minutes);
+    sqlite3_bind_int(s.p, 2, settings.enabled);
+    sqlite3_bind_int64(s.p, 3, settings.correction);
+    return sqlite3_step(s.p) == SQLITE_DONE;
+}
+void ScheduleStore::LoadTime(host::SystemClock& clock) {
+    Statement s(db_, "SELECT offset,valid,correction FROM clock WHERE id=1", {});
+    if (s.p && sqlite3_step(s.p) == SQLITE_ROW)
+        (void)clock.Restore(
+            {sqlite3_column_int(s.p, 0), sqlite3_column_int(s.p, 1) != 0, sqlite3_column_int64(s.p, 2)});
 }
 }  // namespace micropixel::pc

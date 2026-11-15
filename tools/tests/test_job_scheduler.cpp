@@ -73,6 +73,11 @@ int main() {
     assert(!restored->Pending(0));
     restored->Process(900001, utc + 900);
     assert(restored->Pending(0));
+    assert(restored->Deliver(0, caller, {&inbox, Inbox::Push}));
+    auto retired_ticket = inbox.last.ticket;
+    auto retired = restored->Retire(caller);
+    assert(retired[0] == retired_ticket && !restored->Pending(0));
+    assert(restored->Complete(caller, retired_ticket) == MICROPIXEL_STATUS_STALE_STATE);
     restored->Stop(0);
     assert(!restored->Pending(0));
     assert(restored->Remove(0, 1) == 0);

@@ -9,36 +9,10 @@
 
 #include "app_sessions.hpp"
 #include "esp_lv_adapter.h"
+#include "pc_app_test_support.hpp"
 #include "runtime/abi/abi_bridge.h"
 #include "schedule_store.hpp"
 #include "screen_font.hpp"
-namespace pc = micropixel::pc;
-namespace host = micropixel::host;
-namespace device = micropixel::device;
-namespace graphics = micropixel::platform::lvgl;
-struct Random final : device::Random {
-    int32_t GetU32(uint32_t& n) override {
-        n = ++next;
-        return 0;
-    }
-    std::atomic<uint32_t> next{};
-};
-struct Battery final : device::Battery {
-    device::BatterySnapshot Snapshot() override { return {}; }
-    void SetStateChangeSink(device::BatteryStateChangeSink, void*) override {}
-};
-template <class Predicate>
-void Until(pc::AppSessions& sessions, Predicate predicate, unsigned seconds = 8) {
-    auto end = std::chrono::steady_clock::now() + std::chrono::seconds(seconds);
-    while (!predicate() && std::chrono::steady_clock::now() < end) {
-        sessions.Process();
-        esp_lv_adapter_lock(-1);
-        lv_timer_handler();
-        esp_lv_adapter_unlock();
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    }
-    assert(predicate());
-}
 void Args(pc::PortableApp& app, const char* origin) {
     auto& a = app.launch_arguments;
     a = {};
@@ -81,6 +55,18 @@ int main(int argc, char** argv) {
         Args(*apps[0], argv[3]);
         {
             pc::AppSessions sessions(apps, display, info, fonts, audio, random, registry, battery, true);
+            {
+                auto foreign = std::make_unique<pc::PortableApp>();
+                std::string error;
+                assert(foreign->Load(argv[2], error));
+                assert(!sessions.Install(0, std::move(foreign)));
+            }
+            {
+                auto foreign = std::make_unique<pc::PortableApp>();
+                std::string error;
+                assert(foreign->Load(argv[1], error));
+                assert(!sessions.Install(7, std::move(foreign)));
+            }
             assert(sessions.Activate(1));
             Until(sessions, [&] { return sessions.Snapshot().foreground == 1; });
             auto peer = sessions.Snapshot().apps[1].instance;
@@ -97,6 +83,7 @@ int main(int argc, char** argv) {
             });
             assert(sessions.Find(0)->ComponentInfo().activity_state == 0 && sessions.Snapshot().foreground == 1);
             auto first = weather.instance;
+            assert(weather.data.value == -5 && std::strstr(weather.data.subtitle, "-0.5"));
             auto temperature = weather.data.value;
             auto updated = weather.data.updated_utc;
             Until(sessions, [&] { return sessions.Find(0)->Suspended(); });
@@ -136,6 +123,15 @@ int main(int argc, char** argv) {
                 for (auto& r : restored->Records()) count += r.app == 0;
                 assert(count == 2 && !store.Stopped(apps[0]->app_id));
             }
+            sessions.Stop(0);
+            Until(sessions, [&] { return sessions.Snapshot().apps[0].state == host::AppState::kStopped; });
+            assert(snapshot() && !weather.online);
+            uint32_t cancelled = 0;
+            assert(sessions.WidgetAction(weather, MICROPIXEL_ACTION_REFRESH, 0, 4, cancelled) == 0);
+            assert(sessions.Remove(0, true));
+            Until(sessions, [&] { return !sessions.Removing(0); });
+            assert(sessions.RemovalResult(0) == 0 && !apps[0]->available &&
+                   sessions.WidgetResult(cancelled).result == MICROPIXEL_STATUS_CANCELLED);
             assert(sessions.ClearSchedules(0));
             {
                 pc::ScheduleStore store;
@@ -159,7 +155,7 @@ int main(int argc, char** argv) {
             req.background_kinds = 2;
             req.widget_count = 0;
             req.services[12] = 65536;
-            req.services[14] = 65536;
+            req.services[14] = 65537;
             req.services[15] = i ? 0 : 65536;
             if (i) {
                 auto& args = app->launch_arguments;

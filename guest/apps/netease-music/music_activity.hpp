@@ -167,6 +167,8 @@ class PlaybackService final : public micropixel::AppService {
         model_.app_.log().Info("NETEASE_SERVICE stopped");
     }
     void OnEvent(micropixel::ComponentContext&, const micropixel::Event& event) override {
+        if (const auto* focus = event.audio_focus())
+            model_.app_.log().Info(focus->interrupted ? "NETEASE_FOCUS ducked" : "NETEASE_FOCUS restored");
         if (const auto* incoming = event.message()) {
             const auto message = model_.app_.messages().Read(incoming->ticket);
             if (message) (void)model_.app_.messages().Ack(incoming->ticket, model_.Command(*message));

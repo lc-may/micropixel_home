@@ -15,13 +15,18 @@ bool AppManager::Register(uint32_t app, AppPolicy policy) {
     policies_[app] = policy;
     return true;
 }
+bool AppManager::Deactivate(uint32_t app) {
+    if (app >= snapshot_.count || snapshot_.apps[app].state != AppState::kStopped) return false;
+    policies_[app].available = false;
+    return true;
+}
 ManagerResult AppManager::Enqueue(Command command) {
     if (size_ == commands_.size()) return ManagerResult::kBusy;
     commands_[(head_ + size_++) % commands_.size()] = command;
     return ManagerResult::kAccepted;
 }
 ManagerResult AppManager::Activate(uint32_t app) {
-    if (app >= snapshot_.count) return ManagerResult::kInvalidApp;
+    if (app >= snapshot_.count || !policies_[app].available) return ManagerResult::kInvalidApp;
     if (snapshot_.apps[app].state == AppState::kStopping) return ManagerResult::kBusy;
     if (size_ == commands_.size()) return ManagerResult::kBusy;
     // A full table must not destroy the old foreground to make room.
@@ -33,11 +38,12 @@ ManagerResult AppManager::Activate(uint32_t app) {
     return Enqueue({Kind::kActivate, app, ++intent_, false});
 }
 ManagerResult AppManager::Stop(uint32_t app, bool user) {
-    if (app >= snapshot_.count) return ManagerResult::kInvalidApp;
+    if (app >= snapshot_.count || !policies_[app].available) return ManagerResult::kInvalidApp;
     return Enqueue({Kind::kStop, app, 0, user});
 }
 ManagerResult AppManager::EnsureWork(uint32_t app, bool user) {
-    if (app >= snapshot_.count || !policies_[app].messages) return ManagerResult::kInvalidApp;
+    if (app >= snapshot_.count || !policies_[app].available || !policies_[app].messages)
+        return ManagerResult::kInvalidApp;
     if (snapshot_.apps[app].user_stopped && !user) return ManagerResult::kBusy;
     if (snapshot_.apps[app].state == AppState::kStopping) return ManagerResult::kBusy;
     if (!Find(app)) {
@@ -75,6 +81,7 @@ void AppManager::Execute(const Command& command) {
         HideForeground();
         return;
     }
+    if (!policies_[command.app].available) return;
     auto& app = snapshot_.apps[command.app];
     auto* slot = Find(command.app);
     if (command.kind == Kind::kStop) {

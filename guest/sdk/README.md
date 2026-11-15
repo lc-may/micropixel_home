@@ -2,6 +2,11 @@
 
 A restricted C++23 SDK for WebAssembly apps. No ESP-IDF, LVGL, board-specific types, threads, exceptions, or RTTI.
 
+## SDK 0.24.0
+
+`Alarms`, `AlarmPlan` and `AudioFocusEvent` add Host time, durable one-shot/weekly alarms and focus notifications.
+PC Home uses four native Wasm slots by default. See [D7](../../docs/development/app-manager-d7.zh-CN.md).
+
 ## SDK 0.23.0
 
 `Jobs`, `JobEvent` and `WallTime` add durable plans and finite background work on PC.
@@ -108,6 +113,7 @@ already covers the need; apps must not re-implement these locally.
 |---|---|---|
 | Bounded weather/clock/media snapshots | `Widgets`, `WidgetData` | `widgets.hpp` |
 | Instance messages, results and explicit cold export | `Messages`, `AppMessage` | `messages.hpp` |
+| Host time, durable alarms and focus events | `Alarms`, `AlarmPlan`, `AudioFocusEvent` | `alarms.hpp`, `event.hpp` |
 | Durable jobs and finite work tickets | `Jobs`, `JobEvent`, `WallTime` | `jobs.hpp` |
 | Bounded JSON tree and numeric parsing | `Json` | `json.hpp` |
 | Activity / Service lifecycle and resource domains | `RunComponents`, `ComponentContext` | `components.hpp` |

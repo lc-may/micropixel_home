@@ -21,6 +21,7 @@ struct Model {
             text.Append("等待首次刷新");
         else {
             auto t = saved.reading.temperature;
+            if (t < 0 && t > -10) text.Append("-");
             text.AppendInt(t / 10);
             text.Append(".");
             text.AppendUint(t < 0 ? (-t) % 10 : t % 10);

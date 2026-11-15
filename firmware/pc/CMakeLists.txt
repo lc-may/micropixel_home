@@ -68,7 +68,7 @@ target_compile_definitions(pc_protocols PRIVATE
     HTTP_RECV_RETRY_TIMEOUT_MS=10000U HTTP_SEND_RETRY_TIMEOUT_MS=10000U)
 
 set(SHARED_SOURCES
-    host/controller/app_manager.cpp host/controller/app_hub.cpp host/controller/job_scheduler.cpp
+    host/controller/app_manager.cpp host/controller/app_hub.cpp host/controller/job_scheduler.cpp host/controller/alarm_scheduler.cpp
     host/ui/system_locale.cpp host/ui/lvgl/square_common/hall_card_ui.cpp
     device/device_registry.cpp device/device_services.cpp device/text.cpp
     runtime/abi/guest_abi.cpp runtime/abi/native_symbols.c runtime/abi/service_endpoints.cpp runtime/abi/service_registry.cpp
@@ -103,7 +103,7 @@ target_compile_definitions(pc_host PUBLIC MICROPIXEL_PC_COMPONENTS=1)
 target_link_libraries(pc_host PUBLIC pc_wamr lvgl pc_opus pc_protocols PkgConfig::PNG PkgConfig::CJSON sqlite3 jpeg mbedtls mbedx509 mbedcrypto opusfile ogg mpg123)
 target_compile_options(pc_host PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions;-fno-rtti>)
 target_sources(pc_host PRIVATE app_sessions.cpp remote.cpp)
-add_executable(micropixel-pc main.cpp home_app.cpp)
+add_executable(micropixel-pc main.cpp home_app.cpp alarm_overlay.cpp)
 target_compile_options(micropixel-pc PRIVATE -fno-exceptions -fno-rtti)
 target_link_libraries(micropixel-pc PRIVATE pc_host)
 
@@ -114,3 +114,7 @@ target_link_libraries(pc-app-framework-test PRIVATE pc_host)
 add_executable(pc-app-scheduler-test "${REPOSITORY_ROOT}/tools/tests/test_pc_scheduler.cpp")
 target_compile_options(pc-app-scheduler-test PRIVATE -UNDEBUG -fno-exceptions -fno-rtti)
 target_link_libraries(pc-app-scheduler-test PRIVATE pc_host)
+
+add_executable(pc-alarm-system-test "${REPOSITORY_ROOT}/tools/tests/test_pc_alarm_system.cpp")
+target_compile_options(pc-alarm-system-test PRIVATE -UNDEBUG -fno-exceptions -fno-rtti)
+target_link_libraries(pc-alarm-system-test PRIVATE pc_host)

@@ -26,7 +26,8 @@
     "lifecycle",
     "widget",
     "message",
-    "job"
+    "job",
+    "alarm"
   ],
   "layouts": [
     "square",

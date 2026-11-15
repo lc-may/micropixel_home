@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "runtime/service_binding.hpp"
+#include "sdk/alarms.hpp"
 #include "sdk/jobs.hpp"
 #include "sdk/messages.hpp"
 #include "sdk/widgets.hpp"
 
 namespace micropixel {
 namespace {
-runtime::ServiceCache widgets, messages, jobs;
+runtime::ServiceCache widgets, messages, jobs, alarms;
 uint32_t widget_revision{};
 uint64_t sequence{};
 int32_t Call(runtime::ServiceCache& cache, uint32_t service, uint32_t method, const void* request, uint32_t length,
@@ -43,6 +44,70 @@ Result<uint32_t> Send(micropixel_message_send_t& wire, std::span<const uint8_t> 
     return result.handle;
 }
 }  // namespace
+Result<WallTime> Alarms::Now() const {
+    micropixel_wall_time_t response{};
+    uint32_t written = 0;
+    auto status =
+        Call(alarms, MICROPIXEL_SERVICE_ALARM, MICROPIXEL_ALARM_NOW, nullptr, 0, &response, sizeof(response), written);
+    if (status) return unexpected(runtime::ErrorFromStatus(status));
+    if (written != sizeof(response) || response.size != sizeof(response))
+        return unexpected(Error{ErrorCode::kInternal});
+    return WallTime{response.utc, response.offset_minutes, response.valid != 0};
+}
+Result<void> Alarms::Register(const AlarmPlan& plan) const {
+    micropixel_alarm_plan_t wire{};
+    wire.size = sizeof(wire);
+    wire.flags = (plan.enabled ? 1 : 0) | (plan.weekly ? 2 : 0);
+    wire.id = plan.id;
+    wire.once_utc = plan.once_utc;
+    wire.minute_of_day = plan.minute_of_day;
+    wire.weekdays = plan.weekdays;
+    Text(wire.label, plan.label.c_str());
+    uint32_t written = 0;
+    auto status =
+        Call(alarms, MICROPIXEL_SERVICE_ALARM, MICROPIXEL_ALARM_REGISTER, &wire, sizeof(wire), nullptr, 0, written);
+    return status ? Result<void>(unexpected(runtime::ErrorFromStatus(status))) : Result<void>();
+}
+Result<AlarmPlan> Alarms::Get(uint32_t id) const {
+    micropixel_handle_request_t request{sizeof(request), 0, id};
+    micropixel_alarm_plan_t wire{};
+    uint32_t written = 0;
+    auto status = Call(alarms, MICROPIXEL_SERVICE_ALARM, MICROPIXEL_ALARM_GET, &request, sizeof(request), &wire,
+                       sizeof(wire), written);
+    if (status) return unexpected(runtime::ErrorFromStatus(status));
+    size_t label_length = 0;
+    while (label_length < sizeof(wire.label) && wire.label[label_length]) ++label_length;
+    if (written != sizeof(wire) || wire.size != sizeof(wire) || label_length == sizeof(wire.label))
+        return unexpected(Error{ErrorCode::kInternal});
+    AlarmPlan plan;
+    plan.id = wire.id;
+    plan.enabled = wire.flags & 1;
+    plan.weekly = wire.flags & 2;
+    plan.once_utc = wire.once_utc;
+    plan.minute_of_day = wire.minute_of_day;
+    plan.weekdays = wire.weekdays;
+    plan.label.Append(wire.label);
+    return plan;
+}
+Result<void> Alarms::Remove(uint32_t id) const {
+    micropixel_handle_request_t request{sizeof(request), 0, id};
+    uint32_t written = 0;
+    auto status =
+        Call(alarms, MICROPIXEL_SERVICE_ALARM, MICROPIXEL_ALARM_REMOVE, &request, sizeof(request), nullptr, 0, written);
+    return status ? Result<void>(unexpected(runtime::ErrorFromStatus(status))) : Result<void>();
+}
+Result<void> Alarms::StopRinging() const {
+    uint32_t written = 0;
+    auto status = Call(alarms, MICROPIXEL_SERVICE_ALARM, MICROPIXEL_ALARM_STOP, nullptr, 0, nullptr, 0, written);
+    return status ? Result<void>(unexpected(runtime::ErrorFromStatus(status))) : Result<void>();
+}
+Result<void> Alarms::ConfigureTime(bool valid, int32_t offset, uint64_t utc) const {
+    micropixel_wall_time_t wire{sizeof(wire), static_cast<uint16_t>(valid), 0, utc, offset, 0};
+    uint32_t written = 0;
+    auto status = Call(alarms, MICROPIXEL_SERVICE_ALARM, MICROPIXEL_ALARM_CONFIGURE_TIME, &wire, sizeof(wire), nullptr,
+                       0, written);
+    return status ? Result<void>(unexpected(runtime::ErrorFromStatus(status))) : Result<void>();
+}
 Result<void> Jobs::Register(const JobPlan& plan) const {
     micropixel_job_plan_t wire{sizeof(wire), 1, plan.id, plan.interval_seconds, plan.deadline_ms, plan.next_utc};
     uint32_t written = 0;
@@ -104,6 +169,9 @@ Result<void> Messages::Allow(std::string_view caller, uint32_t types) const {
     return status ? Result<void>(unexpected(runtime::ErrorFromStatus(status))) : Result<void>();
 }
 Result<void> Messages::AllowColdStart(std::string_view caller, uint32_t types) const {
+    auto negotiated = runtime::OpenService(messages, MICROPIXEL_SERVICE_MESSAGE, 1, 0);
+    if (negotiated) return unexpected(runtime::ErrorFromStatus(negotiated));
+    if (messages.info.interface_minor < 1) return unexpected(Error{ErrorCode::kUnsupported});
     micropixel_message_allow_t wire{};
     wire.size = sizeof(wire);
     wire.types = types;

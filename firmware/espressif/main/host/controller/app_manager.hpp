@@ -14,6 +14,7 @@ struct AppPolicy final {
     bool background{};
     bool activity{true};
     bool messages{};
+    bool available{true};
 };
 struct AppSnapshot final {
     AppState state{AppState::kStopped};
@@ -38,6 +39,7 @@ class AppManager final {
     static constexpr uint32_t kMaxInstances = 4;
     AppManager(std::span<runtime::SessionRunner*> runners, uint64_t boot);
     [[nodiscard]] bool Register(uint32_t app, AppPolicy policy);
+    bool Deactivate(uint32_t app);
     [[nodiscard]] ManagerResult Activate(uint32_t app);
     [[nodiscard]] ManagerResult EnsureWork(uint32_t app, bool explicit_user = false);
     void RestoreUserStopped(uint32_t app, bool stopped);

@@ -10,7 +10,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         Handler.count+=1;n=Handler.count
         if n==2:self.send_response(503);self.end_headers();return
         if n==3:time.sleep(4)
-        data=json.dumps({"current":{"time":int(time.time()),"temperature_2m":21.5 if n==1 else 22.5,"weather_code":1}}).encode()
+        data=json.dumps({"current":{"time":int(time.time()),"temperature_2m":-0.5 if n==1 else 22.5,"weather_code":1}}).encode()
         self.send_response(200);self.send_header("Content-Length",str(len(data)));self.end_headers()
         try:self.wfile.write(data)
         except (BrokenPipeError,ConnectionResetError):pass

@@ -46,6 +46,6 @@ class Endpoint final : public AppService {
 int main() {
     Application app;
     Endpoint endpoint;
-    app.RunComponents(nullptr, &endpoint);
+    app.RunComponents(nullptr, &endpoint, false);
     return 0;
 }

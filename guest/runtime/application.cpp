@@ -67,6 +67,15 @@ bool Application::DecodeEventInternal(Event& event, uint64_t timeout_us) const {
     event_service_ = raw.service_id;
     event_source_ = raw.source;
     TimePoint timestamp{raw.timestamp_us};
+    if (raw.service_id == MICROPIXEL_SERVICE_ALARM && raw.event_id == MICROPIXEL_ALARM_EVENT_FOCUS) {
+        micropixel_alarm_focus_t focus{};
+        CopyBytes(&focus, raw.payload, sizeof(focus));
+        if (focus.active > 1 || focus.gain_per_mille > 1000)
+            runtime::Panic("focus.event.payload", MICROPIXEL_STATUS_INTERNAL);
+        event = Event{EventType::kAudioFocus, timestamp};
+        event.audio_focus_ = {focus.active != 0, focus.gain_per_mille};
+        return true;
+    }
     if (raw.service_id == MICROPIXEL_SERVICE_JOB && raw.event_id == MICROPIXEL_JOB_EVENT_WORK) {
         micropixel_job_event_t payload{};
         CopyBytes(&payload, raw.payload, sizeof(payload));

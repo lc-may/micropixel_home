@@ -365,3 +365,10 @@ The subset generator reads the pinned [DeepSeek-V4-Flash tokenizer](https://hugg
 
 The bounded CJK rasterizer includes the existing LVGL dependency's `stb_truetype_htcw.h` implementation
 under its upstream MIT/public-domain license; no copy of the third-party implementation is maintained here.
+
+## Open-Meteo weather data
+
+The weather example fetches current data from [Open-Meteo](https://open-meteo.com/), attributed in its UI.
+Data is provided under [CC BY 4.0](https://open-meteo.com/en/licence). The default free endpoint is for
+non-commercial use under the [service terms](https://open-meteo.com/en/terms); commercial deployments require an appropriate service plan.
+No Open-Meteo implementation code is bundled.

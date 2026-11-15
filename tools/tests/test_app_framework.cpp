@@ -58,6 +58,14 @@ void TestEnsureWork() {
     assert(manager.EnsureWork(0, true) == host::ManagerResult::kAccepted);
     manager.Process(6);
     assert(runner.starts == 2 && !manager.Snapshot().apps[0].user_stopped);
+    assert(manager.Stop(0) == host::ManagerResult::kAccepted);
+    manager.Process(7);
+    runner.state.exited = true;
+    manager.Process(8);
+    assert(manager.Deactivate(0));
+    assert(manager.Activate(0) == host::ManagerResult::kInvalidApp &&
+           manager.EnsureWork(0) == host::ManagerResult::kInvalidApp);
+    assert(manager.Register(0, {.messages = true}) && manager.Activate(0) == host::ManagerResult::kAccepted);
 }
 void TestOwner() {
     runtime::OwnerScope a({1, 0, 1}), b({1, 1, 1});

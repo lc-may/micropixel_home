@@ -371,7 +371,7 @@ class GuestContext final {
     KeyEventBridge key_events_;
     Components components_;
     LifecycleServiceEndpoint lifecycle_endpoint_;
-    ApplicationServiceEndpoint widget_endpoint_, message_endpoint_, job_endpoint_;
+    ApplicationServiceEndpoint widget_endpoint_, message_endpoint_, job_endpoint_, alarm_endpoint_;
     TimerServiceEndpoint timer_endpoint_;
     SystemServiceEndpoint system_endpoint_;
     StorageServiceEndpoint storage_endpoint_;

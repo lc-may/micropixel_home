@@ -52,8 +52,9 @@ inline micropixel_app_environment_t AppEnvironment(device::DeviceServices& devic
     result.services[12] = MICROPIXEL_INTERFACE_VERSION(1U, 0U);
     if (devices.applications()) {
         result.services[13] = MICROPIXEL_INTERFACE_VERSION(1U, 0U);
-        result.services[14] = MICROPIXEL_INTERFACE_VERSION(1U, 0U);
+        result.services[14] = MICROPIXEL_INTERFACE_VERSION(1U, 1U);
         result.services[15] = MICROPIXEL_INTERFACE_VERSION(1U, 0U);
+        result.services[16] = MICROPIXEL_INTERFACE_VERSION(1U, 0U);
     }
 #endif
     return result;

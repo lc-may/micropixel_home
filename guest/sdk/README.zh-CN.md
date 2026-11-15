@@ -8,6 +8,11 @@ SDK 让应用通过强类型对象使用图形、输入、音频和设备能力�
 驱动更新；Host 管理硬件、资源和系统 UI。本文介绍编程模型与易错边界，完整可运行用法见
 [Demo](../apps/sdk-demo/)，底层协议见 [ABI](../abi/README.zh-CN.md)。
 
+## SDK 0.24.0
+
+`Alarms`, `AlarmPlan` and `AudioFocusEvent` add Host time, durable one-shot/weekly alarms and focus notifications.
+PC Home uses four native Wasm slots by default. See [D7](../../docs/development/app-manager-d7.zh-CN.md).
+
 ## SDK 0.23.0
 
 `Jobs`, `JobEvent` and `WallTime` add durable plans and finite background work on PC.

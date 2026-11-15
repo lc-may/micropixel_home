@@ -186,6 +186,12 @@ void SdlAudio::Callback(void* ctx, uint8_t* bytes, int count) {
     std::memset(bytes, 0, count);
     static_cast<SdlAudio*>(ctx)->Render(reinterpret_cast<int16_t*>(bytes), count / (2 * sizeof(int16_t)));
 }
+void SdlAudio::SetAlarmFocus(bool active) {
+    SDL_LockAudioDevice(device_);
+    if (active && !alarm_active_.load()) alarm_frame_ = 0;
+    alarm_active_ = active;
+    SDL_UnlockAudioDevice(device_);
+}
 void SdlAudio::Render(int16_t* output, uint32_t frames) {
     if (suspended_) return;
     constexpr uint32_t chunk = 128;
@@ -221,6 +227,18 @@ void SdlAudio::Render(int16_t* output, uint32_t frames) {
                 const auto& voice = pcm_[i];
                 left += static_cast<int32_t>(pcm_scratch_[i][voice.stereo ? 2 * f : f]) * voice.volume / 1000;
                 right += static_cast<int32_t>(pcm_scratch_[i][voice.stereo ? 2 * f + 1 : f]) * voice.volume / 1000;
+            }
+            if (alarm_active_.load()) {
+                left /= 5;
+                right /= 5;
+                const auto frame = alarm_frame_++;
+                const int32_t tone = frame % 48000 < 32000
+                                         ? sine_[(frame * 880 * platform::audio::kSynthSineTableSize / 48000) %
+                                                 platform::audio::kSynthSineTableSize] *
+                                               3500 / 32768
+                                         : 0;
+                left += tone;
+                right += tone;
             }
             output[(offset + f) * 2] = std::clamp<int64_t>(static_cast<int64_t>(left) * master_ / 10000, -32768, 32767);
             output[(offset + f) * 2 + 1] =

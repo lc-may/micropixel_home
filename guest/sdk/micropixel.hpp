@@ -1,6 +1,7 @@
 #ifndef MICROPIXEL_SDK_MICROPIXEL_HPP
 #define MICROPIXEL_SDK_MICROPIXEL_HPP
 
+#include "sdk/alarms.hpp"
 #include "sdk/application.hpp"
 #include "sdk/audio.hpp"
 #include "sdk/components.hpp"

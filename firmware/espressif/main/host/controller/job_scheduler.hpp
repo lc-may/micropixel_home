@@ -29,6 +29,7 @@ class JobScheduler final {
     bool Owns(AppCaller, uint32_t ticket) const;
     uint32_t Cancelled(uint32_t app) const;
     void Stop(uint32_t app);
+    std::array<uint32_t, 2> Retire(AppCaller);
 
    private:
     struct Work {

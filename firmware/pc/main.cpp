@@ -19,6 +19,7 @@
 #include <thread>
 #include <vector>
 
+#include "alarm_overlay.hpp"
 #include "app_sessions.hpp"
 #include "audio.hpp"
 #include "device/device_registry.hpp"
@@ -108,12 +109,13 @@ std::optional<device::KeyCode> Key(SDL_Keycode code) {
 struct Options {
     int width = 720, height = 720;
     double seconds = 0;
-    bool headless{}, exit_when_done{}, autostart{}, market{}, music{}, home{}, multi_app{};
+    bool headless{}, exit_when_done{}, autostart{}, market{}, music{}, home{}, multi_app{}, profile_explicit{};
     std::string music_query = "纯音乐";
     bool music_query_explicit{};
     uint64_t music_song{};
     std::string market_app;
-    std::string install_app;
+    std::string install_app, remove_app;
+    bool uninstall{};
     std::vector<std::string> guest_arguments;
     std::string screenshot;
     std::string play, http, mqtt, topic = "micropixel/pc/test", message = "MicroPixel PC", output;
@@ -128,8 +130,9 @@ bool Parse(int argc, char** argv, Options& options) {
                 "Usage: micropixel-pc [--headless] [--seconds N] [--width N --height N]\n"
                 "       [--screenshot file.png] [--autostart] [--exit-on-app-complete]\n"
                 "       [--play local.wav|https://... --exit-on-audio-complete]\n"
-                "       [--home | --market | --market-app APP_ID] [--multi-app]\n"
-                "       [--install-app APP_ID] (download and run official RV32 Bundle)\n"
+                "       [--home | --market | --market-app APP_ID] [--multi-app | --single-app]\n"
+                "       [--install-app APP_ID] (download and run official RV32 Bundle)\n       [--uninstall-app APP_ID "
+                "| --clear-app-data APP_ID]\n"
                 "       [--music | --music-login | --music-query TEXT | --music-song SONG_ID] [--guest-arg TEXT ...]\n"
                 "       [--http URL --output file | --mqtt URL --topic TOPIC --message TEXT]\n"
                 "       [app.pc.json | app.wasm | apps-directory ...]\n"
@@ -138,9 +141,13 @@ bool Parse(int argc, char** argv, Options& options) {
             return false;
         } else if (arg == "--headless")
             options.headless = true;
-        else if (arg == "--multi-app")
+        else if (arg == "--multi-app") {
             options.multi_app = true;
-        else if (arg == "--market")
+            options.profile_explicit = true;
+        } else if (arg == "--single-app") {
+            options.multi_app = false;
+            options.profile_explicit = true;
+        } else if (arg == "--market")
             options.market = true;
         else if (arg == "--home")
             options.home = true;
@@ -158,10 +165,15 @@ bool Parse(int argc, char** argv, Options& options) {
         else if ((arg == "--width" || arg == "--height" || arg == "--seconds" || arg == "--screenshot" ||
                   arg == "--play" || arg == "--http" || arg == "--mqtt" || arg == "--topic" || arg == "--message" ||
                   arg == "--output" || arg == "--market-app" || arg == "--install-app" || arg == "--guest-arg" ||
-                  arg == "--music-query" || arg == "--music-song") &&
+                  arg == "--music-query" || arg == "--music-song" || arg == "--uninstall-app" ||
+                  arg == "--clear-app-data") &&
                  i + 1 < argc) {
             const char* value = argv[++i];
-            if (arg == "--width") options.width = std::atoi(value);
+            if (arg == "--uninstall-app" || arg == "--clear-app-data") {
+                options.remove_app = value;
+                options.uninstall = arg == "--uninstall-app";
+            } else if (arg == "--width")
+                options.width = std::atoi(value);
             if (arg == "--height") options.height = std::atoi(value);
             if (arg == "--seconds") options.seconds = std::atof(value);
             if (arg == "--screenshot") options.screenshot = value;
@@ -216,6 +228,7 @@ bool Parse(int argc, char** argv, Options& options) {
         std::fputs("--home cannot be combined with automatic app launch or market\n", stderr);
         std::exit(2);
     }
+    if (options.home && !options.profile_explicit) options.multi_app = true;
     return true;
 }
 // System fonts stay local; no downloaded font is passed to the TTF parser.
@@ -352,7 +365,13 @@ int main(int argc, char** argv) {
         std::vector<std::unique_ptr<pc::PortableApp>> apps;
         std::vector<std::filesystem::path> files;
         if (options.paths.empty()) {
-            if (std::filesystem::is_directory("build/pc-apps")) options.paths.emplace_back("build/pc-apps");
+            if (options.home) {
+                for (const char* name : {"clock-alarm", "netease-music", "weather"}) {
+                    auto path = std::filesystem::path("build/pc-apps") / name / (std::string(name) + ".pc.json");
+                    if (std::filesystem::exists(path)) options.paths.push_back(path);
+                }
+            } else if (std::filesystem::is_directory("build/pc-apps"))
+                options.paths.emplace_back("build/pc-apps");
             if (std::filesystem::is_directory(pc::InstalledAppsDirectory()))
                 options.paths.push_back(pc::InstalledAppsDirectory());
         }
@@ -418,8 +437,40 @@ int main(int argc, char** argv) {
             }
         }
         pc::AppSessions sessions(apps, display, info, screen_font.guest_fonts, audio, random, registry, battery,
-                                 options.multi_app);
+                                 options.multi_app, !options.home || (options.profile_explicit && options.multi_app));
+        if (!options.remove_app.empty()) {
+            for (uint32_t i = 0; i < apps.size(); ++i)
+                if (apps[i]->app_id == options.remove_app) {
+                    if (!sessions.Remove(i, options.uninstall)) return 1;
+                    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+                    while (sessions.Removing(i) && std::chrono::steady_clock::now() < deadline) {
+                        sessions.Process();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                    }
+                    return !sessions.Removing(i) && sessions.RemovalResult(i) == 0 ? 0 : 1;
+                }
+            std::fprintf(stderr, "App not found: %s\n", options.remove_app.c_str());
+            return 1;
+        }
+        if (options.home && options.multi_app) {
+            for (uint32_t i = 0; i < apps.size(); ++i) {
+                auto& launch = apps[i]->launch_arguments;
+                launch.size = sizeof(launch);
+                for (const auto& arg : options.guest_arguments) {
+                    if (launch.count >= MICROPIXEL_LAUNCH_ARGUMENT_MAX_COUNT ||
+                        launch.bytes_length + arg.size() + 1 > sizeof(launch.bytes))
+                        return 1;
+                    launch.offsets[launch.count++] = launch.bytes_length;
+                    std::memcpy(launch.bytes + launch.bytes_length, arg.c_str(), arg.size() + 1);
+                    launch.bytes_length += arg.size() + 1;
+                }
+                if (apps[i]->app_id == "micropixel.weather" || apps[i]->app_id == "micropixel.clock-alarm") {
+                    if (!sessions.Snapshot().apps[i].user_stopped) (void)sessions.EnsureWork(i);
+                }
+            }
+        }
         pc::HomeApp home(apps, media, audio, &sessions);
+        pc::AlarmOverlay alarm_overlay(sessions);
         pc::Market market;
         if (options.market)
             market.Show(options.market_app);
@@ -500,6 +551,7 @@ int main(int argc, char** argv) {
             home.SetRunning(session ? apps[active_index].get() : nullptr);
             home.Update();
             market.Update();
+            alarm_overlay.Update(options.width, options.height);
             lv_timer_handler();
             esp_lv_adapter_unlock();
             static std::array<SDL_Event, 256> pending;
@@ -525,6 +577,12 @@ int main(int argc, char** argv) {
             bool go_home = false;
             for (size_t i = 0; i < count; ++i) {
                 const auto& event = pending[i];
+                if (alarm_overlay.Visible()) {
+                    if (event.type == SDL_KEYDOWN && !event.key.repeat &&
+                        (event.key.keysym.sym == SDLK_ESCAPE || event.key.keysym.sym == SDLK_RETURN))
+                        sessions.StopAlarm();
+                    continue;
+                }
                 if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
                     if (event.key.keysym.sym == SDLK_HOME || event.key.keysym.sym == SDLK_F1) {
                         if (event.type == SDL_KEYDOWN && !event.key.repeat) {

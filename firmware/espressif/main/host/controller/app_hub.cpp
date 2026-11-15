@@ -123,6 +123,38 @@ void AppHub::Bind(uint32_t index, runtime::InstanceKey instance) {
     app.watermark = 0;
     app.accepting = true;
 }
+void AppHub::Remove(uint32_t app) {
+    if (app >= 64) return;
+    Quiesce({app, apps_[app].instance, 0});
+    apps_[app] = {};
+    for (auto& widget : widgets_)
+        if (widget.used && widget.snapshot.app == app) widget = {};
+}
+bool AppHub::KeepClock(uint32_t app, uint64_t now) {
+    if (app >= 64 || !apps_[app].widget_limit) return false;
+    for (const auto& item : widgets_)
+        if (item.used && item.snapshot.app == app && item.snapshot.data.widget_id == 1) return true;
+    Published* selected = nullptr;
+    for (auto& item : widgets_)
+        if (!item.used) {
+            selected = &item;
+            break;
+        }
+    if (!selected) return false;
+    selected->used = true;
+    selected->pinned = true;
+    auto& s = selected->snapshot;
+    s = {};
+    s.app = app;
+    s.revision = ++next_revision_;
+    s.published_ms = now;
+    s.data.size = sizeof(s.data);
+    s.data.template_id = MICROPIXEL_WIDGET_CLOCK;
+    s.data.widget_id = 1;
+    s.data.revision = 1;
+    std::memcpy(s.data.title, "Clock", 6);
+    return true;
+}
 bool AppHub::Valid(const AppCaller& caller) const {
     if (Same(caller, Home())) return caller.component == 0;
     return caller.app < apps_.size() && caller.instance.valid() && apps_[caller.app].instance == caller.instance;
@@ -192,7 +224,7 @@ int32_t AppHub::Publish(const AppCaller& caller, const micropixel_widget_snapsho
             }
     if (!selected)
         for (auto& item : widgets_)
-            if (!ComponentAlive({item.snapshot.app, item.snapshot.instance, item.snapshot.component}) &&
+            if (!item.pinned && !ComponentAlive({item.snapshot.app, item.snapshot.instance, item.snapshot.component}) &&
                 (!selected || item.snapshot.published_ms < selected->snapshot.published_ms))
                 selected = &item;
     if (!selected) return MICROPIXEL_STATUS_RESOURCE_EXHAUSTED;

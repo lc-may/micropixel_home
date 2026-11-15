@@ -28,7 +28,7 @@ Job 计划、user_stopped 和显式导出权限保存在 `schedules.sqlite3`，�
 用户 Stop 阻止自动 Job/消息拉起；打开应用或点击离线天气卡片“刷新”清除标记。
 卡片刷新启动新的 Service，随后向新实例投递一次命令；旧实例消息永不改投。
 
-跨 App 冷启动默认禁止。接收 Service 通过 `Messages::AllowColdStart(caller, types)` 显式授权并持久提交。
+跨 App 冷启动默认禁止。冷唤醒要求 Message 1.1（requirements 中 message 65537）；普通实例消息仍支持 1.0。接收 Service 通过 `Messages::AllowColdStart(caller, types)` 显式授权并持久提交。
 允许的逻辑发送在准备期间返回 WouldBlock；调用者用**同一 request_id 和内容**在原期限内重试。
 只有实例 Ready、消息真正入队后才返回投递票据。实例地址不触发冷启动，也不提供跨重启恰好一次。
 user_stopped、来源实例退出、配额与期限均由 Host 再检查。

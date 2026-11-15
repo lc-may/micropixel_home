@@ -50,6 +50,5 @@ class HomeApp final {
     std::array<lv_obj_t*, 8> widget_cards_{}, widget_titles_{}, widget_subtitles_{}, widget_refresh_{};
     uint32_t media_widget_{UINT32_MAX}, widget_ticket_{}, pending_value_{};
     uint16_t pending_type_{};
-    uint64_t action_sequence_{};
 };
 }  // namespace micropixel::pc

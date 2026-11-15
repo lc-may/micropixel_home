@@ -136,6 +136,17 @@ uint32_t JobScheduler::Cancelled(uint32_t app) const {
         if (records_[i].app == app && work_[i].ticket && work_[i].cancelled) return work_[i].ticket;
     return 0;
 }
+std::array<uint32_t, 2> JobScheduler::Retire(AppCaller caller) {
+    std::array<uint32_t, 2> tickets{};
+    uint32_t count = 0;
+    for (auto& work : work_)
+        if (work.ticket && work.delivered && work.receiver.app == caller.app &&
+            work.receiver.instance == caller.instance && work.receiver.component == caller.component) {
+            if (count < tickets.size()) tickets[count++] = work.ticket;
+            work = {};
+        }
+    return tickets;
+}
 void JobScheduler::Stop(uint32_t app) {
     for (uint32_t i = 0; i < kCapacity; ++i)
         if (records_[i].app == app) work_[i] = {};
