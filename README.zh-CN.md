@@ -6,6 +6,50 @@
 应用通过 C++23 SDK 使用图形、输入、音频、存储和传感器，无需依赖板级 SDK。
 固件负责硬件管理、应用隔离和系统界面。
 
+本仓库同时提供 Linux/WSL2 PC Host，可在没有 MCU 硬件时开发和运行 Guest 应用。
+
+## PC 新增功能
+
+| 功能 | 已支持的能力 |
+|---|---|
+| 显示与输入 | LVGL + SDL 窗口、鼠标模拟触摸和键盘输入、中文字体，复用 Scene/Raster/Direct Surface 服务。 |
+| Home 启动器 | 启动应用、打开市场、返回当前应用、控制播放与系统音量；显示 Home 或市场时，音乐继续播放并自动切换下一首。 |
+| 官方应用市场 | 浏览、搜索和查看版本，下载校验并安装支持的官方 RV32 AOT Bundle，由 QEMU 执行；portable Wasm 直接由本机 WAMR 解释执行。 |
+| 网易云音乐 Guest | 无 API 网关直连，支持官网微信扫码登录、个人资料与歌单、每日推荐、搜索、红星收藏、滚动列表与播放控制；完整播放或试听以服务端权限为准。 |
+| 网络与音频 | POSIX socket、mbedTLS、Guest 异步 HTTP/HTTPS、Host MQTT/MQTTS 连通性测试，以及本地／网络 MP3、WAV、Ogg/Opus 文件的 SDL 立体声播放。 |
+| Guest UI SDK | 新增 IconButton、ListItem、ScrollView、Slider 控件，以及下载图片的 PNG/JPEG 纹理解码。 |
+
+当前 PC Host 同时运行一个 Guest。返回 Home 保留原会话，启动另一个 Guest 会停止前一个。
+多 Guest AppManager、Activity/Service 和 Home Widget 仍属于
+[架构设计提案](docs/design/app-manager.zh-CN.html)，尚未实现。
+新增 HTTP 与 URL 音频适配器目前用于 PC，MCU 需要补齐对应平台适配。
+
+## 在 PC 上运行
+
+使用带图形和音频支持的 Ubuntu 22.04 或 WSL2，准备 WASI SDK、CMake、Ninja、Python 3，
+以及 SDL2、libpng、cJSON 开发包；依赖安装详见 [PC 运行指南](firmware/pc/README.zh-CN.md)。
+在仓库根目录执行：
+
+```sh
+bash tools/pc.sh deps
+bash tools/pc.sh configure
+bash tools/pc.sh build
+bash tools/pc.sh run --home
+
+# 单独打开官方市场或音乐登录界面。
+bash tools/pc.sh run --market
+bash tools/pc.sh run --music-login
+```
+
+`--home` 和音乐命令会自动构建音乐 Wasm Guest。按 `Home` 或 `F1` 返回 Home，保留后台运行；
+Guest 在前台时按 `Esc` 停止应用。
+运行官方 RV32 AOT 还需要 `qemu-system-riscv32` 和支持 `rv32imafc/ilp32f` Newlib 的裸机 GCC，
+先执行 `bash tools/pc.sh rv32-build`，再从市场安装。当前不支持 Xtensa AOT 或 Wi-Fi 硬件模拟，
+音频文件下载完成后播放。
+
+详见 [PC Home](docs/design/pc-home.zh-CN.md)、[RV32 运行方案](docs/design/pc-rv32.zh-CN.md)
+和[网易云音乐应用指南](guest/apps/netease-music/README.zh-CN.md)。
+
 ## 支持硬件
 
 | 芯片 | 开发板 |
@@ -19,7 +63,7 @@
 | ESP32-S3 | [SenseCAP Watcher](https://wiki.seeedstudio.com/cn/getting_started_with_watcher/) |
 
 Host 使用 ESP-IDF 6.1 和固定版本的 [WAMR fork](https://github.com/78/wasm-micro-runtime)。
-应用按目标架构编译为 AOT v6 Bundle，ABI 仍在演进。
+MCU 应用按目标架构编译为 AOT v6 Bundle，ABI 仍在演进。
 
 ## 开发应用
 
