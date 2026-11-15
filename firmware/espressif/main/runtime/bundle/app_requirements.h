@@ -6,13 +6,13 @@
 #include <string.h>
 
 #define MICROPIXEL_APP_CAPABILITY_COUNT 8U
-#define MICROPIXEL_APP_SERVICE_COUNT 15U
+#define MICROPIXEL_APP_SERVICE_COUNT 16U
 static const char* const kMicropixelAppCapabilities[MICROPIXEL_APP_CAPABILITY_COUNT] = {
     "input.touch",      "input.keys",          "audio.output", "sensor.acceleration",
     "sensor.gyroscope", "sensor.magnetometer", "haptics",      "gpio"};
 static const char* const kMicropixelAppServices[MICROPIXEL_APP_SERVICE_COUNT] = {
     "system", "input", "graphics", "audio",   "storage",   "timer",  "resource", "device",
-    "sensor", "gpio",  "haptics",  "network", "lifecycle", "widget", "message"};
+    "sensor", "gpio",  "haptics",  "network", "lifecycle", "widget", "message",  "job"};
 
 typedef struct {
     uint32_t core_abi;

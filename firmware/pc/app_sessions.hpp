@@ -20,8 +20,10 @@ class AppSessions final {
     ~AppSessions();
     void Process();
     bool Activate(uint32_t app);
+    bool EnsureWork(uint32_t app, bool explicit_user = false);
+    bool ClearSchedules(uint32_t app);
     void ShowHome();
-    void Stop(uint32_t app);
+    void Stop(uint32_t app, bool user = true);
     bool Install(uint32_t app, std::unique_ptr<PortableApp> package);
     Session* Find(uint32_t app);
     bool Pending(uint32_t app) const;

@@ -63,6 +63,7 @@ int32_t HttpChannel::Begin(bool exchange, uint16_t method, std::string_view url,
     }
     std::lock_guard lock(mutex_);
     if (handle_) return MICROPIXEL_STATUS_RESOURCE_EXHAUSTED;
+    active_work_ = work_scope_.load();
     if (++generation_ == 0 || generation_ > 0x7fffffffU) generation_ = 1;
     handle = handle_ = job.handle = generation_;
     body_.clear();
@@ -96,7 +97,7 @@ void HttpChannel::Run() {
                       : HttpPost(job.url, job.body, job.headers, result, error, &cancel_, job.limit);
         if (job.exchange && ok) result = std::move(exchange.body);
         std::lock_guard lock(mutex_);
-        if (handle_ != job.handle) continue;
+        if (handle_ != job.handle || cancel_.load()) continue;
         state_.state = ok ? MICROPIXEL_HTTP_COMPLETE : MICROPIXEL_HTTP_FAILED;
         state_.error = ok ? MICROPIXEL_STATUS_OK : MICROPIXEL_STATUS_INTERNAL;
         std::snprintf(state_.message, sizeof(state_.message), "%s", error.c_str());
@@ -150,6 +151,15 @@ int32_t HttpChannel::Close(uint32_t handle) {
     headers_.clear();
     body_.clear();
     return MICROPIXEL_STATUS_OK;
+}
+void HttpChannel::CancelWork(uint32_t ticket) {
+    std::lock_guard lock(mutex_);
+    if (!ticket || active_work_ != ticket || !handle_) return;
+    cancel_ = true;
+    pending_.reset();
+    state_.state = MICROPIXEL_HTTP_FAILED;
+    state_.error = MICROPIXEL_STATUS_TIMEOUT;
+    std::snprintf(state_.message, sizeof(state_.message), "Host work deadline exceeded");
 }
 int32_t GuestHttp::Start(uint16_t method, std::string_view url, std::string_view headers, std::span<const uint8_t> body,
                          uint32_t limit, uint32_t& handle) {

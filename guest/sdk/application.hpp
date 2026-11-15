@@ -12,6 +12,7 @@
 #include "sdk/graphics.hpp"
 #include "sdk/haptics.hpp"
 #include "sdk/input.hpp"
+#include "sdk/jobs.hpp"
 #include "sdk/launch_arguments.hpp"
 #include "sdk/localization.hpp"
 #include "sdk/log.hpp"
@@ -106,6 +107,7 @@ class Application final {
     void RunComponents(Activity* activity, AppService* service = nullptr, bool start_service = true) const;
     [[nodiscard]] Widgets widgets() const { return {}; }
     [[nodiscard]] Messages messages() const { return {}; }
+    [[nodiscard]] Jobs jobs() const { return {}; }
 
    private:
     void BeginRun() const;

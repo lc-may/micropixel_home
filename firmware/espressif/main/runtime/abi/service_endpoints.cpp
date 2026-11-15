@@ -93,8 +93,9 @@ ServiceDescriptor ApplicationServiceEndpoint::Describe() const {
     return {.service_id = id_,
             .interface_major = 1,
             .interface_minor = 0,
-            .flags = MICROPIXEL_SERVICE_FLAG_CALL |
-                     (id_ == MICROPIXEL_SERVICE_MESSAGE ? MICROPIXEL_SERVICE_FLAG_EVENTS : 0U),
+            .flags = MICROPIXEL_SERVICE_FLAG_CALL | (id_ == MICROPIXEL_SERVICE_MESSAGE || id_ == MICROPIXEL_SERVICE_JOB
+                                                         ? MICROPIXEL_SERVICE_FLAG_EVENTS
+                                                         : 0U),
             .capabilities = context_.ApplicationControl() ? 1U : 0U,
             .max_request_bytes = 256,
             .max_response_bytes = 256};

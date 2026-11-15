@@ -30,6 +30,35 @@ struct Runner final : runtime::SessionRunner {
     void SetVisible(bool value) override { visible = value; }
     runtime::SessionObservation Observe() override { return state; }
 };
+void TestEnsureWork() {
+    Runner runner;
+    std::array<runtime::SessionRunner*, 1> slots{&runner};
+    host::AppManager manager(slots, 99);
+    assert(manager.Register(0, {.background = false, .activity = true, .messages = true}));
+    runner.auto_ready = false;
+    assert(manager.EnsureWork(0) == host::ManagerResult::kAccepted);
+    manager.Process(0);
+    assert(runner.starts == 1 && manager.Snapshot().foreground < 0);
+    runner.state.ready = true;
+    runner.state.work_pending = true;
+    runner.state.frame_ready = false;
+    manager.Process(1);
+    assert(manager.Snapshot().apps[0].state == host::AppState::kRunning && manager.Snapshot().foreground < 0);
+    runner.state.work_pending = false;
+    manager.Process(2);
+    assert(runner.state.suspended);
+    assert(manager.EnsureWork(0) == host::ManagerResult::kAccepted);
+    manager.Process(3);
+    assert(runner.starts == 1);
+    assert(manager.Stop(0) == host::ManagerResult::kAccepted);
+    manager.Process(4);
+    runner.state.exited = true;
+    manager.Process(5);
+    assert(manager.EnsureWork(0) == host::ManagerResult::kBusy);
+    assert(manager.EnsureWork(0, true) == host::ManagerResult::kAccepted);
+    manager.Process(6);
+    assert(runner.starts == 2 && !manager.Snapshot().apps[0].user_stopped);
+}
 void TestOwner() {
     runtime::OwnerScope a({1, 0, 1}), b({1, 1, 1});
     assert(a.Acquire(runtime::ResourceKind::kStream, 1));
@@ -182,6 +211,7 @@ int main() {
     armed = true;
     assert(!micropixel::runtime::PublishPcmLowWater(armed, [] { return false; }));
     assert(armed.load());
+    TestEnsureWork();
     TestOwner();
     TestManager();
     TestDeadline();

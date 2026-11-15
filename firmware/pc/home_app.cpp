@@ -110,7 +110,7 @@ void HomeApp::UpdateWidgets() {
                       widget.data.subtitle);
         lv_label_set_text(widget_subtitles_[i], subtitle);
         lv_obj_set_hidden(widget_refresh_[i], widget.data.template_id != MICROPIXEL_WIDGET_WEATHER);
-        lv_obj_set_state(widget_refresh_[i], LV_STATE_DISABLED, !widget.online || widget_ticket_ != 0);
+        lv_obj_set_state(widget_refresh_[i], LV_STATE_DISABLED, widget_ticket_ != 0);
     }
     const bool strip = visible && height_ >= 600;
     lv_obj_set_hidden(widget_strip_, !strip);

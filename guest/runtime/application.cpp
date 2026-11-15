@@ -67,6 +67,15 @@ bool Application::DecodeEventInternal(Event& event, uint64_t timeout_us) const {
     event_service_ = raw.service_id;
     event_source_ = raw.source;
     TimePoint timestamp{raw.timestamp_us};
+    if (raw.service_id == MICROPIXEL_SERVICE_JOB && raw.event_id == MICROPIXEL_JOB_EVENT_WORK) {
+        micropixel_job_event_t payload{};
+        CopyBytes(&payload, raw.payload, sizeof(payload));
+        if (!payload.ticket || (payload.reason != 1 && payload.reason != 2))
+            runtime::Panic("job.event.payload", MICROPIXEL_STATUS_INTERNAL);
+        event = Event{EventType::kJob, timestamp};
+        event.job_ = {payload.ticket, payload.job_id, payload.reason, payload.deadline_ms};
+        return true;
+    }
     if (raw.service_id == MICROPIXEL_SERVICE_MESSAGE && raw.event_id == MICROPIXEL_MESSAGE_EVENT) {
         uint32_t ticket = 0;
         CopyBytes(&ticket, raw.payload, sizeof(ticket));

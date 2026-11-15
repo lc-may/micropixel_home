@@ -68,7 +68,7 @@ target_compile_definitions(pc_protocols PRIVATE
     HTTP_RECV_RETRY_TIMEOUT_MS=10000U HTTP_SEND_RETRY_TIMEOUT_MS=10000U)
 
 set(SHARED_SOURCES
-    host/controller/app_manager.cpp host/controller/app_hub.cpp
+    host/controller/app_manager.cpp host/controller/app_hub.cpp host/controller/job_scheduler.cpp
     host/ui/system_locale.cpp host/ui/lvgl/square_common/hall_card_ui.cpp
     device/device_registry.cpp device/device_services.cpp device/text.cpp
     runtime/abi/guest_abi.cpp runtime/abi/native_symbols.c runtime/abi/service_endpoints.cpp runtime/abi/service_registry.cpp
@@ -97,7 +97,7 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.hp
         --output-header "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.hpp"
         --report "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.json"
     DEPENDS ${HOST_CATALOGS} "${REPOSITORY_ROOT}/tools/generate_localization.py")
-add_library(pc_host STATIC ${SHARED_SOURCES} os.cpp storage.cpp jpeg.cpp audio.cpp portable_app.cpp session.cpp rv32_session.cpp network.cpp media.cpp market.cpp store.cpp "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.hpp")
+add_library(pc_host STATIC ${SHARED_SOURCES} os.cpp storage.cpp schedule_store.cpp jpeg.cpp audio.cpp portable_app.cpp session.cpp rv32_session.cpp network.cpp media.cpp market.cpp store.cpp "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.hpp")
 target_include_directories(pc_host PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_definitions(pc_host PUBLIC MICROPIXEL_PC_COMPONENTS=1)
 target_link_libraries(pc_host PUBLIC pc_wamr lvgl pc_opus pc_protocols PkgConfig::PNG PkgConfig::CJSON sqlite3 jpeg mbedtls mbedx509 mbedcrypto opusfile ogg mpg123)
@@ -110,3 +110,7 @@ target_link_libraries(micropixel-pc PRIVATE pc_host)
 add_executable(pc-app-framework-test "${REPOSITORY_ROOT}/tools/tests/test_pc_app_framework.cpp")
 target_compile_options(pc-app-framework-test PRIVATE -UNDEBUG -fno-exceptions -fno-rtti)
 target_link_libraries(pc-app-framework-test PRIVATE pc_host)
+
+add_executable(pc-app-scheduler-test "${REPOSITORY_ROOT}/tools/tests/test_pc_scheduler.cpp")
+target_compile_options(pc-app-scheduler-test PRIVATE -UNDEBUG -fno-exceptions -fno-rtti)
+target_link_libraries(pc-app-scheduler-test PRIVATE pc_host)

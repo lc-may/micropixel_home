@@ -2,6 +2,12 @@
 
 A restricted C++23 SDK for WebAssembly apps. No ESP-IDF, LVGL, board-specific types, threads, exceptions, or RTTI.
 
+## SDK 0.23.0
+
+`Jobs`, `JobEvent` and `WallTime` add durable plans and finite background work on PC.
+`Json` in `sdk/json.hpp` provides bounded parsing shared by music and weather.
+See [D6](../../docs/development/app-manager-d6.zh-CN.md) for deadlines and cold-start permissions.
+
 ## Upgrading to 0.22.0
 
 `Widgets`, `Messages` and `MessageEvent` use Widget/Message 1.0 on the PC Host.
@@ -100,6 +106,10 @@ already covers the need; apps must not re-implement these locally.
 
 | Need | Use | Header |
 |---|---|---|
+| Bounded weather/clock/media snapshots | `Widgets`, `WidgetData` | `widgets.hpp` |
+| Instance messages, results and explicit cold export | `Messages`, `AppMessage` | `messages.hpp` |
+| Durable jobs and finite work tickets | `Jobs`, `JobEvent`, `WallTime` | `jobs.hpp` |
+| Bounded JSON tree and numeric parsing | `Json` | `json.hpp` |
 | Activity / Service lifecycle and resource domains | `RunComponents`, `ComponentContext` | `components.hpp` |
 | Asynchronous HTTP GET/POST | `Network`, `HttpRequest` | `network.hpp` |
 | Raw HTTP status/headers, explicit redirects | `Network::Exchange`, `HttpRequest::Metadata/ReadHeaders` | `network.hpp` |

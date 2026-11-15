@@ -39,6 +39,16 @@ class AppHub final {
     int32_t Action(const WidgetSnapshot& expected, uint16_t type, uint32_t value, uint64_t sequence, uint64_t now_ms,
                    uint32_t& ticket);
     micropixel_message_result_t Result(const AppCaller&, uint32_t ticket) const;
+    bool ReadyService(uint32_t app, AppCaller&, device::AppEventSink&, bool running = true) const;
+    int32_t SendHome(uint32_t app, uint16_t type, uint32_t value, uint64_t sequence, uint64_t now_ms, uint32_t& ticket);
+    void ClearWake(uint32_t app) {
+        if (app < 64) apps_[app].cold_rules = {};
+    }
+    bool AllowWake(uint32_t app, std::string_view caller, uint32_t types);
+    int32_t WakeTarget(const AppCaller&, const micropixel_message_send_t&) const;
+    bool AliveCaller(const AppCaller& caller) const {
+        return Valid(caller) && (!caller.component || ComponentAlive(caller));
+    }
     AppCaller Home() const { return {kMaxApps, {boot_, UINT32_MAX, 1}, 0}; }
 
    private:
@@ -53,6 +63,7 @@ class AppHub final {
         device::AppEventSink events{};
         micropixel_component_info_t components{};
         std::array<Rule, 4> rules{};
+        std::array<Rule, 4> cold_rules{};
         uint64_t watermark{};
         bool accepting{};
     };

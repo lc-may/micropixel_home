@@ -39,13 +39,15 @@ class AppManager final {
     AppManager(std::span<runtime::SessionRunner*> runners, uint64_t boot);
     [[nodiscard]] bool Register(uint32_t app, AppPolicy policy);
     [[nodiscard]] ManagerResult Activate(uint32_t app);
+    [[nodiscard]] ManagerResult EnsureWork(uint32_t app, bool explicit_user = false);
+    void RestoreUserStopped(uint32_t app, bool stopped);
     [[nodiscard]] ManagerResult Stop(uint32_t app, bool user = true);
     [[nodiscard]] ManagerResult ShowHome();
     void Process(uint64_t now_ms = 0);
     [[nodiscard]] const ManagerSnapshot& Snapshot() const { return snapshot_; }
 
    private:
-    enum class Kind : uint8_t { kActivate, kStop, kHome };
+    enum class Kind : uint8_t { kActivate, kStop, kHome, kWork };
     struct Command {
         Kind kind{};
         uint32_t app{};
@@ -57,6 +59,7 @@ class AppManager final {
         int32_t app{-1};
         uint32_t epoch{};
         uint64_t deadline_ms{};
+        bool background_start{};
     };
     ManagerResult Enqueue(Command command);
     Slot* Find(uint32_t app);

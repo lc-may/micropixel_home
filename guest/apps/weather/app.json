@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "app_id": "micropixel.weather",
+  "version": "0.1.0",
+  "threading": "none",
+  "title": "天气",
+  "sources": [
+    "main.cpp"
+  ],
+  "requirements": {
+    "schema_version": 2,
+    "display": {
+      "layouts": [
+        "square"
+      ],
+      "min_width": 720,
+      "min_height": 720
+    },
+    "required": [
+      "input.touch"
+    ],
+    "optional": [
+      "input.keys"
+    ],
+    "any_of": [],
+    "services": {
+      "network": 65539,
+      "lifecycle": 65536,
+      "widget": 65536,
+      "message": 65536,
+      "job": 65536
+    },
+    "system_font": "zh-CN",
+    "components": {
+      "activity": true,
+      "service": true,
+      "background": [
+        "task"
+      ],
+      "widgets": 1
+    }
+  }
+}

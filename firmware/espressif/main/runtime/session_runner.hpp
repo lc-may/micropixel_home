@@ -27,6 +27,7 @@ class SessionRunner {
     virtual void RequestSuspend() = 0;
     virtual void RequestResume() = 0;
     virtual void RequestBackgroundResume() { RequestResume(); }
+    virtual void RequestWork() { RequestBackgroundResume(); }
     virtual void SetVisible(bool visible) = 0;
     [[nodiscard]] virtual SessionObservation Observe() = 0;
 };

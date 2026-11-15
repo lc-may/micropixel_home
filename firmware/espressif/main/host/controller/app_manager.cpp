@@ -36,6 +36,20 @@ ManagerResult AppManager::Stop(uint32_t app, bool user) {
     if (app >= snapshot_.count) return ManagerResult::kInvalidApp;
     return Enqueue({Kind::kStop, app, 0, user});
 }
+ManagerResult AppManager::EnsureWork(uint32_t app, bool user) {
+    if (app >= snapshot_.count || !policies_[app].messages) return ManagerResult::kInvalidApp;
+    if (snapshot_.apps[app].user_stopped && !user) return ManagerResult::kBusy;
+    if (snapshot_.apps[app].state == AppState::kStopping) return ManagerResult::kBusy;
+    if (!Find(app)) {
+        bool free = false;
+        for (uint32_t i = 0; i < slot_count_; ++i) free |= slots_[i].app < 0;
+        if (!free) return ManagerResult::kNoCapacity;
+    }
+    return Enqueue({Kind::kWork, app, 0, user});
+}
+void AppManager::RestoreUserStopped(uint32_t app, bool stopped) {
+    if (app < snapshot_.count) snapshot_.apps[app].user_stopped = stopped;
+}
 ManagerResult AppManager::ShowHome() {
     if (size_ == commands_.size()) return ManagerResult::kBusy;
     return Enqueue({Kind::kHome, 0, ++intent_, false});
@@ -73,7 +87,9 @@ void AppManager::Execute(const Command& command) {
         }
         return;
     }
-    if (command.intent != intent_) return;
+    const bool background = command.kind == Kind::kWork;
+    if (!background && command.intent != intent_) return;
+    if (background && app.user_stopped && !command.user) return;
     if (app.state == AppState::kStopping) {
         app.last_result = ManagerResult::kBusy;
         return;
@@ -91,6 +107,7 @@ void AppManager::Execute(const Command& command) {
                 return;
             }
             slot->app = command.app;
+            slot->background_start = background;
             app.state = AppState::kStarting;
             app.result = 0;
             slot->deadline_ms = now_ms_ + 10000;
@@ -102,7 +119,12 @@ void AppManager::Execute(const Command& command) {
         return;
     }
     app.last_result = ManagerResult::kAccepted;
-    app.user_stopped = false;
+    if (!background || command.user) app.user_stopped = false;
+    if (background) {
+        slot->runner->RequestWork();
+        return;
+    }
+    slot->background_start = false;
     snapshot_.pending = policies_[command.app].activity ? static_cast<int32_t>(command.app) : -1;
     slot->runner->RequestResume();
 }
@@ -132,7 +154,8 @@ void AppManager::Process(uint64_t now_ms) {
             continue;
         }
         if (app.state == AppState::kStopping) continue;
-        const bool prepared = observation.ready && (!policies_[slot.app].activity || observation.frame_ready);
+        const bool prepared =
+            observation.ready && (slot.background_start || !policies_[slot.app].activity || observation.frame_ready);
         if (app.state == AppState::kStarting && !prepared && now_ms_ >= slot.deadline_ms) {
             app.last_result = ManagerResult::kStartFailed;
             app.state = AppState::kStopping;

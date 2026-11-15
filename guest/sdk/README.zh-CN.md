@@ -8,6 +8,12 @@ SDK 让应用通过强类型对象使用图形、输入、音频和设备能力�
 驱动更新；Host 管理硬件、资源和系统 UI。本文介绍编程模型与易错边界，完整可运行用法见
 [Demo](../apps/sdk-demo/)，底层协议见 [ABI](../abi/README.zh-CN.md)。
 
+## SDK 0.23.0
+
+`Jobs`, `JobEvent` and `WallTime` add durable plans and finite background work on PC.
+`Json` in `sdk/json.hpp` provides bounded parsing shared by music and weather.
+See [D6](../../docs/development/app-manager-d6.zh-CN.md) for deadlines and cold-start permissions.
+
 ## 升级到 0.22.0
 
 `Widgets`, `Messages` and `MessageEvent` use Widget/Message 1.0 on the PC Host.

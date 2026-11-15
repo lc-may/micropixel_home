@@ -12,6 +12,8 @@
 namespace micropixel::pc {
 class HttpChannel final : public device::HttpClient {
    public:
+    void SetWorkScope(uint32_t ticket) { work_scope_ = ticket; }
+    void CancelWork(uint32_t ticket);
     HttpChannel();
     ~HttpChannel() override;
     int32_t Start(uint16_t, std::string_view, std::string_view, std::span<const uint8_t>, uint32_t, uint32_t&) override;
@@ -46,12 +48,16 @@ class HttpChannel final : public device::HttpClient {
     std::string headers_;
     micropixel_http_metadata_t metadata_{};
     std::atomic<bool> cancel_{true};
+    std::atomic<uint32_t> work_scope_{};
+    uint32_t active_work_{};
     std::thread worker_;
 };
 // Two independent execution lanes. Activity/App requests use lane 0;
 // lane 1 is reserved for the Service, including while login long-polls.
 class GuestHttp final : public device::HttpClient {
    public:
+    void SetWorkScope(uint32_t ticket) { lanes_[1].SetWorkScope(ticket); }
+    void CancelWork(uint32_t ticket) { lanes_[1].CancelWork(ticket); }
     uint32_t MaxConcurrentRequests() const override { return 2; }
     void SetComponentScope(uint32_t token) override { component_ = token; }
     bool ServiceBusy() const { return active_[1].load(); }

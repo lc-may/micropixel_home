@@ -35,12 +35,17 @@ enum class EventType : uint16_t {
     kAxis,
     kLifecycle,
     kMessage,
+    kJob,
 };
 
 struct LifecycleEvent final {
     uint32_t token{};
     uint32_t command{};
     uint32_t transition{};
+};
+struct JobEvent final {
+    uint32_t ticket{}, job_id{}, reason{}, deadline_ms{};
+    bool cancelled() const { return reason == 2; }
 };
 struct MessageEvent final {
     uint32_t ticket{};
@@ -344,6 +349,7 @@ class Event final {
     [[nodiscard]] constexpr const LifecycleEvent* lifecycle() const {
         return type_ == EventType::kLifecycle ? &lifecycle_ : nullptr;
     }
+    [[nodiscard]] constexpr const JobEvent* job() const { return type_ == EventType::kJob ? &job_ : nullptr; }
     [[nodiscard]] constexpr const MessageEvent* message() const {
         return type_ == EventType::kMessage ? &message_ : nullptr;
     }
@@ -418,6 +424,7 @@ class Event final {
     uint32_t origin_service_{}, origin_handle_{};
     LifecycleEvent lifecycle_{};
     MessageEvent message_{};
+    JobEvent job_{};
     TimePoint timestamp_{};
     TimerEvent timer_{};
     TouchEvent touch_{TimePoint{}, TouchPhase::kCancel, 0U, 0, 0, false, 0U};

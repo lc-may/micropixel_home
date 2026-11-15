@@ -25,7 +25,8 @@
     "network",
     "lifecycle",
     "widget",
-    "message"
+    "message",
+    "job"
   ],
   "layouts": [
     "square",

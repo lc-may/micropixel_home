@@ -32,6 +32,7 @@ struct DeliveryResult {
 class Messages final {
    public:
     [[nodiscard]] Result<void> Allow(std::string_view caller, uint32_t types) const;
+    [[nodiscard]] Result<void> AllowColdStart(std::string_view caller, uint32_t types) const;
     // A nonzero request_id retries the same instance-local operation. Reuse
     // identical content; new operations must advance this monotonic ordinal.
     [[nodiscard]] Result<uint32_t> Send(std::string_view app, uint16_t type, std::span<const uint8_t> payload = {},

@@ -14,6 +14,7 @@
 #include "sdk/graphics.hpp"
 #include "sdk/haptics.hpp"
 #include "sdk/input.hpp"
+#include "sdk/jobs.hpp"
 #include "sdk/launch_arguments.hpp"
 #include "sdk/localization.hpp"
 #include "sdk/math.hpp"

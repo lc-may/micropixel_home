@@ -19,6 +19,10 @@ class Session final : public runtime::GuestLogSink {
     void RequestStop();
     void RequestSuspend();
     void RequestResume(bool ensure_activity = true);
+    void RequestWork() {
+        ensure_service_.store(true);
+        RequestResume(false);
+    }
     bool Ready() const {
         return ready_.load(std::memory_order_acquire) && (!component_flags_ || components_registered_.load());
     }
@@ -62,6 +66,7 @@ class Session final : public runtime::GuestLogSink {
     std::atomic<bool> want_suspended_{};
     std::atomic<bool> visible_{};
     std::atomic<bool> ensure_activity_{};
+    std::atomic<bool> ensure_service_{};
     std::atomic<bool> components_registered_{};
     std::atomic<uint32_t> activity_state_{};
     std::atomic<uint32_t> activity_token_{}, service_token_{}, service_state_{}, resource_count_{};

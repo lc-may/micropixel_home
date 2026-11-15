@@ -7,6 +7,35 @@
 #include "device/text.hpp"
 
 namespace micropixel::host {
+bool AppHub::ReadyService(uint32_t app, AppCaller& caller, device::AppEventSink& sink, bool running) const {
+    if (app >= kMaxApps) return false;
+    const auto& a = apps_[app];
+    if (!a.accepting || !a.instance.valid() ||
+        (a.components.service_state != 2 && (running || a.components.service_state != 1)) ||
+        !a.components.service_token || !a.events.push)
+        return false;
+    caller = {app, a.instance, a.components.service_token};
+    sink = a.events;
+    return true;
+}
+int32_t AppHub::SendHome(uint32_t app, uint16_t type, uint32_t value, uint64_t sequence, uint64_t now,
+                         uint32_t& ticket) {
+    AppCaller target{};
+    device::AppEventSink sink{};
+    if (!ReadyService(app, target, sink)) return MICROPIXEL_STATUS_WOULD_BLOCK;
+    micropixel_message_send_t r{};
+    r.size = sizeof(r);
+    r.type = type;
+    r.sequence = sequence;
+    r.ttl_ms = 5000;
+    r.target_boot = target.instance.boot;
+    r.target_slot = target.instance.slot;
+    r.target_epoch = target.instance.epoch;
+    r.target_component = target.component;
+    r.payload_length = 4;
+    std::memcpy(r.payload, &value, 4);
+    return Send(Home(), r, now, ticket);
+}
 namespace {
 bool Text(const char* text, size_t capacity, bool identifier = false) {
     const size_t length = strnlen(text, capacity);
@@ -41,6 +70,34 @@ int32_t Write(const T& value, uint8_t* bytes, uint32_t capacity, uint32_t& writt
 }
 bool Same(const AppCaller& a, const AppCaller& b) { return a.app == b.app && a.instance == b.instance; }
 }  // namespace
+bool AppHub::AllowWake(uint32_t app, std::string_view caller, uint32_t types) {
+    if (app >= 64 || caller.empty() || caller.size() > 64 || caller.find('\0') != std::string_view::npos ||
+        (types & 1U))
+        return false;
+    auto& rules = apps_[app].cold_rules;
+    for (auto& rule : rules)
+        if (!rule.caller[0] || caller == rule.caller) {
+            std::memset(rule.caller, 0, sizeof(rule.caller));
+            std::memcpy(rule.caller, caller.data(), caller.size());
+            rule.types = types;
+            return true;
+        }
+    return false;
+}
+int32_t AppHub::WakeTarget(const AppCaller& source, const micropixel_message_send_t& r) const {
+    if (source.app >= 64 || !AliveCaller(source) || !apps_[source.app].accepting || !r.sequence ||
+        r.sequence <= apps_[source.app].watermark || r.type < 1 || r.type > 31 ||
+        r.flags != MICROPIXEL_MESSAGE_LOGICAL || r.target_component || r.target_boot || r.target_slot ||
+        r.target_epoch || r.payload_length > 128 || r.ttl_ms < 100 || r.ttl_ms > 60000 ||
+        !Text(r.target_app, sizeof(r.target_app), true))
+        return -1;
+    for (uint32_t app = 0; app < 64; ++app)
+        if (std::strcmp(apps_[app].id, r.target_app) == 0) {
+            for (const auto& rule : apps_[app].cold_rules)
+                if (std::strcmp(rule.caller, apps_[source.app].id) == 0 && (rule.types & (1U << r.type))) return app;
+        }
+    return -1;
+}
 bool AppHub::Register(uint32_t index, std::string_view id, uint8_t widgets) {
     if (index >= apps_.size() || id.empty() || id.size() > 64 || widgets > 2) return false;
     for (const auto c : id)
@@ -210,6 +267,10 @@ int32_t AppHub::Send(const AppCaller& source, const micropixel_message_send_t& r
         for (const auto& rule : target.rules)
             if (rule.component == component && std::strcmp(rule.caller, apps_[source.app].id) == 0 &&
                 (rule.types & (1U << request.type)))
+                allowed = true;
+    if (!allowed)
+        for (const auto& rule : target.cold_rules)
+            if (std::strcmp(rule.caller, apps_[source.app].id) == 0 && (rule.types & (1U << request.type)))
                 allowed = true;
     if (!allowed) return MICROPIXEL_STATUS_PERMISSION_DENIED;
     Message* selected = nullptr;

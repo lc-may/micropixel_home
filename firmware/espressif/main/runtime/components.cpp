@@ -43,6 +43,12 @@ void Components::EnsureActivity() {
     portEXIT_CRITICAL(&lock_);
     Wake();
 }
+void Components::EnsureService() {
+    portENTER_CRITICAL(&lock_);
+    if (model_.declared & MICROPIXEL_COMPONENT_FLAG_SERVICE) model_.want_service = true;
+    portEXIT_CRITICAL(&lock_);
+    Wake();
+}
 bool Components::TakeEvent(micropixel_event_t& event) {
     micropixel_component_event_payload_t payload{};
     portENTER_CRITICAL(&lock_);
@@ -96,7 +102,8 @@ int32_t Components::Call(uint32_t method, const uint8_t* request, uint32_t size,
             return MICROPIXEL_STATUS_STALE_STATE;
         }
         model_.registered = true;
-        model_.want_activity = wire.flags & MICROPIXEL_COMPONENT_FLAG_ACTIVITY;
+        // Foreground activation sets want_activity through EnsureActivity.
+        // A Host job cold start creates only the Service.
         model_.want_service = wire.start_service;
         portEXIT_CRITICAL(&lock_);
         Wake();
@@ -177,7 +184,7 @@ int32_t Components::Call(uint32_t method, const uint8_t* request, uint32_t size,
                 token = model_.activity.token;
                 found = true;
             }
-        } else if (wire.service_id == MICROPIXEL_SERVICE_MESSAGE) {
+        } else if ((wire.service_id == MICROPIXEL_SERVICE_MESSAGE || wire.service_id == MICROPIXEL_SERVICE_JOB)) {
             token = wire.handle;
             found = model_.Alive(token);
         } else

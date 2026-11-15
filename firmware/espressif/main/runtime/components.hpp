@@ -13,6 +13,7 @@ class Components final {
     bool Available() const { return model_.declared != 0; }
     void SetVisible(bool value, bool create = true);
     void EnsureActivity();
+    void EnsureService();
     bool TakeEvent(micropixel_event_t& event);
     int32_t Call(uint32_t, const uint8_t*, uint32_t, uint8_t*, uint32_t, uint32_t&);
     int32_t BeforeCall(uint32_t service, uint32_t method) const;

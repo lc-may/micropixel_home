@@ -164,6 +164,51 @@ void TestHub() {
     assert(hub.Widget(0, 20000, view) && !view.online && view.expired);
     assert(hub.Action(view, MICROPIXEL_ACTION_NEXT_TRACK, 0, 133, 20000, ticket) == MICROPIXEL_STATUS_STALE_STATE);
 }
+void TestColdPolicy() {
+    auto owned = std::make_unique<host::AppHub>(123);
+    auto& hub = *owned;
+    assert(hub.Register(0, "sender", 0) && hub.Register(1, "receiver", 0));
+    host::AppCaller sender{0, {123, 0, 1}, 6};
+    hub.Bind(0, sender.instance);
+    hub.Components(sender, Ready());
+    micropixel_message_send_t send{};
+    send.size = sizeof(send);
+    send.type = 3;
+    send.sequence = 1;
+    send.flags = 1;
+    send.ttl_ms = 1000;
+    std::strcpy(send.target_app, "receiver");
+    assert(hub.WakeTarget(sender, send) < 0);
+    assert(hub.AllowWake(1, "sender", 1U << 3));
+    assert(hub.WakeTarget(sender, send) == 1);
+    auto invalid = send;
+    invalid.flags = 0;
+    invalid.target_boot = 123;
+    invalid.target_epoch = 1;
+    assert(hub.WakeTarget(sender, invalid) < 0);
+    invalid = send;
+    invalid.type = 2;
+    assert(hub.WakeTarget(sender, invalid) < 0);
+    host::AppCaller receiver{1, {123, 1, 1}, 6};
+    Inbox inbox;
+    hub.Bind(1, receiver.instance);
+    hub.Components(receiver, Ready());
+    hub.SetSink(receiver, {&inbox, Inbox::Push});
+    micropixel_handle_response_t result{};
+    assert(Call(hub, sender, MICROPIXEL_SERVICE_MESSAGE, MICROPIXEL_MESSAGE_SEND, send, result) == 0 &&
+           inbox.count == 1);
+    hub.Unbind(receiver);
+    receiver.instance.epoch++;
+    hub.Bind(1, receiver.instance);
+    hub.Components(receiver, Ready());
+    hub.SetSink(receiver, {&inbox, Inbox::Push});
+    assert(hub.Result(sender, result.handle).result == MICROPIXEL_STATUS_CANCELLED);
+    send.sequence = 2;
+    assert(Call(hub, sender, MICROPIXEL_SERVICE_MESSAGE, MICROPIXEL_MESSAGE_SEND, send, result) == 0);
+    hub.Quiesce(sender);
+    send.sequence = 3;
+    assert(hub.WakeTarget(sender, send) < 0);
+}
 void TestQuota() {
     auto owned = std::make_unique<host::AppHub>(43);
     auto& hub = *owned;
@@ -186,6 +231,7 @@ void TestQuota() {
 int main() {
     TestHub();
     TestQuota();
+    TestColdPolicy();
     std::puts(
         "PASS Widget quotas/revisions and Broker identity, allowlist, dedup, result eviction, deadlines and stale "
         "instances");

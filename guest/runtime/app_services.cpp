@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "runtime/service_binding.hpp"
+#include "sdk/jobs.hpp"
 #include "sdk/messages.hpp"
 #include "sdk/widgets.hpp"
 
 namespace micropixel {
 namespace {
-runtime::ServiceCache widgets, messages;
+runtime::ServiceCache widgets, messages, jobs;
 uint32_t widget_revision{};
 uint64_t sequence{};
 int32_t Call(runtime::ServiceCache& cache, uint32_t service, uint32_t method, const void* request, uint32_t length,
@@ -42,6 +43,31 @@ Result<uint32_t> Send(micropixel_message_send_t& wire, std::span<const uint8_t> 
     return result.handle;
 }
 }  // namespace
+Result<void> Jobs::Register(const JobPlan& plan) const {
+    micropixel_job_plan_t wire{sizeof(wire), 1, plan.id, plan.interval_seconds, plan.deadline_ms, plan.next_utc};
+    uint32_t written = 0;
+    auto status = Call(jobs, MICROPIXEL_SERVICE_JOB, MICROPIXEL_JOB_REGISTER, &wire, sizeof(wire), nullptr, 0, written);
+    return status ? Result<void>(unexpected(runtime::ErrorFromStatus(status))) : Result<void>();
+}
+namespace {
+Result<void> JobHandle(uint32_t method, uint32_t id) {
+    micropixel_handle_request_t wire{sizeof(wire), 0, id};
+    uint32_t written = 0;
+    auto status = Call(jobs, MICROPIXEL_SERVICE_JOB, method, &wire, sizeof(wire), nullptr, 0, written);
+    return status ? Result<void>(unexpected(runtime::ErrorFromStatus(status))) : Result<void>();
+}
+}  // namespace
+Result<void> Jobs::Cancel(uint32_t id) const { return JobHandle(MICROPIXEL_JOB_CANCEL, id); }
+Result<WallTime> Jobs::Now() const {
+    micropixel_wall_time_t result{};
+    uint32_t written = 0;
+    auto status = Call(jobs, MICROPIXEL_SERVICE_JOB, MICROPIXEL_JOB_NOW, nullptr, 0, &result, sizeof(result), written);
+    if (status) return unexpected(runtime::ErrorFromStatus(status));
+    if (written != sizeof(result) || result.size != sizeof(result)) return unexpected(Error{ErrorCode::kInternal});
+    return WallTime{result.utc, result.offset_minutes, result.valid != 0};
+}
+Result<void> Jobs::Enter(uint32_t ticket) const { return JobHandle(MICROPIXEL_JOB_SCOPE, ticket); }
+Result<void> Jobs::Complete(uint32_t ticket) const { return JobHandle(MICROPIXEL_JOB_COMPLETE, ticket); }
 Result<uint32_t> Widgets::Publish(uint32_t id, const WidgetData& data) const {
     micropixel_widget_snapshot_t wire{};
     wire.size = sizeof(wire);
@@ -75,6 +101,16 @@ Result<void> Messages::Allow(std::string_view caller, uint32_t types) const {
     uint32_t written = 0;
     auto status =
         Call(messages, MICROPIXEL_SERVICE_MESSAGE, MICROPIXEL_MESSAGE_ALLOW, &wire, sizeof(wire), nullptr, 0, written);
+    return status ? Result<void>(unexpected(runtime::ErrorFromStatus(status))) : Result<void>();
+}
+Result<void> Messages::AllowColdStart(std::string_view caller, uint32_t types) const {
+    micropixel_message_allow_t wire{};
+    wire.size = sizeof(wire);
+    wire.types = types;
+    if (!Text(wire.caller, caller)) return unexpected(Error{ErrorCode::kInvalidArgument});
+    uint32_t written = 0;
+    auto status = Call(messages, MICROPIXEL_SERVICE_MESSAGE, MICROPIXEL_MESSAGE_ALLOW_WAKE, &wire, sizeof(wire),
+                       nullptr, 0, written);
     return status ? Result<void>(unexpected(runtime::ErrorFromStatus(status))) : Result<void>();
 }
 Result<uint32_t> Messages::Send(std::string_view app, uint16_t type, std::span<const uint8_t> payload, uint32_t ttl_ms,

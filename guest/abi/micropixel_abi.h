@@ -215,7 +215,38 @@ typedef enum micropixel_service_id {
     MICROPIXEL_SERVICE_LIFECYCLE = 24,
     MICROPIXEL_SERVICE_WIDGET = 25,
     MICROPIXEL_SERVICE_MESSAGE = 26,
+    MICROPIXEL_SERVICE_JOB = 27,
 } micropixel_service_id_t;
+
+/* Job 1.0: durable plans, bounded boot-local work leases. */
+#define MICROPIXEL_JOB_REGISTER 1U
+#define MICROPIXEL_JOB_CANCEL 2U
+#define MICROPIXEL_JOB_COMPLETE 3U
+#define MICROPIXEL_JOB_SCOPE 4U
+#define MICROPIXEL_JOB_NOW 5U
+#define MICROPIXEL_JOB_EVENT_WORK 1U
+typedef struct micropixel_job_plan {
+    uint16_t size;
+    uint16_t flags;
+    uint32_t id;
+    uint32_t interval_seconds;
+    uint32_t deadline_ms;
+    uint64_t next_utc;
+} micropixel_job_plan_t;
+typedef struct micropixel_job_event {
+    uint32_t ticket, job_id, reason, deadline_ms;
+} micropixel_job_event_t;
+typedef struct micropixel_wall_time {
+    uint16_t size, valid;
+    uint32_t reserved0;
+    uint64_t utc;
+    int32_t offset_minutes;
+    uint32_t reserved1;
+} micropixel_wall_time_t;
+#if defined(__cplusplus)
+static_assert(sizeof(micropixel_job_plan_t) == 24);
+static_assert(sizeof(micropixel_job_event_t) == 16);
+#endif
 
 /* Widget / Message 1.0: bounded snapshots and instance-scoped delivery. */
 #define MICROPIXEL_WIDGET_PUBLISH 1U
@@ -229,6 +260,7 @@ typedef enum micropixel_service_id {
 #define MICROPIXEL_MESSAGE_ACK 3U
 #define MICROPIXEL_MESSAGE_RESULT 4U
 #define MICROPIXEL_MESSAGE_ALLOW 5U
+#define MICROPIXEL_MESSAGE_ALLOW_WAKE 6U
 #define MICROPIXEL_MESSAGE_EVENT 1U
 #define MICROPIXEL_MESSAGE_LOGICAL 1U
 #define MICROPIXEL_ACTION_SET_PLAYING 1U

@@ -46,6 +46,7 @@ void Session::Control() {
                     applied_visible = visible;
                 }
                 if (ensure_activity_.exchange(false)) context_->components().EnsureActivity();
+                if (ensure_service_.exchange(false)) context_->components().EnsureService();
                 const auto info = context_->components().Info();
                 components_registered_.store((info.flags & MICROPIXEL_COMPONENT_FLAG_REGISTERED) != 0);
                 activity_state_.store(info.activity_state);
