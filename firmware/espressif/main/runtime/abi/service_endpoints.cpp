@@ -834,7 +834,7 @@ bool Text(std::string_view s) {
 ServiceDescriptor NetworkServiceEndpoint::Describe() const {
     return {.service_id = MICROPIXEL_SERVICE_NETWORK,
             .interface_major = 1,
-            .interface_minor = MICROPIXEL_NETWORK_INTERFACE_MINOR,
+            .interface_minor = static_cast<uint16_t>(backend_ && backend_->MaxConcurrentRequests() >= 2 ? 3 : 2),
             .flags = MICROPIXEL_SERVICE_FLAG_CALL,
             .capabilities = backend_ ? 1U : 0U,
             .max_request_bytes = MICROPIXEL_HTTP_MAX_REQUEST_BYTES,
@@ -869,7 +869,9 @@ int32_t NetworkServiceEndpoint::Call(uint32_t method, const uint8_t* req, uint32
             length = sizeof(micropixel_handle_response_t);
             return MICROPIXEL_STATUS_BUFFER_TOO_SMALL;
         }
-        if (handle_) return MICROPIXEL_STATUS_RESOURCE_EXHAUSTED;
+        auto* lease = std::find(handles_.begin(), handles_.end(), 0U);
+        if (lease == handles_.end()) return MICROPIXEL_STATUS_RESOURCE_EXHAUSTED;
+        uint32_t handle_ = 0;
         const std::string_view url(reinterpret_cast<const char*>(req + header_bytes), w.url_length);
         const std::string_view headers(reinterpret_cast<const char*>(req + header_bytes + w.url_length),
                                        w.headers_length);
@@ -885,36 +887,40 @@ int32_t NetworkServiceEndpoint::Call(uint32_t method, const uint8_t* req, uint32
             handle_ = 0;
             return status;
         }
+        *lease = handle_;
         return Write(micropixel_handle_response_t{sizeof(micropixel_handle_response_t), 0, handle_}, out, capacity,
                      length);
     }
     if (method == MICROPIXEL_NETWORK_METHOD_HTTP_READ || method == MICROPIXEL_NETWORK_METHOD_HTTP_HEADERS) {
         micropixel_http_read_request_t w{};
-        if (!Read(req, size, w) || !handle_ || w.handle != handle_ || w.capacity > MICROPIXEL_HTTP_READ_BYTES)
+        if (!Read(req, size, w) || !w.handle ||
+            std::find(handles_.begin(), handles_.end(), w.handle) == handles_.end() ||
+            w.capacity > MICROPIXEL_HTTP_READ_BYTES)
             return MICROPIXEL_STATUS_INVALID_ARGUMENT;
         if (capacity < w.capacity || (!out && w.capacity)) {
             length = w.capacity;
             return MICROPIXEL_STATUS_BUFFER_TOO_SMALL;
         }
         return method == MICROPIXEL_NETWORK_METHOD_HTTP_HEADERS
-                   ? backend_->Headers(handle_, w.offset, {out, w.capacity}, length)
-                   : backend_->Read(handle_, w.offset, {out, w.capacity}, length);
+                   ? backend_->Headers(w.handle, w.offset, {out, w.capacity}, length)
+                   : backend_->Read(w.handle, w.offset, {out, w.capacity}, length);
     }
     micropixel_handle_request_t w{};
-    if (!Read(req, size, w) || !handle_ || w.handle != handle_) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+    if (!Read(req, size, w) || !w.handle || std::find(handles_.begin(), handles_.end(), w.handle) == handles_.end())
+        return MICROPIXEL_STATUS_INVALID_ARGUMENT;
     if (method == MICROPIXEL_NETWORK_METHOD_HTTP_METADATA) {
         micropixel_http_metadata_t meta{};
-        auto status = backend_->Metadata(handle_, meta);
+        auto status = backend_->Metadata(w.handle, meta);
         return status ? status : Write(meta, out, capacity, length);
     }
     if (method == MICROPIXEL_NETWORK_METHOD_HTTP_STATE) {
         micropixel_http_state_t state{};
-        auto s = backend_->State(handle_, state);
+        auto s = backend_->State(w.handle, state);
         return s ? s : Write(state, out, capacity, length);
     }
     if (method == MICROPIXEL_NETWORK_METHOD_HTTP_CLOSE) {
-        auto s = backend_->Close(handle_);
-        if (!s) handle_ = 0;
+        auto s = backend_->Close(w.handle);
+        if (!s) *std::find(handles_.begin(), handles_.end(), w.handle) = 0;
         return s;
     }
     return MICROPIXEL_STATUS_UNSUPPORTED;

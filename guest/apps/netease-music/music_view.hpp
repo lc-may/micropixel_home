@@ -3,46 +3,11 @@
 #include <array>
 
 #include "client.hpp"
+#include "music_state.hpp"
 #include "sdk/micropixel.hpp"
 #include "view_text.hpp"
 
 namespace netease {
-enum class MusicScreen { kLibrary, kDiscover, kSearch, kCollection, kPlayer };
-enum class MusicContent { kPlaylists, kRecommendations, kSearch, kPlaylist, kLiked };
-enum class MusicActionKind {
-    kNone,
-    kLibrary,
-    kDiscover,
-    kSearch,
-    kAccount,
-    kRefresh,
-    kLiked,
-    kRow,
-    kFavorite,
-    kPlayAll,
-    kLoadMore,
-    kOpenPlayer,
-    kBack,
-    kPrevious,
-    kToggle,
-    kNext,
-    kStop,
-    kSeek,
-    kEditQuery,
-    kSubmit
-};
-struct MusicAction {
-    MusicActionKind kind{};
-    uint32_t index{}, value{};
-};
-struct MusicState {
-    MusicScreen screen{MusicScreen::kSearch};
-    MusicContent content{MusicContent::kSearch};
-    std::string collection, query{"纯音乐"}, notice{"搜索喜欢的音乐"}, load_hint;
-    uint32_t batch{}, revision{};
-    uint64_t favorite_pending{};
-    bool loading{}, failed{}, editing{}, has_more{}, appending{};
-};
 inline std::string TimeText(uint32_t ms) {
     auto s = ms / 1000;
     return Decimal(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + Decimal(s % 60);

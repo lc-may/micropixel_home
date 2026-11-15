@@ -57,6 +57,7 @@ struct Slot final : runtime::SessionRunner {
         frame_ready = false;
         (void)audio.ResumeAll();
         audio.SetComponentScope(0);
+        http.SetComponentScope(0);
         session = std::make_unique<Session>(*apps[app], devices);
         apps[app]->launch_arguments = {};
         session->Start();
@@ -71,6 +72,9 @@ struct Slot final : runtime::SessionRunner {
     }
     void RequestResume() override {
         if (session) session->RequestResume();
+    }
+    void RequestBackgroundResume() override {
+        if (session) session->RequestResume(false);
     }
     void SetVisible(bool value) override {
         visible.store(value);
@@ -92,6 +96,9 @@ struct Slot final : runtime::SessionRunner {
         value.ready = session->Ready();
         value.suspended = session->Suspended();
         value.activity_available = session->ActivityAvailable();
+        const auto& requirement = apps[app_index]->requirements;
+        value.background_eligible = !requirement.component_flags || (requirement.background_kinds & 2) ||
+                                    media.HasBackgroundLease(esp_timer_get_time() / 1000) || http.ServiceBusy();
         esp_lv_adapter_lock(-1);
         value.frame_ready = engine.FrameLocked() != nullptr;
         esp_lv_adapter_unlock();

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "app_id": "micropixel.netease-music",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "threading": "none",
   "title": {
     "default": "zh-CN",
@@ -15,7 +15,7 @@
     "weapi.cpp"
   ],
   "requirements": {
-    "schema_version": 1,
+    "schema_version": 2,
     "display": {
       "layouts": [
         "square"
@@ -32,11 +32,20 @@
     ],
     "any_of": [],
     "services": {
-      "network": 65538,
+      "network": 65539,
       "audio": 65537,
       "input": 65538,
-      "resource": 65537
+      "resource": 65537,
+      "lifecycle": 65536
     },
-    "system_font": "zh-CN"
+    "system_font": "zh-CN",
+    "components": {
+      "activity": true,
+      "service": true,
+      "background": [
+        "media"
+      ],
+      "widgets": 0
+    }
   }
 }

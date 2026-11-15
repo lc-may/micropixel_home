@@ -113,6 +113,7 @@ int32_t Components::Call(uint32_t method, const uint8_t* request, uint32_t size,
         model_.current_scope = wire.token;
         portEXIT_CRITICAL(&lock_);
         context_.devices_.audio().SetComponentScope(wire.token);
+        if (auto* http = context_.devices_.http()) http->SetComponentScope(wire.token);
         return MICROPIXEL_STATUS_OK;
     }
     if (method == MICROPIXEL_LIFECYCLE_REQUEST) {

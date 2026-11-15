@@ -28,8 +28,8 @@ void Session::RequestSuspend() {
     want_suspended_.store(true);
     control_wake_.notify_all();
 }
-void Session::RequestResume() {
-    ensure_activity_.store(true);
+void Session::RequestResume(bool ensure_activity) {
+    if (ensure_activity) ensure_activity_.store(true);
     want_suspended_.store(false);
     control_wake_.notify_all();
 }

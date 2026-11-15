@@ -4,6 +4,12 @@ pc_test_root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$pc_test_root"
 pc_test_binary="${MICROPIXEL_PC_BINARY:-$pc_test_root/build/pc/micropixel-pc}"
 mkdir -p build/pc-test-results
+if [[ "${1:-}" == "--playback-service" ]]; then
+    bash tools/pc.sh build > build/pc-test-results/playback-host.build.log 2>&1
+    python3 tools/pc.py guest/apps/netease-music
+    python3 tools/pc.py guest/apps/components-demo
+    exec python3 tools/tests/test_pc_playback_service.py
+fi
 if [[ "${1:-}" == "--render" ]]; then
     exec python3 tools/tests/test_pc_render.py
 fi

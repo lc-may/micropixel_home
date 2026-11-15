@@ -7,10 +7,12 @@
 #include "abi/micropixel_abi.h"
 namespace micropixel::device {
 // Platform copies all request data before returning; workers never hold Guest memory.
-// One request and one media stream per foreground session. Close cancels without waiting.
+// Bounded request/media leases per instance. Close cancels without waiting.
 class HttpClient {
    public:
     virtual ~HttpClient() = default;
+    virtual void SetComponentScope(uint32_t) {}
+    virtual uint32_t MaxConcurrentRequests() const { return 1; }
     virtual int32_t Start(uint16_t method, std::string_view url, std::string_view headers,
                           std::span<const uint8_t> body, uint32_t limit, uint32_t& handle) = 0;
     virtual int32_t State(uint32_t handle, micropixel_http_state_t& state) = 0;

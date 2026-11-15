@@ -149,9 +149,11 @@ void AppManager::Process(uint64_t now_ms) {
             }
         }
         if (snapshot_.foreground == slot.app && !observation.activity_available) HideForeground();
-        if (observation.ready && snapshot_.foreground != slot.app && snapshot_.pending != slot.app &&
-            !policies_[slot.app].background && !observation.suspended)
-            slot.runner->RequestSuspend();
+        if (observation.ready && snapshot_.foreground != slot.app && snapshot_.pending != slot.app) {
+            const bool background = policies_[slot.app].background && observation.background_eligible;
+            if (!background && !observation.suspended) slot.runner->RequestSuspend();
+            if (background && observation.suspended) slot.runner->RequestBackgroundResume();
+        }
         if (snapshot_.pending != slot.app || !observation.ready || !observation.frame_ready || observation.suspended)
             continue;
         if (snapshot_.foreground != slot.app) {

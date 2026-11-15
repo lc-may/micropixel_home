@@ -18,7 +18,7 @@ class Session final : public runtime::GuestLogSink {
     void Stop();
     void RequestStop();
     void RequestSuspend();
-    void RequestResume();
+    void RequestResume(bool ensure_activity = true);
     bool Ready() const {
         return ready_.load(std::memory_order_acquire) && (!component_flags_ || components_registered_.load());
     }

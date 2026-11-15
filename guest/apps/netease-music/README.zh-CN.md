@@ -117,3 +117,11 @@ bash tools/tests/test_firmware_host.sh --pc --home --rv32
 
 单个滚动列表最多保留 600 项，达到容量时提示刷新重新开始；推荐历史最多保留本次会话最近 4096 个 ID。
 这两个缓存及推荐列表在退出或切换账号时清除。
+
+
+## Activity / PlaybackService（0.5.0）
+
+页面资源由 MusicActivity 持有，账号、缓存和队列在 MusicModel 中保留；PlaybackService 负责解析、媒体和自动下一首。
+隐藏页面不提交帧，销毁后再打开不会重登或重建播放队列。应用要求 Lifecycle 1.0 与 Network 1.3；
+页面和 Service 各有独立 HTTP 通道，二维码长轮询不会阻塞下一首。
+详见[D4 交付说明](../../../docs/development/app-manager-d4.zh-CN.md)。

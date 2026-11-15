@@ -27,6 +27,7 @@ typedef struct {
     uint16_t schema_version;
     uint16_t component_flags;
     uint8_t widget_count;
+    uint8_t background_kinds;  // media=1, task=2
     char system_font[6];
 } micropixel_app_requirements_t;
 

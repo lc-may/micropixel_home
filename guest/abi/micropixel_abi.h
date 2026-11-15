@@ -73,7 +73,8 @@ typedef struct micropixel_text_response {
  * START payload is url, header lines (name: value\r\n), then body, without NULs.
  * READ uses absolute offsets. Handles remain valid until CLOSE, including failures. */
 #define MICROPIXEL_NETWORK_INTERFACE_MAJOR 1U
-#define MICROPIXEL_NETWORK_INTERFACE_MINOR 2U
+#define MICROPIXEL_NETWORK_INTERFACE_MINOR 3U
+/* Network 1.3: independent bounded Activity/App and Service request lanes. */
 #define MICROPIXEL_HTTP_MAX_REQUEST_BYTES 8192U
 #define MICROPIXEL_HTTP_MAX_RESPONSE_BYTES 262144U
 #define MICROPIXEL_HTTP_READ_BYTES 4096U

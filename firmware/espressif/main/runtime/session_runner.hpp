@@ -13,6 +13,7 @@ struct SessionObservation final {
     bool suspended{};
     bool exited{};
     bool activity_available{true};
+    bool background_eligible{true};
     int32_t result{};
 };
 
@@ -24,6 +25,7 @@ class SessionRunner {
     virtual void RequestStop() = 0;
     virtual void RequestSuspend() = 0;
     virtual void RequestResume() = 0;
+    virtual void RequestBackgroundResume() { RequestResume(); }
     virtual void SetVisible(bool visible) = 0;
     [[nodiscard]] virtual SessionObservation Observe() = 0;
 };

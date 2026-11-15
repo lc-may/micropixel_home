@@ -24,6 +24,10 @@ class MediaPlayer {
     std::string Status();
     bool Finished() const { return finished_.load(); }
     bool Failed() const { return failed_.load(); }
+    bool HasBackgroundLease(uint64_t now_ms) const {
+        return !Failed() && ((!Finished() && (!Paused() || now_ms - paused_at_ms_.load() < 30000)) ||
+                             (ended_at_ms_.load() != 0 && now_ms - ended_at_ms_.load() < 1500));
+    }
 
    private:
     static device::PcmReadResult Read(void*, int16_t*, uint32_t);
@@ -39,6 +43,8 @@ class MediaPlayer {
     std::optional<std::string> pending_;
     uint64_t generation_{};
     uint32_t pending_component_{};
+    std::atomic<uint64_t> paused_at_ms_{};
+    std::atomic<uint64_t> ended_at_ms_{};
     bool shutdown_{};
     std::vector<int16_t> samples_;
     std::atomic<size_t> position_{}, total_samples_{};

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+#include <array>
 #include <condition_variable>
 #include <mutex>
 #include <optional>
@@ -9,10 +10,10 @@
 #include "media.hpp"
 #include "network.hpp"
 namespace micropixel::pc {
-class GuestHttp final : public device::HttpClient {
+class HttpChannel final : public device::HttpClient {
    public:
-    GuestHttp();
-    ~GuestHttp() override;
+    HttpChannel();
+    ~HttpChannel() override;
     int32_t Start(uint16_t, std::string_view, std::string_view, std::span<const uint8_t>, uint32_t, uint32_t&) override;
     int32_t Exchange(uint16_t, std::string_view, std::string_view, std::span<const uint8_t>, uint32_t,
                      uint32_t&) override;
@@ -46,6 +47,31 @@ class GuestHttp final : public device::HttpClient {
     micropixel_http_metadata_t metadata_{};
     std::atomic<bool> cancel_{true};
     std::thread worker_;
+};
+// Two independent execution lanes. Activity/App requests use lane 0;
+// lane 1 is reserved for the Service, including while login long-polls.
+class GuestHttp final : public device::HttpClient {
+   public:
+    uint32_t MaxConcurrentRequests() const override { return 2; }
+    void SetComponentScope(uint32_t token) override { component_ = token; }
+    bool ServiceBusy() const { return active_[1].load(); }
+    int32_t Start(uint16_t, std::string_view, std::string_view, std::span<const uint8_t>, uint32_t, uint32_t&) override;
+    int32_t Exchange(uint16_t, std::string_view, std::string_view, std::span<const uint8_t>, uint32_t,
+                     uint32_t&) override;
+    int32_t TimedExchange(uint16_t, std::string_view, std::string_view, std::span<const uint8_t>, uint32_t, uint32_t,
+                          uint32_t&) override;
+    int32_t Metadata(uint32_t, micropixel_http_metadata_t&) override;
+    int32_t Headers(uint32_t, uint32_t, std::span<uint8_t>, uint32_t&) override;
+    int32_t State(uint32_t, micropixel_http_state_t&) override;
+    int32_t Read(uint32_t, uint32_t, std::span<uint8_t>, uint32_t&) override;
+    int32_t Close(uint32_t) override;
+
+   private:
+    int32_t Begin(unsigned, uint16_t, std::string_view, std::string_view, std::span<const uint8_t>, uint32_t, uint32_t,
+                  uint32_t&);
+    std::array<HttpChannel, 2> lanes_;
+    std::array<std::atomic<bool>, 2> active_{};
+    uint32_t component_{};
 };
 class GuestMedia final : public device::UrlMedia {
    public:

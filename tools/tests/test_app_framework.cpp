@@ -108,6 +108,22 @@ void TestDeadline() {
     assert(manager.Snapshot().apps[1].last_result == host::ManagerResult::kStartFailed);
     assert(manager.Activate(1) == host::ManagerResult::kBusy);
 }
+void TestBackgroundLease() {
+    Runner runner;
+    runtime::SessionRunner* runners[]{&runner};
+    host::AppManager manager(runners, 19);
+    assert(manager.Register(0, {true}));
+    assert(manager.Activate(0) == host::ManagerResult::kAccepted);
+    manager.Process();
+    runner.state.background_eligible = false;
+    assert(manager.ShowHome() == host::ManagerResult::kAccepted);
+    manager.Process();
+    assert(runner.state.suspended);
+    runner.state.background_eligible = true;
+    manager.Process();
+    assert(!runner.state.suspended);
+    assert(manager.Snapshot().foreground == -1 && runner.starts == 1);
+}
 void TestComponents() {
     runtime::ComponentModel model;
     model.declared = 7;
@@ -169,6 +185,7 @@ int main() {
     TestOwner();
     TestManager();
     TestDeadline();
+    TestBackgroundLease();
     TestComponents();
     std::puts(
         "PASS owner quotas, generations, manager handoff, capacity, stale notifications, deadlines and component "

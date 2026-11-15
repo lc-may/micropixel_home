@@ -185,14 +185,15 @@ class NetworkServiceEndpoint final : public ServiceHandler {
    public:
     explicit NetworkServiceEndpoint(device::HttpClient* backend) : backend_(backend) {}
     ~NetworkServiceEndpoint() override {
-        if (handle_ && backend_) (void)backend_->Close(handle_);
+        for (auto handle : handles_)
+            if (handle && backend_) (void)backend_->Close(handle);
     }
     ServiceDescriptor Describe() const override;
     int32_t Call(uint32_t, const uint8_t*, uint32_t, uint8_t*, uint32_t, uint32_t&) override;
 
    private:
     device::HttpClient* backend_{};
-    uint32_t handle_{};
+    std::array<uint32_t, 2> handles_{};
 };
 class UrlMediaEndpoint final {
    public:

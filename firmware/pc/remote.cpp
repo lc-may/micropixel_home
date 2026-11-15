@@ -6,8 +6,8 @@
 #include <cstdlib>
 #include <cstring>
 namespace micropixel::pc {
-GuestHttp::GuestHttp() : worker_(&GuestHttp::Run, this) {}
-GuestHttp::~GuestHttp() {
+HttpChannel::HttpChannel() : worker_(&HttpChannel::Run, this) {}
+HttpChannel::~HttpChannel() {
     {
         std::lock_guard lock(mutex_);
         shutdown_ = true;
@@ -17,20 +17,22 @@ GuestHttp::~GuestHttp() {
     wake_.notify_one();
     worker_.join();
 }
-int32_t GuestHttp::Start(uint16_t method, std::string_view url, std::string_view headers, std::span<const uint8_t> body,
-                         uint32_t limit, uint32_t& handle) {
+int32_t HttpChannel::Start(uint16_t method, std::string_view url, std::string_view headers,
+                           std::span<const uint8_t> body, uint32_t limit, uint32_t& handle) {
     return Begin(false, method, url, headers, body, limit, handle);
 }
-int32_t GuestHttp::Exchange(uint16_t method, std::string_view url, std::string_view headers,
-                            std::span<const uint8_t> body, uint32_t limit, uint32_t& handle) {
+int32_t HttpChannel::Exchange(uint16_t method, std::string_view url, std::string_view headers,
+                              std::span<const uint8_t> body, uint32_t limit, uint32_t& handle) {
     return Begin(true, method, url, headers, body, limit, handle);
 }
-int32_t GuestHttp::TimedExchange(uint16_t method, std::string_view url, std::string_view headers,
-                                 std::span<const uint8_t> body, uint32_t limit, uint32_t timeout_ms, uint32_t& handle) {
+int32_t HttpChannel::TimedExchange(uint16_t method, std::string_view url, std::string_view headers,
+                                   std::span<const uint8_t> body, uint32_t limit, uint32_t timeout_ms,
+                                   uint32_t& handle) {
     return Begin(true, method, url, headers, body, limit, handle, timeout_ms);
 }
-int32_t GuestHttp::Begin(bool exchange, uint16_t method, std::string_view url, std::string_view headers,
-                         std::span<const uint8_t> body, uint32_t limit, uint32_t& handle, uint32_t receive_timeout_ms) {
+int32_t HttpChannel::Begin(bool exchange, uint16_t method, std::string_view url, std::string_view headers,
+                           std::span<const uint8_t> body, uint32_t limit, uint32_t& handle,
+                           uint32_t receive_timeout_ms) {
     if (receive_timeout_ms < 100 || receive_timeout_ms > 60000 || url.empty() || url.size() > 2048 ||
         headers.size() > 4096 || body.size() > 8192 || !limit || limit > MICROPIXEL_HTTP_MAX_RESPONSE_BYTES ||
         (method != MICROPIXEL_HTTP_GET && method != MICROPIXEL_HTTP_POST))
@@ -61,7 +63,7 @@ int32_t GuestHttp::Begin(bool exchange, uint16_t method, std::string_view url, s
     }
     std::lock_guard lock(mutex_);
     if (handle_) return MICROPIXEL_STATUS_RESOURCE_EXHAUSTED;
-    if (++generation_ == 0) ++generation_;
+    if (++generation_ == 0 || generation_ > 0x7fffffffU) generation_ = 1;
     handle = handle_ = job.handle = generation_;
     body_.clear();
     headers_.clear();
@@ -73,7 +75,7 @@ int32_t GuestHttp::Begin(bool exchange, uint16_t method, std::string_view url, s
     wake_.notify_one();
     return MICROPIXEL_STATUS_OK;
 }
-void GuestHttp::Run() {
+void HttpChannel::Run() {
     for (;;) {
         Job job;
         {
@@ -106,13 +108,13 @@ void GuestHttp::Run() {
         }
     }
 }
-int32_t GuestHttp::State(uint32_t handle, micropixel_http_state_t& state) {
+int32_t HttpChannel::State(uint32_t handle, micropixel_http_state_t& state) {
     std::lock_guard lock(mutex_);
     if (!handle || handle != handle_) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
     state = state_;
     return MICROPIXEL_STATUS_OK;
 }
-int32_t GuestHttp::Read(uint32_t handle, uint32_t offset, std::span<uint8_t> bytes, uint32_t& length) {
+int32_t HttpChannel::Read(uint32_t handle, uint32_t offset, std::span<uint8_t> bytes, uint32_t& length) {
     std::lock_guard lock(mutex_);
     length = 0;
     if (!handle || handle != handle_ || bytes.size() > MICROPIXEL_HTTP_READ_BYTES || offset > body_.size())
@@ -122,14 +124,14 @@ int32_t GuestHttp::Read(uint32_t handle, uint32_t offset, std::span<uint8_t> byt
     if (length) std::memcpy(bytes.data(), body_.data() + offset, length);
     return MICROPIXEL_STATUS_OK;
 }
-int32_t GuestHttp::Metadata(uint32_t handle, micropixel_http_metadata_t& metadata) {
+int32_t HttpChannel::Metadata(uint32_t handle, micropixel_http_metadata_t& metadata) {
     std::lock_guard lock(mutex_);
     if (!handle || handle != handle_) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
     if (state_.state != MICROPIXEL_HTTP_COMPLETE) return MICROPIXEL_STATUS_WOULD_BLOCK;
     metadata = metadata_;
     return MICROPIXEL_STATUS_OK;
 }
-int32_t GuestHttp::Headers(uint32_t handle, uint32_t offset, std::span<uint8_t> bytes, uint32_t& length) {
+int32_t HttpChannel::Headers(uint32_t handle, uint32_t offset, std::span<uint8_t> bytes, uint32_t& length) {
     std::lock_guard lock(mutex_);
     length = 0;
     if (!handle || handle != handle_ || offset > headers_.size() || bytes.size() > MICROPIXEL_HTTP_READ_BYTES)
@@ -139,7 +141,7 @@ int32_t GuestHttp::Headers(uint32_t handle, uint32_t offset, std::span<uint8_t> 
     if (length) std::memcpy(bytes.data(), headers_.data() + offset, length);
     return MICROPIXEL_STATUS_OK;
 }
-int32_t GuestHttp::Close(uint32_t handle) {
+int32_t HttpChannel::Close(uint32_t handle) {
     std::lock_guard lock(mutex_);
     if (!handle || handle != handle_) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
     handle_ = 0;
@@ -148,6 +150,46 @@ int32_t GuestHttp::Close(uint32_t handle) {
     headers_.clear();
     body_.clear();
     return MICROPIXEL_STATUS_OK;
+}
+int32_t GuestHttp::Start(uint16_t method, std::string_view url, std::string_view headers, std::span<const uint8_t> body,
+                         uint32_t limit, uint32_t& handle) {
+    return Begin(0, method, url, headers, body, limit, 10000, handle);
+}
+int32_t GuestHttp::Exchange(uint16_t method, std::string_view url, std::string_view headers,
+                            std::span<const uint8_t> body, uint32_t limit, uint32_t& handle) {
+    return Begin(1, method, url, headers, body, limit, 10000, handle);
+}
+int32_t GuestHttp::TimedExchange(uint16_t method, std::string_view url, std::string_view headers,
+                                 std::span<const uint8_t> body, uint32_t limit, uint32_t timeout, uint32_t& handle) {
+    return Begin(2, method, url, headers, body, limit, timeout, handle);
+}
+int32_t GuestHttp::Begin(unsigned mode, uint16_t method, std::string_view url, std::string_view headers,
+                         std::span<const uint8_t> body, uint32_t limit, uint32_t timeout, uint32_t& handle) {
+    const unsigned lane = (component_ & 3) == MICROPIXEL_COMPONENT_SERVICE ? 1 : 0;
+    uint32_t inner = 0;
+    const auto status = mode == 2   ? lanes_[lane].TimedExchange(method, url, headers, body, limit, timeout, inner)
+                        : mode == 1 ? lanes_[lane].Exchange(method, url, headers, body, limit, inner)
+                                    : lanes_[lane].Start(method, url, headers, body, limit, inner);
+    handle = status ? 0 : (inner << 1) | lane;
+    if (!status) active_[lane] = true;
+    return status;
+}
+int32_t GuestHttp::Metadata(uint32_t handle, micropixel_http_metadata_t& out) {
+    return lanes_[handle & 1].Metadata(handle >> 1, out);
+}
+int32_t GuestHttp::Headers(uint32_t handle, uint32_t offset, std::span<uint8_t> bytes, uint32_t& size) {
+    return lanes_[handle & 1].Headers(handle >> 1, offset, bytes, size);
+}
+int32_t GuestHttp::State(uint32_t handle, micropixel_http_state_t& out) {
+    return lanes_[handle & 1].State(handle >> 1, out);
+}
+int32_t GuestHttp::Read(uint32_t handle, uint32_t offset, std::span<uint8_t> bytes, uint32_t& size) {
+    return lanes_[handle & 1].Read(handle >> 1, offset, bytes, size);
+}
+int32_t GuestHttp::Close(uint32_t handle) {
+    auto status = lanes_[handle & 1].Close(handle >> 1);
+    if (!status) active_[handle & 1] = false;
+    return status;
 }
 int32_t GuestMedia::Open(std::string_view url, uint32_t& handle) {
     if (handle_) return MICROPIXEL_STATUS_RESOURCE_EXHAUSTED;

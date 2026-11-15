@@ -587,6 +587,7 @@ static bool parse_app_requirements(const cJSON* root, micropixel_app_requirement
         output->component_flags =
             (cJSON_IsTrue(activity) ? 1U : 0U) | (cJSON_IsTrue(service) ? 2U : 0U) | (background ? 4U : 0U);
         output->widget_count = (uint8_t)widgets;
+        output->background_kinds = background;
     }
     uint32_t index = 0;
     for (const cJSON* group = alternatives->child; group != NULL; group = group->next) {

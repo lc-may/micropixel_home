@@ -11,6 +11,7 @@
 #include <cstring>
 #include <memory>
 
+#include "esp_timer.h"
 #include "network.hpp"
 #include "portable_app.hpp"
 
@@ -42,6 +43,7 @@ void MediaPlayer::Play(std::string source) {
         StopAudioLocked();
         pending_ = std::move(source);
         pending_component_ = audio_.ComponentScope(owner_);
+        ended_at_ms_ = 0;
         ++generation_;
         finished_ = false;
         failed_ = false;
@@ -58,6 +60,7 @@ void MediaPlayer::StopAudioLocked() {
 void MediaPlayer::Stop() {
     std::lock_guard lock(mutex_);
     cancel_ = true;
+    ended_at_ms_ = 0;
     pending_.reset();
     ++generation_;
     StopAudioLocked();
@@ -69,6 +72,7 @@ void MediaPlayer::Stop() {
 }
 void MediaPlayer::Pause(bool paused) {
     std::lock_guard lock(mutex_);
+    if (paused) paused_at_ms_ = esp_timer_get_time() / 1000;
     paused_ = paused;
     if (handle_) {
         if (paused)
@@ -111,7 +115,10 @@ device::PcmReadResult MediaPlayer::Read(void* context, int16_t* out, uint32_t ca
     std::copy_n(player.samples_.data() + position * 2, count * 2, out);
     const bool advanced = player.position_.compare_exchange_strong(position, position + count);
     const bool finished = advanced && position + count == player.samples_.size() / 2;
-    if (finished) player.finished_ = true;
+    if (finished) {
+        player.ended_at_ms_ = esp_timer_get_time() / 1000;
+        player.finished_ = true;
+    }
     return {count, finished};
 }
 void MediaPlayer::Load(const std::string& source, uint64_t generation, uint32_t component) {
