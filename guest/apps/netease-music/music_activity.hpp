@@ -117,9 +117,7 @@ class MusicActivity final : public micropixel::Activity {
         MusicView view;
         LoginView login;
         explicit Ui(micropixel::Application& app)
-            : scene(app.renderer().CreateScene(micropixel::Color::Rgb(247, 248, 250)).value()),
-              view(scene),
-              login(scene) {}
+            : scene(app.renderer().CreateScene(micropixel::ui::panel::Background).value()), view(scene), login(scene) {}
     };
     void Flush(bool force) {
         auto& m = model_;

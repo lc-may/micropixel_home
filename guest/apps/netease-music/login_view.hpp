@@ -2,6 +2,7 @@
 #pragma once
 #include "login.hpp"
 #include "sdk/scene.hpp"
+#include "sdk/ui/panel.hpp"
 #include "sdk/ui/text_button.hpp"
 namespace netease {
 enum class LoginAction { kNone, kBack, kRefresh, kRemember, kLogout };
@@ -16,20 +17,18 @@ class LoginView {
     explicit LoginView(micropixel::Scene& scene) {
         using namespace micropixel;
         root_ = scene.CreateContainer({.clip = {0, 0, 720, 720}, .z_order = 100, .visible = false}).value();
-        (void)root_.CreateShape({0, 0, 720, 720}, Color::Rgb(247, 248, 250)).value();
-        heading_ =
-            root_.CreateLabel({360, 22}, "微信扫码登录", Color::Rgb(28, 34, 43), SystemFont::kLarge, true).value();
-        hint_ = root_
-                    .CreateLabel({360, 76}, "使用微信扫一扫，登录网易云音乐", Color::Rgb(153, 178, 197),
-                                 SystemFont::kMedium, true)
-                    .value();
-        nickname_ = root_.CreateLabel({360, 310}, " ", Color::Rgb(28, 34, 43), SystemFont::kLarge, true).value();
+        (void)root_.CreateShape({0, 0, 720, 720}, ui::panel::Background).value();
+        heading_ = root_.CreateLabel({360, 22}, "微信扫码登录", ui::panel::Text, SystemFont::kLarge, true).value();
+        hint_ =
+            root_.CreateLabel({360, 76}, "使用微信扫一扫，登录网易云音乐", ui::panel::Muted, SystemFont::kMedium, true)
+                .value();
+        nickname_ = root_.CreateLabel({360, 310}, " ", ui::panel::Text, SystemFont::kLarge, true).value();
         status_ = root_.CreateLabel({360, 594}, " ", Color::Rgb(96, 217, 188), SystemFont::kSmall, true).value();
         auto button = [&](Rect bounds, const char* text) {
             return root_.CreateTextButton({.bounds = bounds,
                                            .text = text,
-                                           .style = {.background = Color::White(),
-                                                     .text = Color::Rgb(218, 55, 73),
+                                           .style = {.background = ui::panel::Surface,
+                                                     .text = ui::panel::Accent,
                                                      .feedback = Color::White(),
                                                      .font = SystemFont::kMedium,
                                                      .corner_radius = 12},
@@ -39,8 +38,7 @@ class LoginView {
         refresh_ = button({544, 16, 152, 44}, "刷新二维码");
         remember_ = button({24, 650, 282, 48}, "记住登录：关");
         logout_ = button({514, 650, 182, 48}, "退出登录");
-        (void)root_.CreateLabel({24, 624}, "记住登录会将凭证保存在本机", Color::Rgb(153, 178, 197), SystemFont::kSmall)
-            .value();
+        (void)root_.CreateLabel({24, 624}, "记住登录会将凭证保存在本机", ui::panel::Muted, SystemFont::kSmall).value();
     }
     void Show(bool show) { root_.SetVisible(show); }
     void Update(const Login& login, const Account& account) {

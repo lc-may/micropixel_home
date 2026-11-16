@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "app_id": "micropixel.clock-alarm",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "threading": "none",
-  "title": "时钟闹钟",
+  "title": "日历与提醒",
   "sources": [
     "main.cpp"
   ],
@@ -26,7 +26,8 @@
     "services": {
       "lifecycle": 65536,
       "widget": 65536,
-      "alarm": 65536
+      "alarm": 65536,
+      "message": 65536
     },
     "system_font": "zh-CN",
     "components": {

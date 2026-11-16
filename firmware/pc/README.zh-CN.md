@@ -30,8 +30,9 @@ portable Wasm 仍直接在 x86 WAMR 中解释执行，不需要 MCU 的 wamrc。
 
 鼠标左键映射触摸，方向键/WASD 控制方向，Enter/空格确认，Backspace 返回，Z/X 映射游戏按键。
 `Home` / `F1` 返回系统 Home，Guest 在后台继续运行，音乐和自动下一首不中断。
-Home 的“返回应用”、正在运行的应用卡片或再次按 `Home/F1` 复用原会话，保留登录和播放队列。
-Home 提供应用列表、应用市场、音频暂停/继续与系统主音量；`Esc` 在 Guest 前台时停止应用并返回 Home。
+Home 的音乐卡片、应用目录中的“返回应用”或再次按 `Home/F1` 复用原会话，保留登录和播放队列。
+Home 显示模拟时钟、天气、闹钟与事项，底部进入日历/天气/音乐；“应用”打开目录和市场入口。
+音乐卡片支持暂停/继续、下一首，底部保留系统主音量；`Esc` 在 Guest 前台时停止应用并返回 Home。
 默认分辨率 720×720，可用 `--width`、`--height` 调整；未完整移植固件的系统菜单、状态层和硬件转场。
 软件合成采用单个 App Surface，与 LVGL 刷新共用适配器锁，避免并发绘制导致保留文字丢失。
 
@@ -47,6 +48,19 @@ bash tools/tests/test_firmware_host.sh --pc --launcher --rv32
 Home 是 `firmware/pc/home_app.*` 中的 Host 系统应用，前台 Activate 由它调度；授权逻辑消息可以冷启动目标 Service。
 天气、时钟和音乐可以共存，空闲 Job Service 挂起，媒体 Service 保持有效播放。`--single-app` 使用单槽兼容模式，切换应用会停止旧 Guest。
 生命周期与呈现边界见 [PC Home](../../docs/design/pc-home.zh-CN.md)。
+
+面板风格参考 MixPad 4 的米白表盘、深灰卡片与橙色圆形播放键；音乐仍直连网易云。
+日历支持月份切换，事项支持键盘/输入法、提醒时间、完成/恢复和删除，最多六条。
+未来事项由 Host 保存，到期时即使 Clock Guest 已停止仍弹窗响铃；重启后保留已确认的计划。
+天气显示温度、湿度、风速和更新时间，缺少的数据用 `--`。
+旧数据中曾手动关闭天气时，点击“天气”重新启动刷新。
+指定 `--screenshot build/panel.png` 后按 F12 保存当前画面。
+详见[界面设计](../../docs/design/panel-ui.zh-CN.md)和[自动验证](../../docs/development/panel-ui.zh-CN.md)。
+
+```sh
+bash tools/tests/test_firmware_host.sh --pc --panel
+bash tools/tests/test_firmware_host.sh --pc --panel --rv32
+```
 
 ## 官方应用市场
 
@@ -146,7 +160,7 @@ bash tools/pc.sh run --music-song 139774
 ```
 
 普通大厅右上角的「网易云」按钮也可启动它；首次使用先运行上述 `--music` 命令构建应用。
-支持键盘文本搜索、预设关键词、分页、选曲、上一首/下一首、暂停/恢复、停止和 ±10 秒跳转。
+支持键盘搜索、个人歌单、滚动推荐、红星收藏、上一首/下一首、暂停/恢复、停止和拖动进度。
 Esc 返回大厅，系统音量由 Host 管理。
 右上角“登录”使用网易云官网的微信扫码授权；支持昵称、退出和可选记住登录，详见应用文档。
 

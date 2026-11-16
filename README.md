@@ -13,13 +13,13 @@ This repository also includes a Linux/WSL2 PC Host for developing and running Gu
 | Feature | Available functionality |
 |---|---|
 | Display and input | LVGL + SDL window, mouse-driven touch and keyboard input, Chinese fonts, and the existing Scene/Raster/Direct Surface services. |
-| Home launcher | Launch apps, open the market, return to the current app, and control playback and system volume. Music keeps playing and advances to the next track while Home or the market is visible. |
+| Home panel | MixPad 4 inspired dark panel with an analog clock, weather, next alarm, Note reminders and music controls. Launch apps and the market; music continues in the background. |
 | Official app market | Browse, search, and view releases; download, validate, and install supported official RV32 AOT bundles, then execute them with QEMU. Portable Wasm runs directly in the native WAMR interpreter. |
 | NetEase Cloud Music Guest | Direct connection without an API gateway; official website WeChat QR login, account profile and playlists, daily recommendations, search, favorites, scrolling lists, and playback controls. Full playback or previews depend on the server's permissions. |
 | Network and audio | POSIX sockets and mbedTLS, asynchronous Guest HTTP/HTTPS, Host MQTT/MQTTS diagnostics, and local/network MP3, WAV, and Ogg/Opus playback through SDL stereo audio. |
-| Weather and jobs | Direct Open-Meteo weather, city selection, successful-value cache, persistent plans and bounded cold/hot work. |
-| Clock and alarms | Host clock widgets, persistent one-shot/weekly alarms, ringing after Guest close, modal input and audio ducking that preserves user intent. |
-| Guest UI SDK | IconButton, ListItem, ScrollView, and Slider widgets, plus PNG/JPEG texture decoding for downloaded images. |
+| Weather and jobs | Direct Open-Meteo weather, temperature/humidity/wind, three cities, successful-value cache, persistent plans and bounded cold/hot work. |
+| Calendar and reminders | Month calendar, six editable Note reminders with completion/deletion, persistent one-shot/weekly alarms, ringing after Guest close, modal input and audio ducking. |
+| Guest UI SDK | IconButton, ListItem, ScrollView, Slider, shared panel styles/scalable digits, Gregorian calendar helpers and PNG/JPEG texture decoding. |
 
 PC Home defaults to four native Wasm slots with weather, clock and music; `--single-app` keeps the compatibility profile.
 Activity/Service, ownership, widgets, messages, Jobs, alarms and focus use the same SDK. See the
@@ -28,6 +28,8 @@ Activity/Service, ownership, widgets, messages, Jobs, alarms and focus use the s
 [D7 guide](docs/development/app-manager-d7.zh-CN.md). RV32 multi-instance and mixed backends are available;
 see [D8](docs/development/app-manager-d8.zh-CN.md). MCU multi-instance support remains D9.
 The new HTTP and URL audio adapters currently target PC; MCU support requires platform adapters.
+The Home, music, weather and calendar screens share a dark gray/orange visual style; see the
+[panel design](docs/design/panel-ui.zh-CN.md) and [verification guide](docs/development/panel-ui.zh-CN.md).
 
 ## Run on a PC
 

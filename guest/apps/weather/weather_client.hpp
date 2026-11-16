@@ -17,6 +17,7 @@ inline constexpr City cities[] = {{"上海", "latitude=31.23&longitude=121.47"},
 struct Reading {
     int32_t temperature{}, code{};
     uint64_t utc{};
+    int32_t humidity{-1}, wind_tenths{-1};
 };
 class WeatherClient final {
    public:
@@ -26,7 +27,8 @@ class WeatherClient final {
         std::string url = test ? test : "https://api.open-meteo.com/v1/forecast";
         url += "?";
         url += cities[city % 3].coordinates;
-        url += "&current=temperature_2m,weather_code&timeformat=unixtime&timezone=GMT";
+        url +=
+            "&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m&timeformat=unixtime&timezone=GMT";
         auto opened = app.network().Exchange(HttpMethod::kGet, url, {}, {}, 8192, {.receive_timeout_ms = 10000});
         if (!opened) return false;
         request_.emplace(std::move(*opened));
@@ -56,6 +58,10 @@ class WeatherClient final {
         if (utc < 1577836800 || utc > 4102444800LL || weather < 0 || weather > 99) return -1;
         out = {static_cast<int32_t>(*temperature * 10 + (*temperature < 0 ? -0.5 : 0.5)), static_cast<int32_t>(weather),
                static_cast<uint64_t>(utc)};
+        auto humidity = json.Real(json.Field(current, "relative_humidity_2m"));
+        auto wind = json.Real(json.Field(current, "wind_speed_10m"));
+        if (humidity && *humidity >= 0 && *humidity <= 100) out.humidity = static_cast<int32_t>(*humidity);
+        if (wind && *wind >= 0 && *wind <= 500) out.wind_tenths = static_cast<int32_t>(*wind * 10 + 0.5);
         return 1;
     }
     void Cancel() { request_.reset(); }

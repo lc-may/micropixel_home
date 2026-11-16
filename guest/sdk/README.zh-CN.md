@@ -66,6 +66,8 @@ PC Guest 新增 `Activity`、`AppService`、`ComponentContext` 和 `Application:
 | Surface 的逻辑坐标与缓冲坐标换算 | `DirectSurface::ToBuffer/ToLogical` | `graphics.hpp` |
 | 屏幕摇杆、视角拖拽区、按键；物理手柄按键与摇杆轴 | `app.gamepad()`、`GamepadSkin` | `gamepad.hpp`、`gamepad_skin.hpp` |
 | 带 hit padding 的按下/松开判定 | `ui::Button` | `ui/button.hpp` |
+| 深色面板配色、卡片、天气图形、可缩放数字 | `ui::panel::*` | `ui/panel.hpp`（显式包含） |
+| 公历日期、闰年、月份长度、星期与固定时区换算 | `calendar::*` | `calendar.hpp`（显式包含） |
 | `audio/sfx.json` 生成的多音符音效 | `ToneSequencer<N>`、`ToneSpec::ToTone` | `tone_sequencer.hpp`、`audio.hpp` |
 | 音频片段、PCM 流、单音 | `Audio::Play/Load/OpenPcmStream` | `audio.hpp` |
 | 无 libm 的 Sin/Cos/Atan2、clamp、lerp、smoothstep、死区 | `math::*` | `math.hpp` |

@@ -33,7 +33,11 @@ if [[ "${1:-}" == "--app-framework" ]]; then
     python3 "$framework_root/tools/tests/build_host_test.py" "${CXX:-/usr/bin/clang++}" \
         -std=c++2b -Wall -Wextra -Werror -I "$framework_root/firmware/pc" \
         "$framework_root/tools/tests/test_rv32_memory.cpp" -o "$framework_root/build/host-tests/rv32_memory_test"
-    exec "$framework_root/build/host-tests/rv32_memory_test"
+    "$framework_root/build/host-tests/rv32_memory_test"
+    python3 "$framework_root/tools/tests/build_host_test.py" "${CXX:-/usr/bin/clang++}" \
+        -std=c++2b -Wall -Wextra -Werror -I "$framework_root/guest" \
+        "$framework_root/tools/tests/test_calendar.cpp" -o "$framework_root/build/host-tests/calendar_test"
+    exec "$framework_root/build/host-tests/calendar_test"
 fi
 
 if [[ "${1:-}" == "--pc" ]]; then

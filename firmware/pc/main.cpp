@@ -486,6 +486,7 @@ int main(int argc, char** argv) {
         int active_index = -1, requested_front = -1, exit_index = -1;
         bool foreground = false;
         std::array<bool, 64> seen_running{};
+        bool capture_requested = false;
         const auto started = std::chrono::steady_clock::now();
         bool finger_down = false;
         bool text_active = false;
@@ -582,6 +583,11 @@ int main(int argc, char** argv) {
             bool go_home = false;
             for (size_t i = 0; i < count; ++i) {
                 const auto& event = pending[i];
+                if (event.type == SDL_KEYDOWN && !event.key.repeat && event.key.keysym.sym == SDLK_F12 &&
+                    !options.screenshot.empty()) {
+                    capture_requested = true;
+                    continue;
+                }
                 if (alarm_overlay.Visible()) {
                     if (event.type == SDL_KEYDOWN && !event.key.repeat &&
                         (event.key.keysym.sym == SDLK_ESCAPE || event.key.keysym.sym == SDLK_RETURN))
@@ -760,6 +766,12 @@ int main(int argc, char** argv) {
             if (options.exit_when_audio_done && media.Finished()) {
                 exit_code = media.Failed() ? 1 : 0;
                 break;
+            }
+            if (capture_requested) {
+                esp_lv_adapter_lock(-1);
+                Screenshot(options.screenshot);
+                esp_lv_adapter_unlock();
+                capture_requested = false;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
         }

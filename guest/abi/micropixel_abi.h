@@ -294,6 +294,8 @@ static_assert(sizeof(micropixel_job_event_t) == 16);
 #define MICROPIXEL_ACTION_SET_PLAYING 1U
 #define MICROPIXEL_ACTION_NEXT_TRACK 2U
 #define MICROPIXEL_ACTION_REFRESH 3U
+/* Optional Clock navigation: value 0=alarm, 1=calendar, 2=notes. */
+#define MICROPIXEL_ACTION_OPEN_PAGE 4U
 #define MICROPIXEL_MESSAGE_PAYLOAD_BYTES 128U
 typedef struct micropixel_widget_snapshot {
     uint16_t size;

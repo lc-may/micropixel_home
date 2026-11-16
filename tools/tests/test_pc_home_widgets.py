@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Three Guest publishers and Host widget commands over the actual Service ABI."""
+from test_pc_market import open_home_app, open_home_market
 import http.server
 import json
 import os
@@ -78,13 +79,13 @@ def main():
                     time.sleep(.3)
                     return any(pcm.read_bytes()[offset:])
 
-                click(120, 180)
+                open_home_app(click, 0)
                 wait_for("WIDGET_PROVIDER weather ready")
                 event.key(0xffbe)
-                click(480, 180)
+                open_home_app(click, 1)
                 wait_for("WIDGET_PROVIDER clock ready")
                 event.key(0xffbe)
-                click(120, 300)
+                open_home_app(click, 2)
                 wait_for("NETEASE_LOGIN authenticated")
                 wait_for("NETEASE_HOME playlists:")
                 click(120, 680)
@@ -97,19 +98,19 @@ def main():
                 wait_for("HOME_WIDGET snapshot: app=1 template=2")
                 wait_for("HOME_WIDGET snapshot: app=2 template=3")
                 assert sound()
-                wait_new("HOME_MEDIA paused=1", lambda: click(510, 631))
+                wait_new("HOME_MEDIA paused=1", lambda: click(548, 606))
                 assert not sound(), "widget pause did not stop PCM"
-                wait_new("HOME_MEDIA paused=0", lambda: click(510, 631))
+                wait_new("HOME_MEDIA paused=0", lambda: click(548, 606))
                 assert sound(), "widget resume did not restore PCM"
                 HomeHandler.resolve_id = 1002
-                wait_new("NETEASE_GUEST selected: 1002", lambda: click(400, 631))
-                wait_new("WIDGET_PROVIDER refreshed", lambda: click(270, 490))
-                click(620, 605)
+                wait_new("NETEASE_GUEST selected: 1002", lambda: click(636, 606))
+                wait_new("WIDGET_PROVIDER refreshed", lambda: click(660, 96))
+                click(200, 606)
                 wait_for("APP_SHELL foreground: micropixel.netease-music reused=1")
                 assert log_path.read_text().count("NETEASE_GUEST started:") == 1
                 assert log_path.read_text().count("NETEASE_LOGIN authenticated") == 1
                 event.key(0xffbe)
-                click(120, 180)
+                open_home_app(click, 0)
                 wait_new("APP_SHELL stopped: test.widget.weather", escape)
                 assert "APP_SHELL stopped: test.widget.clock" not in log_path.read_text()
                 assert sound(), "closing weather stopped music"

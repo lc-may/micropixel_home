@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
+#include "sdk/calendar.hpp"
+#include "sdk/ui/panel.hpp"
 #include "weather_client.hpp"
 namespace weather {
 struct Model {
     struct Saved {
-        uint32_t version{1}, city{};
+        uint32_t version{2}, city{};
         Reading reading{};
     } saved;
     bool failed{}, busy{};
     uint32_t revision{};
     explicit Model(Application& app) {
         auto n = app.storage().GetBytes("weather.v1", reinterpret_cast<uint8_t*>(&saved), sizeof(saved));
-        if (!n || *n != sizeof(saved) || saved.version != 1 || saved.city >= 3) saved = {};
+        if (n && *n == 24 && saved.version == 1)
+            saved.version = 2;
+        else if (!n || *n != sizeof(saved) || saved.version != 2 || saved.city >= 3)
+            saved = {};
+        if (saved.city >= 3) saved = {};
     }
     void Save(const Application& app) {
         (void)app.storage().SetBytes("weather.v1", reinterpret_cast<const uint8_t*>(&saved), sizeof(saved));
@@ -25,8 +31,8 @@ struct Model {
             text.AppendInt(t / 10);
             text.Append(".");
             text.AppendUint(t < 0 ? (-t) % 10 : t % 10);
-            text.Append(" °C  · 天气代码 ");
-            text.AppendInt(saved.reading.code);
+            text.Append(" °C · ");
+            text.Append(ui::panel::WeatherName(saved.reading.code));
         }
         return text;
     }
@@ -168,22 +174,36 @@ class WeatherService final : public AppService {
 };
 class WeatherActivity final : public Activity {
    public:
-    explicit WeatherActivity(Model& m) : model_(m) {}
+    explicit WeatherActivity(Model& model) : model_(model) {}
     void OnCreate(ComponentContext& context) override {
-        auto& app = context.app();
-        scene_.emplace(app.renderer().CreateScene(Color::Rgb(241, 245, 251)).value());
-        (void)scene_->CreateLabel({32, 40}, "天气", Color::Black(), SystemFont::kTitle).value();
-        city_ =
-            scene_->CreateLabel({32, 140}, cities[model_.saved.city].name, Color::Black(), SystemFont::kTitle).value();
-        value_ = scene_->CreateLabel({32, 240}, "", Color::Black(), SystemFont::kLarge).value();
-        status_ = scene_->CreateLabel({32, 320}, "", Color::Black()).value();
-        refresh_ = scene_->CreateTextButton({.bounds = {32, 420, 300, 64}, .text = "刷新天气"});
-        change_ = scene_->CreateTextButton({.bounds = {360, 420, 320, 64}, .text = "切换城市"});
-        (void)scene_->CreateLabel({32, 570}, "数据：Open-Meteo.com · CC BY 4.0", Color::Black(), SystemFont::kSmall)
+        const auto& app = context.app();
+        app.renderer()
+            .ConfigureDisplay({.logical_size = {720, 720}, .scale_mode = DisplayScaleMode::kAspectFit})
             .value();
-        (void)scene_
-            ->CreateLabel({32, 620}, "关闭应用后停止自动刷新；卡片刷新可重新开启", Color::Black(), SystemFont::kSmall)
-            .value();
+        scene_.emplace(app.renderer().CreateScene(ui::panel::Background).value());
+        using namespace ui::panel;
+        (void)scene_->CreateLabel({28, 26}, "天气", Text, SystemFont::kTitle).value();
+        (void)scene_->CreateLabel({572, 36}, "实时天气", Muted, SystemFont::kMedium).value();
+        for (unsigned i = 0; i < 3; ++i)
+            cities_[i] = scene_->CreateTextButton(
+                {.bounds = {24 + int(i) * 232, 92, 208, 52}, .text = cities[i].name, .style = Style()});
+        Card(*scene_, {24, 164, 672, 304});
+        number_ = Digits::Create(*scene_, {60, 246}, 96, Text, 5);
+        city_ = scene_->CreateLabel({56, 192}, " ", Muted, SystemFont::kLarge).value();
+        unit_ = scene_->CreateLabel({350, 270}, "°C", Muted, SystemFont::kTitle).value();
+        glyph_ = WeatherGlyph::Create(*scene_, {480, 242}, 128);
+        condition_ = scene_->CreateLabel({56, 392}, "等待天气", Text, SystemFont::kLarge).value();
+        for (unsigned i = 0; i < 3; ++i) {
+            Card(*scene_, {24 + int(i) * 232, 488, 208, 102});
+        }
+        (void)scene_->CreateLabel({44, 506}, "湿度", Muted, SystemFont::kSmall).value();
+        (void)scene_->CreateLabel({276, 506}, "风速", Muted, SystemFont::kSmall).value();
+        (void)scene_->CreateLabel({508, 506}, "更新时间", Muted, SystemFont::kSmall).value();
+        humidity_ = scene_->CreateLabel({44, 540}, "--", Text, SystemFont::kLarge).value();
+        wind_ = scene_->CreateLabel({276, 540}, "--", Text, SystemFont::kLarge).value();
+        updated_ = scene_->CreateLabel({508, 540}, "--:--", Text, SystemFont::kLarge).value();
+        refresh_ = scene_->CreateTextButton({.bounds = {24, 612, 672, 56}, .text = "刷新天气", .style = Style(true)});
+        status_ = scene_->CreateLabel({28, 682}, "Open-Meteo · CC BY 4.0", Muted, SystemFont::kSmall).value();
         timer_.emplace(app.timers().Every(Duration::Milliseconds(250)).value());
         Draw(app);
         app.log().Info("WEATHER activity created");
@@ -191,23 +211,24 @@ class WeatherActivity final : public Activity {
     void OnResume(ComponentContext& c) override { Draw(c.app()); }
     void OnStop(ComponentContext&) override {
         refresh_.Reset();
-        change_.Reset();
+        for (auto& b : cities_) b.Reset();
     }
     void OnDestroy(ComponentContext&) override {
         timer_.reset();
         scene_.reset();
     }
     void OnEvent(ComponentContext& context, const Event& event) override {
-        auto& app = context.app();
+        const auto& app = context.app();
         if (auto* touch = event.touch()) {
             bool refresh = refresh_.OnTouch(*touch).clicked;
-            if (change_.OnTouch(*touch).clicked) {
-                model_.saved.city = (model_.saved.city + 1) % 3;
-                model_.saved.reading = {};
-                model_.Save(app);
-                ++model_.revision;
-                refresh = true;
-            }
+            for (unsigned i = 0; i < 3; ++i)
+                if (cities_[i].OnTouch(*touch).clicked && model_.saved.city != i) {
+                    model_.saved.city = i;
+                    model_.saved.reading = {};
+                    model_.Save(app);
+                    ++model_.revision;
+                    refresh = true;
+                }
             if (refresh) (void)app.messages().Send("micropixel.weather", static_cast<uint16_t>(AppAction::kRefresh));
             Draw(app);
         } else if (timer_ && event.TimerFrom(*timer_) && seen_ != model_.revision)
@@ -216,19 +237,50 @@ class WeatherActivity final : public Activity {
 
    private:
     void Draw(const Application& app) {
-        if (!scene_) return;
-        auto text = model_.Text();
+        using namespace ui::panel;
+        const auto& reading = model_.saved.reading;
+        FixedString<16> temperature;
+        if (reading.utc)
+            temperature.AppendFixed(float(reading.temperature) / 10, reading.temperature % 10 ? 1 : 0);
+        else
+            temperature.Append("--");
+        number_.Set(temperature.c_str());
+        glyph_.Set(reading.code, reading.utc != 0);
         city_.SetText(cities[model_.saved.city].name);
-        value_.SetText(text.c_str());
-        status_.SetText(model_.busy ? "正在刷新…" : model_.failed ? "刷新失败，保留上次天气" : "每 15 分钟后台刷新");
+        condition_.SetText(!reading.utc ? "等待首次刷新" : WeatherName(reading.code));
+        FixedString<32> humidity, wind;
+        if (reading.humidity >= 0) {
+            humidity.AppendInt(reading.humidity);
+            humidity.Append(" %");
+        } else
+            humidity.Append("--");
+        if (reading.wind_tenths >= 0) {
+            wind.AppendFixed(float(reading.wind_tenths) / 10, 1);
+            wind.Append(" km/h");
+        } else
+            wind.Append("--");
+        humidity_.SetText(humidity.c_str());
+        wind_.SetText(wind.c_str());
+        auto now = app.jobs().Now();
+        auto local = calendar::LocalSeconds(reading.utc, now ? now->offset_minutes : 480);
+        auto time = calendar::FormatTime(uint32_t(local % 86400) / 60);
+        updated_.SetText(reading.utc ? time.c_str() : "--:--");
+        refresh_.SetText(model_.busy ? "正在刷新…" : "刷新天气").value();
+        refresh_.SetEnabled(!model_.busy);
+        status_.SetText(model_.failed ? "刷新失败，保留上次天气 · Open-Meteo"
+                                      : "每 15 分钟更新 · Open-Meteo · CC BY 4.0");
+        for (unsigned i = 0; i < 3; ++i) cities_[i].SetStyle(Style(i == model_.saved.city)).value();
         app.renderer().Present(*scene_).value();
         seen_ = model_.revision;
     }
     Model& model_;
     std::optional<Scene> scene_;
     std::optional<Timer> timer_;
-    LabelNode city_, value_, status_;
-    ui::TextButton refresh_, change_;
+    ui::panel::Digits number_;
+    ui::panel::WeatherGlyph glyph_;
+    LabelNode city_, unit_, condition_, humidity_, wind_, updated_, status_;
+    std::array<ui::TextButton, 3> cities_;
+    ui::TextButton refresh_;
     uint32_t seen_{};
 };
 }  // namespace weather

@@ -379,7 +379,8 @@ int32_t AppHub::Action(const WidgetSnapshot& expected, uint16_t type, uint32_t v
     const auto kind = item->snapshot.data.template_id;
     if (!((kind == MICROPIXEL_WIDGET_MEDIA &&
            (type == MICROPIXEL_ACTION_SET_PLAYING || type == MICROPIXEL_ACTION_NEXT_TRACK)) ||
-          (kind == MICROPIXEL_WIDGET_WEATHER && type == MICROPIXEL_ACTION_REFRESH)) ||
+          (kind == MICROPIXEL_WIDGET_WEATHER && type == MICROPIXEL_ACTION_REFRESH) ||
+          (kind == MICROPIXEL_WIDGET_CLOCK && type == MICROPIXEL_ACTION_OPEN_PAGE && value <= 2)) ||
         (type == MICROPIXEL_ACTION_SET_PLAYING && value > 1))
         return MICROPIXEL_STATUS_INVALID_ARGUMENT;
     micropixel_message_send_t request{};

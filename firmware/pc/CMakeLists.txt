@@ -122,3 +122,7 @@ target_link_libraries(pc-alarm-system-test PRIVATE pc_host)
 add_executable(pc-rv32-multi-test "${REPOSITORY_ROOT}/tools/tests/test_pc_rv32_multi.cpp")
 target_compile_options(pc-rv32-multi-test PRIVATE -UNDEBUG -fno-exceptions -fno-rtti)
 target_link_libraries(pc-rv32-multi-test PRIVATE pc_host)
+
+add_executable(pc-planner-test "${REPOSITORY_ROOT}/tools/tests/test_pc_planner.cpp")
+target_compile_options(pc-planner-test PRIVATE -UNDEBUG -fno-exceptions -fno-rtti)
+target_link_libraries(pc-planner-test PRIVATE pc_host)

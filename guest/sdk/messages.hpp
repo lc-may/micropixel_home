@@ -7,7 +7,7 @@
 #include "sdk/fixed_string.hpp"
 #include "sdk/result.hpp"
 namespace micropixel {
-enum class AppAction : uint16_t { kSetPlaying = 1, kNextTrack = 2, kRefresh = 3 };
+enum class AppAction : uint16_t { kSetPlaying = 1, kNextTrack = 2, kRefresh = 3, kOpenPage = 4 };
 struct InstanceAddress {
     uint64_t boot{};
     uint32_t slot{}, epoch{}, component{};

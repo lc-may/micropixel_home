@@ -48,6 +48,12 @@ class AppSessions final {
     uint64_t NextHomeRequest();
     void StopAlarm();
     micropixel_wall_time_t Clock();
+    struct PlannerSummary {
+        uint64_t alarm_utc{}, note_utc{};
+        uint32_t pending_notes{}, note_records{};
+        std::array<char, 64> note{};
+    };
+    PlannerSummary Planner();
 
    private:
     struct Impl;

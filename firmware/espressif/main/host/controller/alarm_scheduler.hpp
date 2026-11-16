@@ -22,6 +22,7 @@ class AlarmScheduler final {
     int32_t Remove(uint32_t app, uint32_t id);
     bool Restore(const Record&);
     const Record* Get(uint32_t app, uint32_t id) const;
+    uint64_t NextOccurrence(uint32_t app, uint32_t id) const;
     const std::array<Record, kCapacity>& Records() const { return records_; }
     // A discontinuity recalculates future occurrences without catching up.
     void Process(uint64_t now_ms, uint64_t utc, int32_t offset_minutes, bool valid);

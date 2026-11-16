@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Host Home, input isolation, live background music and single-Guest replacement."""
+from test_pc_market import open_home_app, open_home_market
 import http.server
 import io
 import os
@@ -54,7 +55,7 @@ def main():
                 assert TOKEN not in log and CSRF not in log
                 assert "Guest failed:" not in log and "Guest initialization failed:" not in log, log
                 with Image.open(output / "navigation.png") as screenshot:
-                    assert screenshot.convert("RGB").getpixel((4, 4)) == (11, 20, 35), "Home was not above the Guest"
+                    assert screenshot.convert("RGB").getpixel((4, 4)) == (21, 24, 29), "Home was not above the Guest"
                 (results / f"{name}.log").write_text(log)
                 (results / f"{name}.png").write_bytes((output / "navigation.png").read_bytes())
 
@@ -80,7 +81,7 @@ def main():
             def background(click, event, wait_for, log_path, process, escape):
                 wait, home, samples = helpers(event, log_path)
                 wait_for("HOME visible: running=none apps=2")
-                click(515, 55)
+                click(296, 686)
                 wait_for("NETEASE_HOME avatar ready")
                 wait("NETEASE_HOME recommendations: 30", lambda: click(128, 680))
                 HomeHandler.resolve_id = 1001
@@ -97,22 +98,22 @@ def main():
                     time.sleep(.03)
                 assert log_path.read_text().count("Audio playing:") >= 2
                 assert any(samples()), "background playback was silent"
-                wait("HOME_MEDIA paused=1", lambda: click(510, 631))
+                wait("HOME_MEDIA paused=1", lambda: click(548, 606))
                 assert not any(samples()), "Home pause did not silence playback"
                 HomeHandler.resolve_id = 1003
-                wait("HOME_MEDIA paused=0", lambda: click(510, 631))
+                wait("HOME_MEDIA paused=0", lambda: click(548, 606))
                 assert any(samples()), "Home resume did not restore playback"
-                click(640, 55)
+                open_home_market(click)
                 wait_for("Market catalog: 7 entries")
                 assert "APP_SHELL stopped:" not in log_path.read_text(), "market closed background Guest"
                 wait("HOME visible: running=micropixel.netease-music", escape)
-                wait("APP_SHELL foreground: micropixel.netease-music reused=1", lambda: click(620, 605))
+                wait("APP_SHELL foreground: micropixel.netease-music reused=1", lambda: click(200, 606))
                 wait("APP_SHELL background:", home)
-                wait("APP_SHELL foreground: micropixel.netease-music reused=1", lambda: click(music_x, 180))
+                wait("APP_SHELL foreground: micropixel.netease-music reused=1", lambda: open_home_app(click, 0 if music_x < 300 else 1))
                 assert log_path.read_text().count("NETEASE_GUEST started:") == 1, "music Guest was recreated"
                 assert log_path.read_text().count("NETEASE_LOGIN authenticated") == 1, "login was lost"
                 wait("APP_SHELL background:", home)
-                wait("APP_SHELL started: micropixel.pc.timer_counter", lambda: click(other_x, 180))
+                wait("APP_SHELL started: micropixel.pc.timer_counter", lambda: open_home_app(click, 0 if other_x < 300 else 1))
                 wait_for("timer_counter: terminal Cancel, missed_count, Clock/TimePoint and RAII passed")
                 wait_for("HOME visible: running=none apps=2")
                 log = log_path.read_text()
@@ -124,7 +125,7 @@ def main():
             def close(click, event, wait_for, log_path, process, escape):
                 wait, home, samples = helpers(event, log_path)
                 wait_for("HOME visible: running=none apps=2")
-                click(515, 55)
+                click(296, 686)
                 wait_for("NETEASE_HOME avatar ready")
                 wait("APP_SHELL background:", home)
                 wait("APP_SHELL stopped: micropixel.netease-music", lambda: click(650, 692))

@@ -184,6 +184,27 @@ void TestHostClock() {
     hub->Remove(0);
     assert(!hub->Widget(0, 2000, widget));
 }
+void TestClockNavigation() {
+    auto hub = std::make_unique<host::AppHub>(10);
+    Inbox inbox;
+    host::AppCaller caller{0, {10, 0, 1}, 6};
+    assert(hub->Register(0, "clock", 1));
+    hub->Bind(0, caller.instance);
+    hub->Components(caller, Ready());
+    hub->SetSink(caller, {&inbox, Inbox::Push});
+    auto data = Snapshot(1, 1, MICROPIXEL_WIDGET_CLOCK);
+    micropixel_handle_response_t response{};
+    assert(Call(*hub, caller, 25, 1, data, response) == 0);
+    host::WidgetSnapshot view{};
+    assert(hub->Widget(0, 100, view));
+    uint32_t ticket = 0;
+    assert(hub->Action(view, MICROPIXEL_ACTION_OPEN_PAGE, 3, 1, 100, ticket) == MICROPIXEL_STATUS_INVALID_ARGUMENT);
+    assert(hub->Action(view, MICROPIXEL_ACTION_OPEN_PAGE, 2, 1, 100, ticket) == 0 && inbox.count == 1);
+    micropixel_handle_request_t request{sizeof(request), 0, ticket};
+    micropixel_message_received_t message{};
+    assert(Call(*hub, caller, 26, 2, request, message) == 0 && message.type == 4 && message.payload_length == 4 &&
+           message.payload[0] == 2);
+}
 void TestColdPolicy() {
     auto owned = std::make_unique<host::AppHub>(123);
     auto& hub = *owned;
@@ -253,6 +274,7 @@ int main() {
     TestQuota();
     TestColdPolicy();
     TestHostClock();
+    TestClockNavigation();
     std::puts(
         "PASS Widget quotas/revisions and Broker identity, allowlist, dedup, result eviction, deadlines and stale "
         "instances");

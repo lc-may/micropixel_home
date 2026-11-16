@@ -150,19 +150,19 @@ def main():
 
                 def drive(click, event, wait_for, log_path, process, escape):
                     wait_for("Audio playing:")
-                    click(360, 596); wait_for("已暂停")
+                    click(360, 326); wait_for("已暂停")
                     time.sleep(.12); start = pcm.stat().st_size; time.sleep(.3)
                     paused = pcm.read_bytes()[start:]
                     assert len(paused) > 8192 and not any(paused), "Pause did not stop the audio source"
-                    click(360, 596); time.sleep(.2)
-                    event(6,0,64,488);event(4,1,64,488);event(6,0,360,488);event(5,1,360,488);wait_for("NETEASE_GUEST seek:")
+                    click(360, 326); time.sleep(.2)
+                    event(6,0,64,582);event(4,1,64,582);event(6,0,360,582);event(5,1,360,582);wait_for("NETEASE_GUEST seek:")
                     click(650, 40); wait_for("已停止")
-                    click(360, 596)
+                    click(360, 326)
                     deadline = time.monotonic() + 3
                     while log_path.read_text(errors="replace").count("Audio playing:") < 2 and time.monotonic() < deadline:
                         time.sleep(.05)
                     assert log_path.read_text(errors="replace").count("Audio playing:") >= 2
-                    escape(); time.sleep(.3); click(515, 55); wait_for("NETEASE_GUEST search: 2 tracks")
+                    escape(); time.sleep(.3); click(296, 686); wait_for("NETEASE_GUEST search: 2 tracks")
                     before=Handler.hits.count("/weapi/search/get")
                     click(200, 112)
                     for char in "jazz": event.key(ord(char))

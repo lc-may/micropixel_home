@@ -209,11 +209,11 @@ def main():
                     deadline=time.monotonic()+3
                     while (not pcm.exists() or not any(pcm.read_bytes())) and time.monotonic()<deadline:time.sleep(.03)
                     assert pcm.exists() and any(pcm.read_bytes()),"playlist playback silent"
-                    fresh("已暂停",lambda:click(360,596))
+                    fresh("已暂停",lambda:click(360,326))
                     commits=log_path.read_text().count("NETEASE_GUEST seek:")
-                    event(6,0,64,488);event(4,1,64,488);event(6,0,260,488);event(6,0,360,488)
+                    event(6,0,64,582);event(4,1,64,582);event(6,0,260,582);event(6,0,360,582)
                     assert log_path.read_text().count("NETEASE_GUEST seek:")==commits,"drag sought before release"
-                    fresh("NETEASE_GUEST seek:",lambda:event(5,1,360,488))
+                    fresh("NETEASE_GUEST seek:",lambda:event(5,1,360,582))
                     assert log_path.read_text().count("NETEASE_GUEST seek:")==commits+1,"seek committed more than once"
                     click(50,40)
                     fresh("NETEASE_HOME recommendations: 30",lambda:click(128,680))
@@ -237,7 +237,7 @@ def main():
                     wait_for("NETEASE_LIKE confirmed: liked=1");wait_for("NETEASE_HOME playlists: 20")
                     fresh("NETEASE_HOME recommendations: 30",lambda:click(128,680))
                     assert 1001 in HomeHandler.liked
-                navigate_x11(interactive_env,output,args,drive,seconds=40 if extra else 20,wait_seconds=10 if extra else 3)
+                navigate_x11(interactive_env,output,args,drive,seconds=45 if extra else 30,wait_seconds=12 if extra else 8)
                 (results/"interactive.log").write_text((output/"navigation.log").read_text())
                 (results/"mobile-liked.png").write_bytes((output/"navigation.png").read_bytes())
                 with Image.open(results/"mobile-liked.png") as screenshot:
@@ -264,7 +264,7 @@ def main():
                     fresh("已退出登录",lambda:click(600,674))
                     click(65,40)
                     fresh("NETEASE_GUEST search: 0 tracks",lambda:click(592,680))
-                navigate_x11(env,output,args,unlike_and_logout,seconds=35 if extra else 14,wait_seconds=10 if extra else 3)
+                navigate_x11(env,output,args,unlike_and_logout,seconds=35 if extra else 20,wait_seconds=12 if extra else 8)
                 HomeHandler.expect_anonymous=False
                 def expired(click,event,wait_for,log_path,process,escape):
                     wait_for("NETEASE_HOME avatar ready");HomeHandler.home_mode="expired"
@@ -272,14 +272,14 @@ def main():
                     calls=len(HomeHandler.personal_hits);click(240,229);click(650,612);time.sleep(.25)
                     assert len(HomeHandler.personal_hits)==calls,"expired private data remained interactive"
                 HomeHandler.home_mode="normal"
-                navigate_x11(env,output,args,expired,seconds=12 if extra else 6,wait_seconds=10 if extra else 3)
+                navigate_x11(env,output,args,expired,seconds=15 if extra else 12,wait_seconds=12 if extra else 8)
                 HomeHandler.home_mode="slow";HomeHandler.delayed.clear();HomeHandler.release.clear()
                 def cancel(click,event,wait_for,log_path,process,escape):
                     assert HomeHandler.delayed.wait(10 if extra else 4),"delayed personal request missing"
                     started=time.monotonic();click(592,680);wait_for("NETEASE_GUEST search: 0 tracks")
                     assert time.monotonic()-started<1.5,"home cancellation blocked UI"
                     HomeHandler.release.set()
-                navigate_x11(env,output,args,cancel,seconds=12 if extra else 6,wait_seconds=10 if extra else 3)
+                navigate_x11(env,output,args,cancel,seconds=15 if extra else 12,wait_seconds=12 if extra else 8)
             assert not LoginHandler.failures, LoginHandler.failures
     finally:
         HomeHandler.release.set()

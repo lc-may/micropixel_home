@@ -39,7 +39,7 @@ class MusicModel final {
             StartInitial();
         Draw();
         app_.log().Info("NETEASE_GUEST started: SDK Scene + Network HTTP + Audio URL");
-        app_.log().Info("NETEASE_GUEST version: 0.6.0");
+        app_.log().Info("NETEASE_GUEST version: 0.8.0");
         initialized_ = true;
     }
 

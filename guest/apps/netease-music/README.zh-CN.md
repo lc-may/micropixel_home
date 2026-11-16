@@ -6,6 +6,8 @@ MicroPixel SDK 应用：单线程 Wasm、Scene/TextButton 界面、HTTP 搜索�
 登录成功或恢复会话后默认进入“我的音乐”，显示昵称、签名、头像及创建/收藏的歌单。
 底部切换“每日推荐 / 我的音乐 / 搜索”，列表支持滑动。点击歌曲进入独立播放页，
 支持封面、红星、上一首/下一首、播放/暂停、停止和拖动进度；松手才提交跳转。
+新版采用 MixPad 4 面板风格：深灰/暖棕背景、顶部专辑信息、中央橙色圆形播放键、横排切歌和底部进度条。
+列表、账户与登录页面使用相同配色，收藏保持红星；列表按钮返回当前音乐来源。
 底部迷你播放器保持当前播放，切换页面不会替换播放队列。
 红星同步加入或移出网易云“我喜欢的音乐”；等待服务器确认时阻止重复提交，失败后重新同步状态。
 “账户”管理记住登录和退出；会话失效或退出时清除个人列表、头像和播放队列。
@@ -110,7 +112,8 @@ bash tools/tests/test_firmware_host.sh --pc --home --rv32
 日推每轮最多追加 30 首；歌单索引最多保留前 2000 首。HTTP 响应仍限制为 256 KiB，超出容量会提示读取失败。
 头像仅接受网易云官方 HTTPS 地址，最多 64 KiB / 512×512，失败时使用默认图案。
 
-界面参考[网易云官方手机版](https://apps.apple.com/cn/app/id590338362)，通用控件与输入契约见
+音乐内容组织参考[网易云官方手机版](https://apps.apple.com/cn/app/id590338362)，视觉与布局见
+[MixPad 4 面板设计](../../../docs/design/panel-ui.zh-CN.md)，通用控件与输入契约见
 [Guest UI 控件](../../../docs/design/guest-ui-widgets.zh-CN.md)。喜欢状态最多同步 20000 个 ID，仍受 256 KiB 响应限制。
 收藏相关参考：[喜欢/取消喜欢](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced/blob/main/module/like.js)、
 [喜欢状态列表](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced/blob/main/module/likelist.js)。

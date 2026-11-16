@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """D4: playback survives a long page request, another Guest and UI teardown."""
+from test_pc_market import open_home_app, open_home_market
 import array
 import http.server
 import json
@@ -80,7 +81,7 @@ def main():
                        SDL_AUDIODRIVER="disk", SDL_DISKAUDIOFILE=str(pcm))
 
             def scenario(click, event, wait_for, log_path, process, escape):
-                click(120, 180)
+                open_home_app(click, 0)
                 wait_for("NETEASE_GUEST search: 6 tracks")
                 click(130, 190)
                 wait_for("NETEASE_GUEST selected: 101")
@@ -90,7 +91,7 @@ def main():
                 wait_for("NETEASE_LOGIN poll start:")
                 assert Handler.long_started.wait(3), log_path.read_text()
                 event.key(0xffbe)
-                click(480, 180)
+                open_home_app(click, 1)
                 wait_for("APP_SHELL started: " + peer_id)
                 wait_for("NETEASE_GUEST selected: 102")
                 wait_for("NETEASE_GUEST selected: 103")
@@ -128,7 +129,7 @@ def main():
             env = dict(os.environ, MICROPIXEL_PC_DATA_DIR=str(directory / "storage"))
 
             def recreate(click, event, wait_for, log_path, process, escape):
-                click(120, 180)
+                open_home_app(click, 0)
                 wait_for("NETEASE_LOGIN authenticated")
                 wait_for("NETEASE_HOME playlists:")
                 click(120, 680)
@@ -137,7 +138,7 @@ def main():
                 wait_for("NETEASE_ACTIVITY destroyed")
                 wait_for("Audio playing:")
                 before = log_path.read_text().count("NETEASE_ACTIVITY created")
-                click(120, 180)
+                open_home_app(click, 0)
                 deadline = time.monotonic() + 4
                 while log_path.read_text().count("NETEASE_ACTIVITY created") == before and time.monotonic() < deadline:
                     time.sleep(.03)

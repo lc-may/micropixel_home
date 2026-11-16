@@ -11,6 +11,7 @@ struct ListItemStyle {
     const char* selected_action_icon{symbols::kOk};
     Color background{Color::White()}, title{Color::Rgb(28, 34, 43)}, subtitle{Color::Rgb(120, 128, 140)};
     Color action{Color::Rgb(145, 151, 161)}, selected{Color::Rgb(218, 55, 73)};
+    Color action_selected{Color::Rgb(218, 55, 73)}, divider{Color::Rgb(235, 238, 242)};
 };
 // Separate body/action hit regions. Labels are clipped before the trailing action.
 class ListItem final {
@@ -29,6 +30,9 @@ class ListItem final {
         result.root_ =
             parent.CreateContainer({.clip = {0, 0, bounds.width, bounds.height}, .translation = {bounds.x, bounds.y}})
                 .value();
+        (void)result.root_
+            .CreateRoundedRect({0, 0, bounds.width, bounds.height}, {.fill = style.background, .radius = 16})
+            .value();
         result.body_ = Button({0, 0, bounds.width - 64, bounds.height});
         result.feedback_ = result.root_.CreateShape({0, 0, bounds.width, bounds.height}, style.selected, 0).value();
         auto text =
@@ -38,7 +42,7 @@ class ListItem final {
         result.subtitle_ = text.CreateLabel({0, 41}, " ", style.subtitle, SystemFont::kSmall).value();
         result.leading_ = result.root_.CreateLabel({20, 24}, " ", style.subtitle, SystemFont::kSmall, true).value();
         result.divider_ =
-            result.root_.CreateShape({52, bounds.height - 1, bounds.width - 64, 1}, Color::Rgb(235, 238, 242)).value();
+            result.root_.CreateShape({52, bounds.height - 1, bounds.width - 64, 1}, style.divider).value();
         result.action_ = IconButton::CreateIn(result.root_, {.bounds = {bounds.width - 60, 8, 56, bounds.height - 16},
                                                              .icon = style.action_icon,
                                                              .selected_icon = style.selected_action_icon,
@@ -47,7 +51,7 @@ class ListItem final {
                                                                        .feedback = Color::White(),
                                                                        .font = SystemFont::kLarge,
                                                                        .corner_radius = 20},
-                                                             .selected_color = style.selected});
+                                                             .selected_color = style.action_selected});
         return result;
     }
     void Destroy() {

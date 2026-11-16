@@ -30,6 +30,17 @@ Image.new("RGB", (80, 80), (220, 30, 150)).save(cover, "PNG")
 COVER = cover.getvalue()
 
 
+def open_home_app(click, index):
+    """Open a catalog entry through the panel's Apps drawer."""
+    click(410, 686)
+    click(120 + (index % 2) * 348, 180 + (index // 2) * 116)
+
+
+def open_home_market(click):
+    click(410, 686)
+    click(500, 40)
+
+
 def navigate_x11(env, output, arguments=(), driver=None, seconds=10, wait_seconds=3):
     """Send events only to this test's X11 window; do not move the user's pointer."""
     import ctypes as c
@@ -165,7 +176,7 @@ def navigate_x11(env, output, arguments=(), driver=None, seconds=10, wait_second
                 assert process.wait(timeout=max(20,seconds+5)) == 0, log_path.read_text(errors="replace")
                 assert not x_errors,x_errors
                 return
-            click(640, 55)  # Local hall -> market.
+            open_home_market(click)
             wait_for("Market catalog: 7 entries")
             click(130, 300)  # First card -> detail, interrupting pending cover work.
             wait_for("Market detail: test.market.demo0; 2 releases")
@@ -177,7 +188,7 @@ def navigate_x11(env, output, arguments=(), driver=None, seconds=10, wait_second
                 time.sleep(0.05)
             assert Handler.requests.count("/api/v1/store/apps") == 2, Handler.requests
             click(80, 45)  # Market -> local hall.
-            click(640, 55)  # Reopen cached market.
+            open_home_market(click)
             event(2, keycode(display, 0xff1b))  # Esc -> local hall.
             event(3, keycode(display, 0xff1b))
             assert process.wait(timeout=15) == 0, log_path.read_text(errors="replace")

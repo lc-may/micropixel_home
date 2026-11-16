@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Execute a pinned public market AOT with QEMU, then test the Host boundary."""
+from test_pc_market import open_home_app, open_home_market
 import hashlib
 import http.server
 import json
@@ -121,12 +122,12 @@ def main():
             old.write_bytes(data)
             peer = descriptor(app_path("components-demo", "rv32"), output / "b-peer.pc.json", "micropixel.components-demo")
             def multi_home(click, event, wait_for, log_path, process, escape):
-                click(480, 180);wait_for("COMP service started")
+                open_home_app(click, 1);wait_for("COMP service started")
                 event.key(0xffbe);time.sleep(.15)
-                click(120, 180);wait_for("first frame up")
+                open_home_app(click, 0);wait_for("first frame up")
                 text=log_path.read_text();started=re.search(r"app=com.lckfb.jump owner=([^ ]+) pid=(\d+)",text);assert started,text
                 event.key(0xffbe);wait_for("Guest services suspended at a WaitEvent safe point")
-                time.sleep(.2);click(120, 180);wait_for("APP_SHELL foreground: com.lckfb.jump reused=1")
+                time.sleep(.2);open_home_app(click, 0);wait_for("APP_SHELL foreground: com.lckfb.jump reused=1")
                 text=log_path.read_text();assert text.count("RV32 bridge connected: com.lckfb.jump")==1,text
                 assert "APP_SHELL stopped: micropixel.components-demo" not in text
                 assert "HOME_WIDGET snapshot: app=0" not in text,"Legacy Guest acquired a fabricated widget"
@@ -159,7 +160,7 @@ def main():
                         time.sleep(.03)
                     assert log_path.read_text().count(stopped) == index + 1, log_path.read_text()
                     if index < 2:
-                        click(120, 180)
+                        open_home_app(click, 0)
             navigate_x11(env, output, ["--autostart", bundle], drive, seconds=12)
             log = (output / "navigation.log").read_text(errors="replace")
             assert log.count("RV32 bridge connected") == 3, log

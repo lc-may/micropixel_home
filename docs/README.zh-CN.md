@@ -14,6 +14,7 @@
 | 设计 | 开发 |
 |---|---|
 | [架构](design/architecture.zh-CN.md) | [构建与烧录](development/flashing.zh-CN.md) |
+| [Home、音乐、天气与日历面板](design/panel-ui.zh-CN.md) | [面板运行与验证](development/panel-ui.zh-CN.md) |
 | [AppManager、Activity 与 App Service（HTML 提案）](design/app-manager.zh-CN.html) | [多应用框架九次交付实施计划（HTML）](development/app-manager-plan.zh-CN.html) |
 | — | [C/C++ 风格](development/code-style.zh-CN.md) |
 | [Service ABI](../guest/abi/README.zh-CN.md) | [图形性能](development/graphics-performance.zh-CN.md) |

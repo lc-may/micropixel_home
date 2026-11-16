@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Three actual application Guests, Host alarm/input/focus and optional 10-minute soak."""
+from test_pc_market import open_home_app, open_home_market
 import array,http.server,json,math,os,re,subprocess,sys,tempfile,threading,time,urllib.parse
 from pc_test_backend import app_path
 from pathlib import Path
@@ -48,22 +49,22 @@ def main():
                     def amplitude(hz):return abs(sum(value*complex(math.cos(2*math.pi*hz*i/48000),math.sin(2*math.pi*hz*i/48000)) for i,value in enumerate(left)))*2/n
                     return amplitude(440),amplitude(880)
                 wait_for("WEATHER refresh success");wait_for("CLOCK service ready")
-                wait_new("CLOCK activity created",lambda:click(480,180))
+                wait_new("CLOCK activity created",lambda:open_home_app(click, 1))
                 wait_new("CLOCK test alarm registered",lambda:click(510,475))
                 wait_new("APP_SHELL stopped: micropixel.clock-alarm",escape)
                 assert "ALARM overlay visible" not in log_path.read_text()
-                click(120,300);wait_for("NETEASE_LOGIN authenticated");wait_for("NETEASE_HOME playlists:")
+                open_home_app(click, 2);wait_for("NETEASE_LOGIN authenticated");wait_for("NETEASE_HOME playlists:")
                 click(120,680);wait_for("NETEASE_HOME recommendations: 30");click(140,220);wait_for("Audio playing:");baseline=tones()[0]
                 wait_for("ALARM overlay visible");wait_for("ALARM focus active=1");wait_for("NETEASE_FOCUS ducked")
                 during=tones();assert baseline>100 and during[0]<baseline*.4 and during[1]>100,(baseline,during)
                 assert "APP_SHELL started: micropixel.clock-alarm" in log_path.read_text()
                 assert log_path.read_text().count("APP_SHELL started: micropixel.clock-alarm")==1,"Host alarm restarted a user-stopped Clock Guest"
-                seek_count=log_path.read_text().count("NETEASE_GUEST seek:");click(650,200);assert log_path.read_text().count("NETEASE_GUEST seek:")==seek_count
+                seek_count=log_path.read_text().count("NETEASE_GUEST seek:");click(650,582);assert log_path.read_text().count("NETEASE_GUEST seek:")==seek_count
                 wait_new("NETEASE_WIDGET playing=0",lambda:click(350,480))
                 wait_new("ALARM overlay closed",lambda:click(350,390))
                 wait_for("ALARM focus active=0");assert not sound(),"focus release revived user-paused music"
                 event.key(0xffbe)
-                wait_new("HOME_MEDIA paused=0",lambda:click(510,631));assert sound()
+                wait_new("HOME_MEDIA paused=0",lambda:click(548,606));assert sound()
                 home_start=time.monotonic();ticks=0
                 print("D7 combined playback soak started" if soak else "D7 alarm integration started",flush=True)
                 while soak and time.monotonic()-home_start<600:
@@ -73,7 +74,7 @@ def main():
                     if ticks%2==0:
                         text=log_path.read_text();match=re.search(r"HOME_WIDGET snapshot: app=0 template=1 .*index=(\d+)",text);assert match,text[-10000:]
                         index=int(match.group(1));x=270 if index==0 else 610
-                        wait_new("WEATHER refresh success",lambda:click(x,490))
+                        wait_new("WEATHER refresh success",lambda:click(660,96))
                     assert "Guest failed:" not in log_path.read_text(),log_path.read_text()[-14000:]
                     print(f"D7 combined soak {ticks*30}s: PCM active, weather refreshes={Handler.weather_requests}",flush=True)
                 if soak:assert log_path.read_text().count("Audio playing:")>=10,"automatic next-track stopped"

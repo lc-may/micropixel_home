@@ -5,6 +5,7 @@
 #include "client.hpp"
 #include "music_state.hpp"
 #include "sdk/micropixel.hpp"
+#include "sdk/ui/panel.hpp"
 #include "view_text.hpp"
 
 namespace netease {
@@ -21,21 +22,22 @@ class MusicView final {
         seek_.Cancel();
         mini_body_.Reset();
         for (auto* button : {&mini_like_, &mini_play_, &mini_next_, &player_back_, &player_stop_, &previous_, &play_,
-                             &next_, &player_like_})
+                             &next_, &player_like_, &player_list_})
             button->Reset();
     }
     explicit MusicView(micropixel::Scene& scene) {
         using namespace micropixel;
         browser_ = scene.CreateContainer().value();
         (void)browser_.CreateShape({0, 0, 720, 720}, kBackground).value();
+        ui::panel::Card(browser_, {16, 10, 688, 56});
         heading_clip_ = browser_.CreateContainer({.clip = {0, 0, 500, 48}, .translation = {24, 16}}).value();
         heading_ = heading_clip_.CreateLabel({0, 4}, "我的音乐", kText, SystemFont::kLarge).value();
         hint_ = browser_.CreateLabel({24, 68}, " ", kMuted, SystemFont::kSmall).value();
         auto button = [&](unsigned i, Rect bounds, const char* text, bool primary = false) {
             buttons_[i] = browser_.CreateTextButton({.bounds = bounds,
                                                      .text = text,
-                                                     .style = {.background = primary ? kRed : kWhite,
-                                                               .text = primary ? kWhite : kText,
+                                                     .style = {.background = primary ? kAccent : kSurface,
+                                                               .text = primary ? kBackground : kText,
                                                                .feedback = kMuted,
                                                                .font = SystemFont::kMedium,
                                                                .corner_radius = 14},
@@ -52,9 +54,9 @@ class MusicView final {
         button(8, {488, 656, 208, 48}, "搜索");
         button(9, {24, 18, 48, 40}, symbols::kLeft);
         for (unsigned i = 0; i < 3; ++i)
-            tab_marks_[i] = browser_.CreateShape({108 + int(i) * 232, 708, 40, 3}, kRed).value();
+            tab_marks_[i] = browser_.CreateShape({108 + int(i) * 232, 708, 40, 3}, kAccent).value();
         profile_ = browser_.CreateContainer({.clip = {0, 0, 672, 68}, .translation = {24, 78}}).value();
-        (void)profile_.CreateRoundedRect({0, 0, 64, 64}, {.fill = Color::Rgb(250, 224, 228), .radius = 20}).value();
+        (void)profile_.CreateRoundedRect({0, 0, 64, 64}, {.fill = ui::panel::Raised, .radius = 20}).value();
         profile_placeholder_ = profile_.CreateLabel({32, 17}, "云", kRed, SystemFont::kLarge, true).value();
         profile_name_ = profile_.CreateLabel({84, 2}, " ", kText, SystemFont::kLarge).value();
         profile_signature_ = profile_.CreateLabel({84, 44}, " ", kMuted, SystemFont::kSmall).value();
@@ -62,75 +64,82 @@ class MusicView final {
         scroll_ = ui::ScrollView::CreateIn(browser_, {24, 268, 672, 280});
         for (auto& row : rows_)
             row = ui::ListItem::CreateIn(scroll_.content(), {0, 0, 664, 74},
-                                         {.action_icon = "☆", .selected_action_icon = "★"});
+                                         {.action_icon = "☆",
+                                          .selected_action_icon = "★",
+                                          .background = kSurface,
+                                          .title = kText,
+                                          .subtitle = kMuted,
+                                          .action = kMuted,
+                                          .selected = kAccent,
+                                          .action_selected = kRed,
+                                          .divider = ui::panel::Line});
         empty_ = browser_.CreateLabel({360, 340}, " ", kMuted, SystemFont::kMedium, true).value();
         notice_ = browser_.CreateLabel({360, 552}, " ", kMuted, SystemFont::kSmall, true).value();
-        (void)browser_.CreateRoundedRect({24, 584, 672, 58}, {.fill = kWhite, .radius = 16}).value();
-        (void)browser_.CreateRoundedRect({32, 592, 42, 42}, {.fill = Color::Rgb(250, 224, 228), .radius = 12}).value();
+        (void)browser_.CreateRoundedRect({24, 584, 672, 58}, {.fill = kSurface, .radius = 16}).value();
+        (void)browser_.CreateRoundedRect({32, 592, 42, 42}, {.fill = ui::panel::Raised, .radius = 12}).value();
         mini_placeholder_ = browser_.CreateLabel({53, 601}, symbols::kAudio, kRed, SystemFont::kMedium, true).value();
         auto mini_text = browser_.CreateContainer({.clip = {0, 0, 404, 50}, .translation = {88, 588}}).value();
         mini_title_ = mini_text.CreateLabel({0, 2}, "还没有播放音乐", kText, SystemFont::kMedium).value();
         mini_artist_ = mini_text.CreateLabel({0, 31}, "选一首喜欢的歌", kMuted, SystemFont::kSmall).value();
         mini_body_ = ui::Button({24, 584, 468, 58});
         auto icon = [&](Container& parent, Rect bounds, const char* symbol, Color bg, Color fg) {
-            return ui::IconButton::CreateIn(parent, {.bounds = bounds,
-                                                     .icon = symbol,
-                                                     .style = {.background = bg,
-                                                               .text = fg,
-                                                               .feedback = kMuted,
-                                                               .font = SystemFont::kLarge,
-                                                               .corner_radius = 48},
-                                                     .selected_color = kRed});
+            return ui::IconButton::CreateIn(
+                parent, {.bounds = bounds,
+                         .icon = symbol,
+                         .style = {.background = bg,
+                                   .text = fg,
+                                   .feedback = kMuted,
+                                   .font = SystemFont::kLarge,
+                                   .corner_radius = uint32_t(std::min(bounds.width, bounds.height) / 2)},
+                         .selected_color = kRed});
         };
         mini_like_ = ui::IconButton::CreateIn(browser_, {.bounds = {500, 588, 48, 48},
                                                          .icon = "☆",
                                                          .selected_icon = "★",
-                                                         .style = {.background = kWhite,
+                                                         .style = {.background = kSurface,
                                                                    .text = kMuted,
                                                                    .feedback = kWhite,
                                                                    .font = SystemFont::kLarge,
                                                                    .corner_radius = 24},
                                                          .selected_color = kRed});
-        mini_play_ = icon(browser_, {556, 588, 56, 48}, symbols::kPlay, kWhite, kText);
-        mini_next_ = icon(browser_, {624, 588, 56, 48}, symbols::kNext, kWhite, kText);
+        mini_play_ = icon(browser_, {556, 588, 56, 48}, symbols::kPlay, kSurface, kText);
+        mini_next_ = icon(browser_, {624, 588, 56, 48}, symbols::kNext, kSurface, kText);
 
         player_ = scene.CreateContainer({.z_order = 20, .visible = false}).value();
-        (void)player_.CreateShape({0, 0, 720, 720}, Color::Rgb(23, 30, 42)).value();
-        (void)player_.CreateLabel({360, 23}, "正在播放", kWhite, SystemFont::kMedium, true).value();
-        player_back_ = icon(player_, {24, 16, 56, 48}, symbols::kDown, Color::Rgb(23, 30, 42), kWhite);
-        player_stop_ = icon(player_, {624, 16, 56, 48}, symbols::kStop, Color::Rgb(23, 30, 42), kWhite);
+        for (unsigned i = 0; i < 30; ++i)
+            (void)player_
+                .CreateShape({int(i) * 24, 0, 24, 720}, Color::Rgb(58 - 40 * i / 29, 41 - 16 * i / 29, 35 + 3 * i / 29))
+                .value();
+        (void)player_.CreateLabel({360, 24}, "网易云音乐", kMuted, SystemFont::kMedium, true).value();
+        player_back_ = icon(player_, {24, 16, 56, 48}, symbols::kDown, kBackground, kWhite);
+        player_stop_ = icon(player_, {624, 16, 56, 48}, symbols::kStop, kBackground, kWhite);
         cover_placeholder_ = player_.CreateContainer().value();
-        (void)cover_placeholder_.CreateRoundedRect({248, 96, 224, 224}, {.fill = Color::Rgb(42, 51, 66), .radius = 112})
-            .value();
-        (void)cover_placeholder_.CreateRoundedRect({296, 144, 128, 128}, {.fill = Color::Rgb(68, 77, 91), .radius = 64})
-            .value();
-        (void)cover_placeholder_.CreateRoundedRect({332, 180, 56, 56}, {.fill = kRed, .radius = 28}).value();
-        (void)cover_placeholder_.CreateLabel({360, 190}, symbols::kAudio, kWhite, SystemFont::kLarge, true).value();
-        player_title_ = player_.CreateLabel({360, 342}, "请选择歌曲", kWhite, SystemFont::kLarge, true).value();
-        player_artist_ =
-            player_.CreateLabel({360, 384}, " ", Color::Rgb(179, 187, 201), SystemFont::kMedium, true).value();
-        player_like_ = ui::IconButton::CreateIn(player_, {.bounds = {332, 422, 56, 40},
+        (void)cover_placeholder_.CreateRoundedRect({48, 112, 104, 104}, {.fill = kSurface, .radius = 52}).value();
+        (void)cover_placeholder_.CreateRoundedRect({78, 142, 44, 44}, {.fill = kAccent, .radius = 22}).value();
+        (void)cover_placeholder_.CreateLabel({100, 150}, symbols::kAudio, kWhite, SystemFont::kMedium, true).value();
+        auto track_text = player_.CreateContainer({.clip = {0, 0, 508, 112}, .translation = {176, 112}}).value();
+        player_title_ = track_text.CreateLabel({0, 2}, "请选择歌曲", kWhite, SystemFont::kTitle).value();
+        player_artist_ = track_text.CreateLabel({0, 58}, " ", kMuted, SystemFont::kLarge).value();
+        previous_ = icon(player_, {152, 286, 80, 80}, symbols::kPrevious, kBackground, kWhite);
+        play_ = icon(player_, {296, 262, 128, 128}, symbols::kPlay, kAccent, kWhite);
+        next_ = icon(player_, {488, 286, 80, 80}, symbols::kNext, kBackground, kWhite);
+        player_like_ = ui::IconButton::CreateIn(player_, {.bounds = {96, 448, 72, 64},
                                                           .icon = "☆",
                                                           .selected_icon = "★",
-                                                          .style = {.background = Color::Rgb(23, 30, 42),
-                                                                    .text = Color::Rgb(179, 187, 201),
+                                                          .style = {.background = kBackground,
+                                                                    .text = kWhite,
                                                                     .feedback = kMuted,
-                                                                    .font = SystemFont::kLarge,
-                                                                    .corner_radius = 20},
+                                                                    .font = SystemFont::kTitle,
+                                                                    .corner_radius = 32},
                                                           .selected_color = kRed});
-        seek_ = ui::Slider::CreateIn(player_, {.bounds = {40, 472, 640, 32},
-                                               .maximum = 0,
-                                               .track = Color::Rgb(73, 83, 99),
-                                               .fill = kWhite,
-                                               .thumb = kWhite});
-        elapsed_ = player_.CreateLabel({48, 510}, "0:00", Color::Rgb(179, 187, 201), SystemFont::kSmall).value();
-        duration_ =
-            player_.CreateLabel({672, 510}, "0:00", Color::Rgb(179, 187, 201), SystemFont::kSmall, true).value();
-        previous_ = icon(player_, {176, 556, 80, 80}, symbols::kPrevious, Color::Rgb(23, 30, 42), kWhite);
-        play_ = icon(player_, {312, 548, 96, 96}, symbols::kPlay, kRed, kWhite);
-        next_ = icon(player_, {464, 556, 80, 80}, symbols::kNext, Color::Rgb(23, 30, 42), kWhite);
-        player_notice_ =
-            player_.CreateLabel({360, 668}, " ", Color::Rgb(179, 187, 201), SystemFont::kSmall, true).value();
+        (void)player_.CreateLabel({360, 466}, "顺序播放", kMuted, SystemFont::kMedium, true).value();
+        player_list_ = icon(player_, {552, 448, 72, 64}, symbols::kList, kBackground, kWhite);
+        seek_ = ui::Slider::CreateIn(
+            player_,
+            {.bounds = {48, 566, 624, 32}, .maximum = 0, .track = ui::panel::Line, .fill = kWhite, .thumb = kWhite});
+        elapsed_ = player_.CreateLabel({56, 610}, "0:00", kMuted, SystemFont::kSmall).value();
+        duration_ = player_.CreateLabel({664, 610}, "0:00", kMuted, SystemFont::kSmall, true).value();
+        player_notice_ = player_.CreateLabel({360, 676}, " ", kMuted, SystemFont::kSmall, true).value();
     }
     void ClearImages() {
         ClearCover();
@@ -162,7 +171,7 @@ class MusicView final {
         ClearCover();
         cover_ = std::move(*image);
         const micropixel::Rect source{0, 0, int32_t(cover_.width()), int32_t(cover_.height())};
-        cover_node_ = player_.CreateSprite(cover_, {248, 96, 224, 224}, source).value();
+        cover_node_ = player_.CreateSprite(cover_, {48, 112, 104, 104}, source).value();
         mini_cover_ = browser_.CreateSprite(cover_, {32, 592, 42, 42}, source).value();
         cover_placeholder_.SetVisible(false);
         mini_placeholder_.SetVisible(false);
@@ -235,8 +244,8 @@ class MusicView final {
                                 : i == 1 ? (library || collection)
                                          : searching;
                 auto style = buttons_[6 + i].style();
-                if (style.text != (selected ? kRed : kText)) {
-                    style.text = selected ? kRed : kText;
+                if (style.text != (selected ? kAccent : kText)) {
+                    style.text = selected ? kAccent : kText;
                     buttons_[6 + i].SetStyle(style).value();
                 }
                 tab_marks_[i].SetVisible(selected);
@@ -293,6 +302,7 @@ class MusicView final {
             icon(play_, MusicActionKind::kToggle);
             icon(next_, MusicActionKind::kNext);
             icon(player_like_, MusicActionKind::kFavorite);
+            icon(player_list_, MusicActionKind::kBack);
             auto seek = seek_.OnTouch(event);
             changed |= seek.changed;
             if (seek.committed) result = {MusicActionKind::kSeek, 0, seek_.value()};
@@ -373,10 +383,10 @@ class MusicView final {
             }
         }
     }
-    static constexpr micropixel::Color kBackground = micropixel::Color::Rgb(247, 248, 250),
-                                       kWhite = micropixel::Color::White(), kText = micropixel::Color::Rgb(28, 34, 43),
-                                       kMuted = micropixel::Color::Rgb(124, 132, 144),
-                                       kRed = micropixel::Color::Rgb(218, 55, 73);
+    static constexpr micropixel::Color kBackground = micropixel::ui::panel::Background,
+                                       kSurface = micropixel::ui::panel::Surface, kWhite = micropixel::ui::panel::Text,
+                                       kText = micropixel::ui::panel::Text, kMuted = micropixel::ui::panel::Muted,
+                                       kRed = micropixel::ui::panel::Red, kAccent = micropixel::ui::panel::Accent;
     micropixel::ContainerNode browser_, player_, profile_, cover_placeholder_, heading_clip_;
     micropixel::LabelNode heading_, hint_, profile_name_, profile_signature_, profile_placeholder_, section_, empty_,
         notice_, mini_title_, mini_artist_, mini_placeholder_, player_title_, player_artist_, elapsed_, duration_,
@@ -389,7 +399,7 @@ class MusicView final {
     micropixel::ui::Slider seek_;
     micropixel::ui::Button mini_body_;
     micropixel::ui::IconButton mini_like_, mini_play_, mini_next_, player_back_, player_stop_, previous_, play_, next_,
-        player_like_;
+        player_like_, player_list_;
     micropixel::Texture avatar_, cover_;
     micropixel::SpriteNode avatar_node_, cover_node_, mini_cover_;
     MusicState state_;

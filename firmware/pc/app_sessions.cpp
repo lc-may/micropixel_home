@@ -753,8 +753,7 @@ bool AppSessions::Widget(uint32_t index, host::WidgetSnapshot& out) {
                     next = &record;
                     break;
                 }
-            std::snprintf(out.data.subtitle, sizeof(out.data.subtitle),
-                          next ? "闹钟已开启 · Host 计时" : "暂无闹钟 · Host 计时");
+            std::snprintf(out.data.subtitle, sizeof(out.data.subtitle), next ? "闹钟已开启" : "暂无闹钟");
             out.data.updated_utc = now.utc;
             out.expired = false;
         } else {
@@ -770,7 +769,9 @@ int32_t AppSessions::WidgetAction(const host::WidgetSnapshot& widget, uint16_t t
     std::lock_guard lock(shared.mutex);
     if (widget.app >= impl_->apps.size() || !impl_->apps[widget.app]->available || impl_->removing[widget.app])
         return MICROPIXEL_STATUS_CANCELLED;
-    if (type == MICROPIXEL_ACTION_REFRESH && widget.data.template_id == MICROPIXEL_WIDGET_WEATHER && !widget.online) {
+    if (!widget.online &&
+        ((type == MICROPIXEL_ACTION_REFRESH && widget.data.template_id == MICROPIXEL_WIDGET_WEATHER) ||
+         (type == MICROPIXEL_ACTION_OPEN_PAGE && widget.data.template_id == MICROPIXEL_WIDGET_CLOCK && value <= 2))) {
         bool current = false;
         host::WidgetSnapshot item{};
         for (uint32_t i = 0; i < 8; ++i)
@@ -823,6 +824,27 @@ uint64_t AppSessions::NextHomeRequest() {
     auto& state = impl_->hub;
     std::lock_guard lock(state.mutex);
     return state.home_sequence == UINT64_MAX ? 0 : ++state.home_sequence;
+}
+AppSessions::PlannerSummary AppSessions::Planner() {
+    auto& state = impl_->hub;
+    std::lock_guard lock(state.mutex);
+    PlannerSummary summary;
+    for (const auto& record : state.alarms.Records()) {
+        if (record.app >= impl_->apps.size() || impl_->apps[record.app]->app_id != "micropixel.clock-alarm") continue;
+        if (record.plan.id >= 3) ++summary.note_records;
+        const auto next = state.alarms.NextOccurrence(record.app, record.plan.id);
+        if (!next) continue;
+        if (record.plan.id < 3) {
+            if (!summary.alarm_utc || next < summary.alarm_utc) summary.alarm_utc = next;
+        } else {
+            ++summary.pending_notes;
+            if (!summary.note_utc || next < summary.note_utc) {
+                summary.note_utc = next;
+                std::memcpy(summary.note.data(), record.plan.label, summary.note.size());
+            }
+        }
+    }
+    return summary;
 }
 AppSessions::AlarmState AppSessions::Alarm() {
     auto& state = impl_->hub;

@@ -143,6 +143,11 @@ void AlarmScheduler::Process(uint64_t now, uint64_t utc, int32_t offset, bool va
     ring_count_ = std::count(active_.begin(), active_.end(), true);
     if (ringing_ && now >= ring_until_) StopRinging();
 }
+uint64_t AlarmScheduler::NextOccurrence(uint32_t app, uint32_t id) const {
+    for (uint32_t i = 0; i < records_.size(); ++i)
+        if (records_[i].app == app && records_[i].plan.id == id) return next_[i];
+    return 0;
+}
 void AlarmScheduler::StopRinging(uint32_t app) {
     for (uint32_t i = 0; i < kCapacity; ++i)
         if (app == UINT32_MAX || records_[i].app == app) active_[i] = false;

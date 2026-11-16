@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Real Wasm component wire contract, concurrent HTTP, HMI and legacy policy."""
+from test_pc_market import open_home_app, open_home_market
 import array
 import http.server
 import json
@@ -82,10 +83,10 @@ def main():
                 while count(app, message) < expected and time.monotonic() < deadline:
                     time.sleep(0.02)
                 assert count(app, message) >= expected, text()
-            click(120, 180)
+            open_home_app(click, 0)
             wait_for(marker("a", "heartbeat=25"))
             event.key(0xffbe)
-            click(480, 180)
+            open_home_app(click, 1)
             wait_for(marker("b", "resumed"))
             wait_for(marker("a", "HTTP bytes="))
             wait_for(marker("b", "HTTP bytes="))
@@ -98,24 +99,24 @@ def main():
             time.sleep(0.35)
             assert count("a", "heartbeat=") > before, text()
             event.key(0xffbe)
-            click(120, 300)  # Legacy v1 app: foreground only in --multi-app.
+            open_home_app(click, 2)  # Legacy v1 app: foreground only in --multi-app.
             wait_for("LEGACY heartbeat")
             event.key(0xffbe)
             time.sleep(0.2)
             stopped = text().count("LEGACY heartbeat")
             time.sleep(0.4)
             assert text().count("LEGACY heartbeat") == stopped, text()
-            click(120, 300)
+            open_home_app(click, 2)
             time.sleep(0.3)
             assert text().count("LEGACY heartbeat") > stopped, text()
             event.key(0xffbe)
-            click(120, 180)
+            open_home_app(click, 0)
             wait_count("a", "resumed", 2)
             assert count("a", "create=") == 1
             click(120, 550)
             wait_for(marker("a", "destroyed"))
             time.sleep(0.2)
-            click(120, 180)
+            open_home_app(click, 0)
             wait_for(marker("a", "create=2"))
             wait_count("a", "resumed", 3)
             click(350, 550)
@@ -128,14 +129,14 @@ def main():
             click(350, 550)
             wait_count("a", "service started", 2)
             event.key(0xffbe)
-            click(480, 180)
+            open_home_app(click, 1)
             wait_count("b", "resumed", 2)
             click(580, 550)
             wait_for("APP_SHELL stopped: test.components.b")
             before = count("a", "heartbeat=")
             time.sleep(0.35)
             assert count("a", "heartbeat=") > before, text()
-            click(120, 180)
+            open_home_app(click, 0)
             wait_count("a", "resumed", 4)
             assert count("a", "create=") == 2
             color.append(int(re.search(r"test.components.a level=2\] COMP color=(\d+)", text()).group(1)))

@@ -92,7 +92,7 @@ def main():
                 bottom(lambda:"added=3 total=23" in log_path.read_text())
                 wait("NETEASE_HOME recommendations: 30",lambda:click(128,680))
                 HomeHandler.resolve_id=1001
-                wait("Audio playing:",lambda:click(240,229));wait("已暂停",lambda:click(360,596));click(50,40)
+                wait("Audio playing:",lambda:click(240,229));wait("已暂停",lambda:click(360,326));click(50,40)
                 bottom(lambda:HomeHandler.recommendation_started.is_set())
                 assert HomeHandler.recommendation_requests==2
                 swipe();swipe()
