@@ -136,8 +136,8 @@ bool Parse(int argc, char** argv, Options& options) {
                 "       [--music | --music-login | --music-query TEXT | --music-song SONG_ID] [--guest-arg TEXT ...]\n"
                 "       [--http URL --output file | --mqtt URL --topic TOPIC --message TEXT]\n"
                 "       [app.pc.json | app.wasm | apps-directory ...]\n"
-                "Mouse: touch; arrows/WASD: direction; Enter: confirm; Home/F1: Home (keep app running); Esc: close "
-                "app");
+                "Mouse: touch; arrows/WASD: direction; Enter: confirm; Esc/Home/F1: Home (keep app running); "
+                "Home Close button: stop app");
             return false;
         } else if (arg == "--headless")
             options.headless = true;
@@ -580,6 +580,7 @@ int main(int argc, char** argv) {
                     SDL_StopTextInput();
             }
             bool stop = false;
+            bool back = false;
             bool go_home = false;
             for (size_t i = 0; i < count; ++i) {
                 const auto& event = pending[i];
@@ -605,11 +606,11 @@ int main(int argc, char** argv) {
                         continue;
                     }
                     if (event.key.keysym.sym == SDLK_ESCAPE) {
-                        if (event.type == SDL_KEYDOWN && !event.key.repeat) stop = true;
+                        if (event.type == SDL_KEYDOWN && !event.key.repeat) back = true;
                         continue;
                     }
                 }
-                if (!session || !foreground || go_home) continue;
+                if (!session || !foreground || go_home || back) continue;
                 const auto now = static_cast<uint64_t>(esp_timer_get_time());
                 if (event.type == SDL_TEXTINPUT) {
                     input.InjectText(event.text.text);
@@ -636,17 +637,13 @@ int main(int argc, char** argv) {
                 (void)input.InjectTouch(
                     {static_cast<uint64_t>(esp_timer_get_time()), 1, 0, 0, 0, device::TouchPhase::kCancel});
             }
-            if (go_home) show_home();
-            if (stop && market.Visible()) {
+            if (back && market.Visible()) {
                 esp_lv_adapter_lock(-1);
                 market.Back();
                 esp_lv_adapter_unlock();
-                stop = false;
-            }
-            if (stop && session && !foreground) {
-                home.resume_requested = true;
-                stop = false;
-            }
+            } else if (back && session && foreground)
+                go_home = true;
+            if (go_home) show_home();
             if (home.resume_requested) {
                 home.resume_requested = false;
                 resume_session();

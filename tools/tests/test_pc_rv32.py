@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Execute a pinned public market AOT with QEMU, then test the Host boundary."""
-from test_pc_market import open_home_app, open_home_market
+from test_pc_market import close_home_app, open_home_app, open_home_market
 import hashlib
 import http.server
 import json
@@ -153,7 +153,7 @@ def main():
                     time.sleep(0.25)
                     event(5, 1, 360, 500)
                     time.sleep(0.3)
-                    escape()
+                    close_home_app(click, escape)
                     deadline = time.monotonic() + 30
                     stopped = "APP_SHELL stopped: com.lckfb.jump"
                     while log_path.read_text().count(stopped) <= index and time.monotonic() < deadline:
@@ -161,7 +161,7 @@ def main():
                     assert log_path.read_text().count(stopped) == index + 1, log_path.read_text()
                     if index < 2:
                         open_home_app(click, 0)
-            navigate_x11(env, output, ["--autostart", bundle], drive, seconds=12)
+            navigate_x11(env, output, ["--autostart", bundle], drive, seconds=20)
             log = (output / "navigation.log").read_text(errors="replace")
             assert log.count("RV32 bridge connected") == 3, log
             assert log.count("surface destroyed") == 3, log

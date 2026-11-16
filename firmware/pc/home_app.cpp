@@ -168,10 +168,10 @@ void HomeApp::Action(lv_event_t* event) {
                 self.SendWidget(self.widgets_[self.media_widget_], MICROPIXEL_ACTION_NEXT_TRACK, 0);
             break;
         case kClose:
-            if (self.media_widget_ < 8)
-                self.stop_requested = self.widgets_[self.media_widget_].app;
-            else
+            if (self.running_)
                 self.close_requested = true;
+            else if (self.media_widget_ < 8)
+                self.stop_requested = self.widgets_[self.media_widget_].app;
             break;
         case kVolume:
             self.audio_.SetMasterVolume(lv_slider_get_value(lv_event_get_target_obj(event)));

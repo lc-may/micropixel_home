@@ -41,6 +41,12 @@ def open_home_market(click):
     click(500, 40)
 
 
+def close_home_app(click, escape):
+    """Leave the foreground Guest, then explicitly stop that instance from Home."""
+    escape()
+    click(656, 686)
+
+
 def navigate_x11(env, output, arguments=(), driver=None, seconds=10, wait_seconds=3):
     """Send events only to this test's X11 window; do not move the user's pointer."""
     import ctypes as c
@@ -176,6 +182,7 @@ def navigate_x11(env, output, arguments=(), driver=None, seconds=10, wait_second
                 assert process.wait(timeout=max(20,seconds+5)) == 0, log_path.read_text(errors="replace")
                 assert not x_errors,x_errors
                 return
+            wait_for("HOME visible:", timeout=15)
             open_home_market(click)
             wait_for("Market catalog: 7 entries")
             click(130, 300)  # First card -> detail, interrupting pending cover work.

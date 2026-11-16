@@ -181,7 +181,7 @@ def main():
                         > 60
                     ),
                 )
-                event.key(0xFFBE)
+                escape()
                 wait_for("HOME_WIDGET snapshot: app=1 template=3")
                 capture("home-music")
                 assert sound(), "Home stopped background music"

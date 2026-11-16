@@ -9,11 +9,13 @@ Home 和市场显示于 LVGL 顶层，Guest 画面在下层保留；
 
 | 操作 | 会话行为 |
 | --- | --- |
-| `Home` 或 `F1` 返回主页 | 保留 Guest；音频、HTTP、定时器和自动下一首继续运行 |
+| `Esc`、`Home` 或 `F1` 从 Guest 返回主页 | 保留 Guest；音频、HTTP、定时器和自动下一首继续运行 |
 | 应用目录中的“返回应用”、音乐卡片或再次按 `Home/F1` | 复用原 Session，恢复输入，不重新登录或创建 Guest |
 | Home 中打开应用市场 | 保留 Guest；市场返回 Home，下载与 Guest 请求分别有界执行 |
 | 启动另一个 Guest | 有空槽和预算时启动并切换前台，原 Service 按资格继续工作；单槽配置先释放旧 Session |
-| `Esc`（Guest 在前台）或 Home 的“关闭应用” | 停止并释放 Session、音频及异步请求，返回 Home |
+| Home 的“关闭” | 停止最近的当前应用并释放其 Session、音频及异步请求；其他应用继续运行 |
+| Home 中按 `Esc` | 保持主页，不停止或恢复 Guest |
+| 市场或闹钟弹窗中按 `Esc` | 市场返回上一级，闹钟停止响铃；不停止后台 Guest |
 | Guest 正常退出、异常或关闭 Host | 统一清理 Session；不保留失效的当前应用入口 |
 
 各槽拥有独立资源和 Activity/Service 生命周期。v1 应用隐藏后挂起，v2 Service 按媒体租约或

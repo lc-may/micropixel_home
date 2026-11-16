@@ -53,4 +53,4 @@ bash tools/pc.sh run --home --rv32
 ```
 
 PC 指定 `--screenshot 文件.png` 后，F12 可随时保存当前屏幕，退出时仍保存最终画面。
-Home 的“应用”打开目录和市场入口；Home/F1 返回面板，音乐继续播放。Esc 关闭当前应用。
+Home 的“应用”打开目录和市场入口；Esc/Home/F1 返回面板，音乐继续播放。Home 的“关闭”停止当前应用。

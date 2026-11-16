@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Three actual application Guests, Host alarm/input/focus and optional 10-minute soak."""
-from test_pc_market import open_home_app, open_home_market
+from test_pc_market import close_home_app, open_home_app, open_home_market
 import array,http.server,json,math,os,re,subprocess,sys,tempfile,threading,time,urllib.parse
 from pc_test_backend import app_path
 from pathlib import Path
@@ -51,7 +51,7 @@ def main():
                 wait_for("WEATHER refresh success");wait_for("CLOCK service ready")
                 wait_new("CLOCK activity created",lambda:open_home_app(click, 1))
                 wait_new("CLOCK test alarm registered",lambda:click(510,475))
-                wait_new("APP_SHELL stopped: micropixel.clock-alarm",escape)
+                wait_new("APP_SHELL stopped: micropixel.clock-alarm",lambda:close_home_app(click,escape))
                 assert "ALARM overlay visible" not in log_path.read_text()
                 open_home_app(click, 2);wait_for("NETEASE_LOGIN authenticated");wait_for("NETEASE_HOME playlists:")
                 click(120,680);wait_for("NETEASE_HOME recommendations: 30");click(140,220);wait_for("Audio playing:");baseline=tones()[0]

@@ -14,7 +14,9 @@ bash tools/pc.sh run --home
 bash tools/pc.sh run --home --rv32
 ```
 
-Home/F1 返回面板，音乐继续播放。点击天气进入天气页，点击闹钟进入设置；底部“日历”进入月历，
+Esc/Home/F1 返回面板，音乐继续播放，登录和队列保留；点击音乐卡片返回原实例。
+Home 再按 Esc 保持主页；点击“关闭”才停止最近的当前应用，其他后台应用继续运行。
+点击天气进入天气页，点击闹钟进入设置；底部“日历”进入月历，
 “应用”进入目录和市场。事项在日历/事项页添加：输入名称、选择未来日期和时间、保存。
 系统确认后 Home 显示下一条事项，关闭 Guest 也保留提醒。
 
@@ -43,7 +45,7 @@ bash tools/tests/test_firmware_host.sh --pc --panel --rv32
 | 天气 | 上海/北京切换，温度小数点、湿度/风速、刷新与实际画面 |
 | 日历/事项 | 月历入口、编辑名称与时间、保存、完成/恢复、闹钟保存 |
 | 音乐 | 模拟授权后读取个人内容，推荐、播放/暂停、拖动松手跳转、红星确认后的实际颜色 |
-| 生命周期 | 返回 Home 后 PCM 持续输出，Home 暂停/恢复有效，退出无 Guest 错误 |
+| 生命周期 | Esc 返回 Home 后 PCM 持续输出，Home 暂停/恢复有效，退出无 Guest 错误 |
 
 面板截图位于 `build/panel-tests/` 和 `build/panel-rv32-tests/`，包括 `home.png`、`home-reminder.png`、
 `home-music.png`、`music-list.png`、`music-liked.png`、`weather.png`、`calendar.png` 和 `notes.png`。
@@ -58,6 +60,7 @@ bash tools/tests/test_firmware_host.sh --pc --playback-service
 bash tools/tests/test_firmware_host.sh --pc --alarms
 bash tools/tests/test_firmware_host.sh --pc --market --interactive
 bash tools/tests/test_firmware_host.sh --pc --launcher
+bash tools/tests/test_firmware_host.sh --pc --launcher --rv32
 bash tools/tests/test_firmware_host.sh --pc --feed --refresh
 bash tools/tests/test_firmware_host.sh --pc --widgets
 bash tools/tests/test_firmware_host.sh --pc --home --interactive
@@ -65,6 +68,8 @@ bash tools/tests/test_firmware_host.sh --pc --home --interactive
 
 其中播放 Service 回归包含 35 秒页面请求、后台自动下一首、前台另一 Guest，以及销毁/重建 Activity
 后保留账号、队列与媒体；闹钟回归包含停止 Clock Guest 后响铃、弹窗输入与音频焦点。
+启动器回归覆盖原生/RV32 的 Esc 退后台、连续播放与自动下一首、Home 再按 Esc、登录与实例复用；
+Widget 回归验证显式关闭天气不会停止后台音乐，重新进入音乐后可显式关闭该实例。
 修改文件的 clang-format、Python/Bash 语法、文档相对链接、`git diff --check` 和固件架构检查通过。
 正式固件格式包装器需要已激活的 ESP-IDF，本环境未设置 `IDF_PATH`，因此使用已有 clang-format
 单独校验修改的 C/C++ 文件。

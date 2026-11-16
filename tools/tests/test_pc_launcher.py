@@ -11,6 +11,7 @@ import threading
 import time
 
 from PIL import Image
+from pc_test_backend import app_path
 from test_pc_home import HomeHandler
 from test_pc_login import Handler as LoginHandler, images, ROOT, TOKEN, CSRF
 from test_pc_market import Handler as MarketHandler, navigate_x11
@@ -31,8 +32,7 @@ def main():
     for thread in threads:
         thread.start()
     rv32 = "--rv32" in sys.argv
-    music = ROOT / ("build/pc-netease-release/netease-music.bundle.bin" if rv32
-                    else "build/pc-apps/netease-music/netease-music.pc.json")
+    music = app_path("netease-music")
     other = ROOT / "build/pc-apps/timer_counter/timer_counter.pc.json"
     ordered = sorted([str(music), str(other)])
     other_x = 190 if ordered.index(str(other)) == 0 else 530
@@ -88,7 +88,10 @@ def main():
                 wait("Audio playing:", lambda: click(240, 229))
                 HomeHandler.audio = longer_audio
                 HomeHandler.resolve_id = 1002
-                wait("APP_SHELL background: micropixel.netease-music", home)
+                wait("APP_SHELL background: micropixel.netease-music", escape)
+                before = log_path.read_text().count("APP_SHELL foreground:")
+                escape()  # Esc on Home must keep the app in the background.
+                assert log_path.read_text().count("APP_SHELL foreground:") == before
                 seek_count = log_path.read_text().count("NETEASE_GUEST seek:")
                 click(650, 500)  # Empty Home space over the Guest seek slider.
                 assert log_path.read_text().count("NETEASE_GUEST seek:") == seek_count, "Home input reached Guest"
@@ -138,7 +141,7 @@ def main():
             server.server_close()
         for thread in threads:
             thread.join()
-    print("PASS Host Home launch/close, background stereo audio and automatic next track, input isolation, market coexistence, same-session resume and ordered Guest replacement")
+    print("PASS Esc preserves background stereo audio/auto-next and login, Home Esc stays Home, explicit close, input isolation, market coexistence, same-session resume and ordered Guest replacement")
 
 
 if __name__ == "__main__":

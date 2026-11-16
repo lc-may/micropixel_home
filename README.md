@@ -51,7 +51,7 @@ bash tools/pc.sh run --music-login
 ```
 
 `--home` builds the weather, clock and music Guests; music commands build the music Guest. Press `Home` or `F1` to return
-to Home while keeping it running; press `Esc` in the foreground Guest to stop it.
+to Home while keeping it running. `Esc` also returns to Home with background playback; Home's Close button stops the current app.
 Official RV32 AOT apps additionally require `qemu-system-riscv32` and a bare-metal GCC with
 `rv32imafc/ilp32f` Newlib support. Run `bash tools/pc.sh rv32-build` before installing them from the market.
 Xtensa AOT and Wi-Fi hardware emulation are not supported. Audio files are downloaded before playback.

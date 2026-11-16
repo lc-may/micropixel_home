@@ -51,7 +51,7 @@ bash tools/pc.sh run --music-login
 ```
 
 `--home` 会构建天气、时钟和音乐 Guest；音乐命令自动构建音乐 Guest。按 `Home` 或 `F1` 返回 Home，保留后台运行；
-Guest 在前台时按 `Esc` 停止应用。
+`Esc` 同样返回 Home 并保留后台播放；需要停止应用时点击 Home 的“关闭”。
 运行官方 RV32 AOT 还需要 `qemu-system-riscv32` 和支持 `rv32imafc/ilp32f` Newlib 的裸机 GCC，
 先执行 `bash tools/pc.sh rv32-build`，再从市场安装。当前不支持 Xtensa AOT 或 Wi-Fi 硬件模拟，
 音频文件下载完成后播放。

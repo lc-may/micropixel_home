@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Three Guest publishers and Host widget commands over the actual Service ABI."""
-from test_pc_market import open_home_app, open_home_market
+from test_pc_market import close_home_app, open_home_app, open_home_market
 import http.server
 import json
 import os
@@ -111,16 +111,17 @@ def main():
                 assert log_path.read_text().count("NETEASE_LOGIN authenticated") == 1
                 event.key(0xffbe)
                 open_home_app(click, 0)
-                wait_new("APP_SHELL stopped: test.widget.weather", escape)
+                wait_new("APP_SHELL stopped: test.widget.weather", lambda: close_home_app(click, escape))
                 assert "APP_SHELL stopped: test.widget.clock" not in log_path.read_text()
                 assert sound(), "closing weather stopped music"
-                wait_new("APP_SHELL stopped: micropixel.netease-music", lambda: click(650, 692))
+                wait_new("NETEASE_ACTIVITY resumed", lambda: click(200, 606))
+                wait_new("APP_SHELL stopped: micropixel.netease-music", lambda: close_home_app(click, escape))
                 assert not sound(), "closing music left its PCM alive"
                 assert "APP_SHELL stopped: test.widget.clock" not in log_path.read_text()
 
             args = ["--home", "--multi-app", "--guest-arg", "--login", "--guest-arg", "--test-origin",
                     "--guest-arg", f"http://127.0.0.1:{server.server_port}", *paths]
-            navigate_x11(env, results, args, driver=driver, seconds=20, wait_seconds=6)
+            navigate_x11(env, results, args, driver=driver, seconds=24, wait_seconds=6)
             log = (results / "navigation.log").read_text()
             assert "Guest failed:" not in log and TOKEN not in log and CSRF not in log, log
             with Image.open(results / "navigation.png") as image:

@@ -20,7 +20,7 @@ import urllib.parse
 import wave
 
 from PIL import Image
-from test_pc_market import navigate_x11
+from test_pc_market import close_home_app, navigate_x11
 
 ROOT = Path(__file__).resolve().parents[2]
 BINARY = Path(os.environ.get("MICROPIXEL_PC_BINARY", ROOT / "build/pc/micropixel-pc"))
@@ -162,7 +162,7 @@ def main():
                     while log_path.read_text(errors="replace").count("Audio playing:") < 2 and time.monotonic() < deadline:
                         time.sleep(.05)
                     assert log_path.read_text(errors="replace").count("Audio playing:") >= 2
-                    escape(); time.sleep(.3); click(296, 686); wait_for("NETEASE_GUEST search: 2 tracks")
+                    close_home_app(click, escape); time.sleep(.3); click(296, 686); wait_for("NETEASE_GUEST search: 2 tracks")
                     before=Handler.hits.count("/weapi/search/get")
                     click(200, 112)
                     for char in "jazz": event.key(ord(char))
@@ -173,7 +173,7 @@ def main():
                     assert Handler.hits.count("/weapi/search/get")>before, "Guest text input did not submit a search"
                     escape()
                 navigate_x11(dict(env, SDL_AUDIODRIVER="disk", SDL_DISKAUDIOFILE=str(pcm)), output,
-                             ["--music-song", "101", *guest_args, *rv32_args], drive, seconds=16)
+                             ["--music-song", "101", *guest_args, *rv32_args], drive, seconds=18)
                 (cache / "interaction.log").write_text((output / "navigation.log").read_text())
                 assert any(pcm.read_bytes()), "No actual PCM output"
                 Handler.mode = "slowmedia"
