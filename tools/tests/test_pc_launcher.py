@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Host Home, input isolation, live background music and single-Guest replacement."""
+from test_pc_market import stop_home_app
 from test_pc_market import open_home_app, open_home_market
 import http.server
 import io
@@ -55,7 +56,7 @@ def main():
                 assert TOKEN not in log and CSRF not in log
                 assert "Guest failed:" not in log and "Guest initialization failed:" not in log, log
                 with Image.open(output / "navigation.png") as screenshot:
-                    assert screenshot.convert("RGB").getpixel((4, 4)) == (21, 24, 29), "Home was not above the Guest"
+                    assert screenshot.convert("RGB").getpixel((4, 4)) == (16, 18, 20), "Home was not above the Guest"
                 (results / f"{name}.log").write_text(log)
                 (results / f"{name}.png").write_bytes((output / "navigation.png").read_bytes())
 
@@ -81,7 +82,7 @@ def main():
             def background(click, event, wait_for, log_path, process, escape):
                 wait, home, samples = helpers(event, log_path)
                 wait_for("HOME visible: running=none apps=2")
-                click(296, 686)
+                click(100, 566)
                 wait_for("NETEASE_HOME avatar ready")
                 wait("NETEASE_HOME recommendations: 30", lambda: click(128, 680))
                 HomeHandler.resolve_id = 1001
@@ -93,7 +94,7 @@ def main():
                 escape()  # Esc on Home must keep the app in the background.
                 assert log_path.read_text().count("APP_SHELL foreground:") == before
                 seek_count = log_path.read_text().count("NETEASE_GUEST seek:")
-                click(650, 500)  # Empty Home space over the Guest seek slider.
+                click(360, 582)  # Gap between Home tiles, over the Guest seek slider.
                 assert log_path.read_text().count("NETEASE_GUEST seek:") == seek_count, "Home input reached Guest"
                 wait_for("NETEASE_GUEST selected: 1002")  # Guest timer/network/queue continue under Home.
                 deadline = time.monotonic() + 5
@@ -101,16 +102,16 @@ def main():
                     time.sleep(.03)
                 assert log_path.read_text().count("Audio playing:") >= 2
                 assert any(samples()), "background playback was silent"
-                wait("HOME_MEDIA paused=1", lambda: click(548, 606))
+                wait("HOME_MEDIA paused=1", lambda: click(207, 601))
                 assert not any(samples()), "Home pause did not silence playback"
                 HomeHandler.resolve_id = 1003
-                wait("HOME_MEDIA paused=0", lambda: click(548, 606))
+                wait("HOME_MEDIA paused=0", lambda: click(207, 601))
                 assert any(samples()), "Home resume did not restore playback"
                 open_home_market(click)
                 wait_for("Market catalog: 7 entries")
                 assert "APP_SHELL stopped:" not in log_path.read_text(), "market closed background Guest"
                 wait("HOME visible: running=micropixel.netease-music", escape)
-                wait("APP_SHELL foreground: micropixel.netease-music reused=1", lambda: click(200, 606))
+                wait("APP_SHELL foreground: micropixel.netease-music reused=1", lambda: click(100, 566))
                 wait("APP_SHELL background:", home)
                 wait("APP_SHELL foreground: micropixel.netease-music reused=1", lambda: open_home_app(click, 0 if music_x < 300 else 1))
                 assert log_path.read_text().count("NETEASE_GUEST started:") == 1, "music Guest was recreated"
@@ -128,10 +129,10 @@ def main():
             def close(click, event, wait_for, log_path, process, escape):
                 wait, home, samples = helpers(event, log_path)
                 wait_for("HOME visible: running=none apps=2")
-                click(296, 686)
+                click(100, 566)
                 wait_for("NETEASE_HOME avatar ready")
                 wait("APP_SHELL background:", home)
-                wait("APP_SHELL stopped: micropixel.netease-music", lambda: click(650, 692))
+                wait("APP_SHELL stopped: micropixel.netease-music", lambda: stop_home_app(click))
                 wait_for("HOME visible: running=none apps=2")
             scenario("close", close, 12 if rv32 else 9)
             assert not LoginHandler.failures, LoginHandler.failures

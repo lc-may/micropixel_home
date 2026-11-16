@@ -50,9 +50,9 @@ int main(int argc, char** argv) {
                     return sessions.Snapshot().foreground == 0 && sessions.Find(0)->ComponentInfo().activity_state == 2;
                 },
                 30);
-            Click(sessions, 580, 120);
+            Click(sessions, 530, 657);
             Click(sessions, 360, 665);
-            Click(sessions, 360, 220);
+            Click(sessions, 360, 150);
             Until(sessions, [&] { return sessions.Input().TextEnabled(); }, 30);
             sessions.Input().InjectText("项目会议");
             Confirm(sessions);
@@ -86,11 +86,11 @@ int main(int argc, char** argv) {
                     return sessions.Snapshot().foreground == 0 && sessions.Find(0)->ComponentInfo().activity_state == 2;
                 },
                 30);
-            Click(sessions, 580, 120);
-            Click(sessions, 56, 198);
+            Click(sessions, 530, 657);
+            Click(sessions, 66, 135);
             // Wait for the actual owner-scoped record to disappear before stopping the Guest.
             assert(sessions.Planner().note_records == 1);
-            Click(sessions, 654, 198);
+            Click(sessions, 654, 135);
             Until(sessions, [&] { return sessions.Planner().note_records == 0; }, 30);
             assert(!sessions.Planner().pending_notes);
             sessions.Shutdown();

@@ -19,8 +19,16 @@
 The PC target also uses the already-declared WAMR, LVGL, libpng, cJSON, Mbed TLS, Opus and micro-opus dependencies.
 micro-opus v0.4.1 is pinned to `8354085908683c6130e32a832aeec8a7ca115c51`, including its micro-ogg-demuxer submodule.
 The local Ubuntu compiler packages retain their license files under the extracted `usr/share/doc/` directories.
-PC market text uses LVGL's existing Tiny TTF/stb renderer and locally installed system fonts. Fonts are not
+PC market text uses LVGL's existing Tiny TTF/stb renderer and locally installed system fonts. Desktop TTF files are not
 redistributed by this target; Noto CJK installations retain their SIL OFL notices in the system package.
+The Guest panel numeral atlas is a Noto Sans SemiBold subset under SIL OFL 1.1; its notice is retained in
+[`guest/sdk/ui/NotoSans-OFL.txt`](guest/sdk/ui/NotoSans-OFL.txt). Its generator is `tools/fonts/build_panel_numerals.py`.
+Panel icons derive from Google's Material Symbols Rounded, commit `10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7`,
+under Apache-2.0, copyright Google LLC. Source SVGs and attribution are in
+[`guest/sdk/ui/icons/`](guest/sdk/ui/icons/README.md); `tools/build_panel_icons.py` applies the panel palette.
+The offline weather city catalog derives from [MCPKerykeion's location data](https://github.com/wuunicorn/MCPKerykeion/blob/60cfefad90031d5f2e629031de90eef662d1409b/china_cities.json),
+commit `60cfefad90031d5f2e629031de90eef662d1409b`, under MIT. Its original permission notice and source data are retained in
+[`guest/apps/weather/data/`](guest/apps/weather/data/README.md). `tools/generate_weather_cities.py` changes the ordering and emits the bounded C++ catalog.
 The optional RV32 runner uses an externally installed [QEMU](https://www.qemu.org/) (GPL-2.0) and a
 RISC-V GCC/Newlib toolchain. Its ELF links Newlib/libm and libgcc; retain the toolchain's Newlib component
 notices and GCC Runtime Library Exception when redistributing that ELF. No emulator or toolchain source is vendored.

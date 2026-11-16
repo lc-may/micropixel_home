@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <memory>
+
+#include "city_picker.hpp"
 #include "sdk/calendar.hpp"
+#include "sdk/ui/numerals.hpp"
 #include "sdk/ui/panel.hpp"
+#include "sdk/ui/weather_icons.hpp"
 #include "weather_client.hpp"
 namespace weather {
 struct Model {
     struct Saved {
-        uint32_t version{2}, city{};
+        uint32_t version{4}, city{};
         Reading reading{};
     } saved;
     bool failed{}, busy{};
     uint32_t revision{};
     explicit Model(Application& app) {
         auto n = app.storage().GetBytes("weather.v1", reinterpret_cast<uint8_t*>(&saved), sizeof(saved));
-        if (n && *n == 24 && saved.version == 1)
-            saved.version = 2;
-        else if (!n || *n != sizeof(saved) || saved.version != 2 || saved.city >= 3)
-            saved = {};
-        if (saved.city >= 3) saved = {};
+        if (!n || *n != sizeof(saved) || saved.version != 4 || saved.city >= cities.size()) saved = {};
     }
     void Save(const Application& app) {
         (void)app.storage().SetBytes("weather.v1", reinterpret_cast<const uint8_t*>(&saved), sizeof(saved));
@@ -175,35 +176,46 @@ class WeatherService final : public AppService {
 class WeatherActivity final : public Activity {
    public:
     explicit WeatherActivity(Model& model) : model_(model) {}
-    void OnCreate(ComponentContext& context) override {
-        const auto& app = context.app();
+    void OnCreate(ComponentContext& c) override {
+        const auto& app = c.app();
         app.renderer()
             .ConfigureDisplay({.logical_size = {720, 720}, .scale_mode = DisplayScaleMode::kAspectFit})
             .value();
         scene_.emplace(app.renderer().CreateScene(ui::panel::Background).value());
+        font_ = std::make_unique<ui::NumeralAtlas>(app);
+        icons_ = std::make_unique<ui::WeatherAtlas>(app);
         using namespace ui::panel;
-        (void)scene_->CreateLabel({28, 26}, "天气", Text, SystemFont::kTitle).value();
-        (void)scene_->CreateLabel({572, 36}, "实时天气", Muted, SystemFont::kMedium).value();
-        for (unsigned i = 0; i < 3; ++i)
-            cities_[i] = scene_->CreateTextButton(
-                {.bounds = {24 + int(i) * 232, 92, 208, 52}, .text = cities[i].name, .style = Style()});
-        Card(*scene_, {24, 164, 672, 304});
-        number_ = Digits::Create(*scene_, {60, 246}, 96, Text, 5);
-        city_ = scene_->CreateLabel({56, 192}, " ", Muted, SystemFont::kLarge).value();
-        unit_ = scene_->CreateLabel({350, 270}, "°C", Muted, SystemFont::kTitle).value();
-        glyph_ = WeatherGlyph::Create(*scene_, {480, 242}, 128);
-        condition_ = scene_->CreateLabel({56, 392}, "等待天气", Text, SystemFont::kLarge).value();
-        for (unsigned i = 0; i < 3; ++i) {
-            Card(*scene_, {24 + int(i) * 232, 488, 208, 102});
+        city_ = scene_->CreateLabel({24, 20}, " ", Text, SystemFont::kLarge).value();
+        date_ = scene_->CreateLabel({370, 23}, " ", Muted, SystemFont::kMedium).value();
+        city_hit_ = ui::Button({24, 0, 300, 84});
+        refresh_ =
+            ui::MaterialIconButton::Create(*scene_, *icons_, {612, 0, 84, 84}, ui::MaterialSymbol::Refresh, Background);
+        number_ = ui::Numerals::Create(*scene_, *font_, {24, 78}, 126, 7);
+        range_ = scene_->CreateLabel({24, 216}, " ", Text, SystemFont::kLarge).value();
+        glyph_ = ui::WeatherIcon::Create(*scene_, *icons_, {480, 96}, 117);
+        condition_ = scene_->CreateLabel({455, 216}, " ", Muted, SystemFont::kLarge).value();
+        (void)scene_->CreateLabel({24, 250}, "逐小时预报", Muted, SystemFont::kSmall).value();
+        for (unsigned i = 0; i < 5; ++i) {
+            int x = 24 + int(i) * 138;
+            Card(*scene_, {x, 280, 120, 132});
+            hours_[i] = scene_->CreateLabel({x + 60, 291}, "--", Muted, SystemFont::kSmall, true).value();
+            hourly_glyphs_[i] = ui::WeatherIcon::Create(*scene_, *icons_, {x + 42, 321}, 36);
+            hour_values_[i] = scene_->CreateLabel({x + 60, 371}, "--°", Text, SystemFont::kLarge, true).value();
         }
-        (void)scene_->CreateLabel({44, 506}, "湿度", Muted, SystemFont::kSmall).value();
-        (void)scene_->CreateLabel({276, 506}, "风速", Muted, SystemFont::kSmall).value();
-        (void)scene_->CreateLabel({508, 506}, "更新时间", Muted, SystemFont::kSmall).value();
-        humidity_ = scene_->CreateLabel({44, 540}, "--", Text, SystemFont::kLarge).value();
-        wind_ = scene_->CreateLabel({276, 540}, "--", Text, SystemFont::kLarge).value();
-        updated_ = scene_->CreateLabel({508, 540}, "--:--", Text, SystemFont::kLarge).value();
-        refresh_ = scene_->CreateTextButton({.bounds = {24, 612, 672, 56}, .text = "刷新天气", .style = Style(true)});
-        status_ = scene_->CreateLabel({28, 682}, "Open-Meteo · CC BY 4.0", Muted, SystemFont::kSmall).value();
+        for (unsigned i = 0; i < 3; ++i) {
+            int y = 430 + int(i) * 60;
+            days_[i] = scene_->CreateLabel({24, y + 13}, "--", Muted, SystemFont::kMedium).value();
+            daily_glyphs_[i] = ui::WeatherIcon::Create(*scene_, *icons_, {126, y + 9}, 36);
+            (void)scene_->CreateRoundedRect({192, y + 28, 318, 7}, {.fill = Line, .radius = 4}).value();
+            bars_[i] = scene_->CreateRoundedRect({200, y + 28, 270, 7}, {.fill = Blue, .radius = 4}).value();
+            highs_[i] = scene_->CreateRoundedRect({460, y + 28, 18, 7}, {.fill = Accent, .radius = 4}).value();
+            day_values_[i] = scene_->CreateLabel({540, y + 13}, "--° / --°", Text, SystemFont::kMedium).value();
+        }
+        Card(*scene_, {24, 627, 672, 69});
+        humidity_ = scene_->CreateLabel({48, 650}, "湿度 --", Text, SystemFont::kMedium).value();
+        wind_ = scene_->CreateLabel({320, 650}, "风速 --", Muted, SystemFont::kMedium).value();
+        status_ = scene_->CreateLabel({24, 700}, "Open-Meteo · CC BY 4.0", Muted, SystemFont::kSmall).value();
+        picker_ = std::make_unique<CityPicker>(*scene_, *icons_);
         timer_.emplace(app.timers().Every(Duration::Milliseconds(250)).value());
         Draw(app);
         app.log().Info("WEATHER activity created");
@@ -211,76 +223,168 @@ class WeatherActivity final : public Activity {
     void OnResume(ComponentContext& c) override { Draw(c.app()); }
     void OnStop(ComponentContext&) override {
         refresh_.Reset();
-        for (auto& b : cities_) b.Reset();
+        city_hit_.Reset();
+        if (picker_) picker_->Cancel();
     }
     void OnDestroy(ComponentContext&) override {
         timer_.reset();
+        picker_.reset();
         scene_.reset();
+        font_.reset();
+        icons_.reset();
     }
-    void OnEvent(ComponentContext& context, const Event& event) override {
-        const auto& app = context.app();
-        if (auto* touch = event.touch()) {
-            bool refresh = refresh_.OnTouch(*touch).clicked;
-            for (unsigned i = 0; i < 3; ++i)
-                if (cities_[i].OnTouch(*touch).clicked && model_.saved.city != i) {
-                    model_.saved.city = i;
+    void OnEvent(ComponentContext& c, const Event& event) override {
+        const auto& app = c.app();
+        if (auto* t = event.touch()) {
+            bool refresh = false;
+            bool redraw = false;
+            if (picker_->visible()) {
+                auto update = picker_->OnTouch(*t);
+                if (update.city && *update.city != model_.saved.city) {
+                    model_.saved.city = *update.city;
                     model_.saved.reading = {};
                     model_.Save(app);
-                    ++model_.revision;
+                    model_.Publish(app);
+                    FixedString<96> log;
+                    log.Append("WEATHER city selected: ");
+                    log.Append(cities[*update.city].name);
+                    app.log().Info(log.c_str());
                     refresh = true;
+                    redraw = true;
+                } else if (update.changed)
+                    app.renderer().Present(*scene_).value();
+            } else {
+                if (city_hit_.OnTouch(*t).clicked) {
+                    picker_->Show(model_.saved.city);
+                    redraw = true;
                 }
+                refresh = refresh_.OnTouch(*t).clicked;
+            }
             if (refresh) (void)app.messages().Send("micropixel.weather", static_cast<uint16_t>(AppAction::kRefresh));
-            Draw(app);
+            // Icon buttons have no pressed visual. Service revisions drive refresh
+            // rendering; a full redraw on every pointer event delays RV32 input.
+            if (redraw) Draw(app);
         } else if (timer_ && event.TimerFrom(*timer_) && seen_ != model_.revision)
             Draw(app);
     }
 
    private:
+    static FixedString<32> Temp(int32_t value) {
+        FixedString<32> s;
+        s.AppendFixed(float(value) / 10, value % 10 ? 1 : 0);
+        s.Append("°");
+        return s;
+    }
     void Draw(const Application& app) {
         using namespace ui::panel;
-        const auto& reading = model_.saved.reading;
-        FixedString<16> temperature;
-        if (reading.utc)
-            temperature.AppendFixed(float(reading.temperature) / 10, reading.temperature % 10 ? 1 : 0);
-        else
-            temperature.Append("--");
-        number_.Set(temperature.c_str());
-        glyph_.Set(reading.code, reading.utc != 0);
-        city_.SetText(cities[model_.saved.city].name);
-        condition_.SetText(!reading.utc ? "等待首次刷新" : WeatherName(reading.code));
-        FixedString<32> humidity, wind;
-        if (reading.humidity >= 0) {
-            humidity.AppendInt(reading.humidity);
-            humidity.Append(" %");
-        } else
-            humidity.Append("--");
-        if (reading.wind_tenths >= 0) {
-            wind.AppendFixed(float(reading.wind_tenths) / 10, 1);
-            wind.Append(" km/h");
-        } else
-            wind.Append("--");
-        humidity_.SetText(humidity.c_str());
-        wind_.SetText(wind.c_str());
+        const auto& r = model_.saved.reading;
+        auto value = r.utc ? Temp(r.temperature) : FixedString<32>{};
+        if (!r.utc) value.Append("--°");
+        number_.Set(value.c_str());
+        glyph_.Set(r.code, r.utc != 0);
+        FixedString<48> city;
+        city.Append(cities[model_.saved.city].name);
+        if (std::string_view(cities[model_.saved.city].name).size() <= 24) city.Append(" · 切换");
+        city_.SetText(city.c_str());
+        condition_.SetText(!r.utc ? "暂无天气" : WeatherName(r.code));
         auto now = app.jobs().Now();
-        auto local = calendar::LocalSeconds(reading.utc, now ? now->offset_minutes : 480);
-        auto time = calendar::FormatTime(uint32_t(local % 86400) / 60);
-        updated_.SetText(reading.utc ? time.c_str() : "--:--");
-        refresh_.SetText(model_.busy ? "正在刷新…" : "刷新天气").value();
+        auto date = calendar::LocalDate(now ? now->utc : r.utc, 480);
+        FixedString<48> ds;
+        ds.AppendUint(date.month);
+        ds.Append("月");
+        ds.AppendUint(date.day);
+        ds.Append("日 ");
+        ds.Append(calendar::WeekdayName(date));
+        date_.SetText(ds.c_str());
+        FixedString<96> range;
+        if (r.day_count) {
+            range.Append("最高 ");
+            range.Append(Temp(r.days[0].high).c_str());
+            range.Append(" · 最低 ");
+            range.Append(Temp(r.days[0].low).c_str());
+        } else
+            range.Append(model_.failed ? "连接失败，保留上次天气" : "最高 --° · 最低 --°");
+        range_.SetText(range.c_str());
+        for (unsigned i = 0; i < 5; ++i) {
+            bool known = i < r.hour_count;
+            FixedString<24> hour;
+            if (known) {
+                if (!i)
+                    hour.Append("现在");
+                else {
+                    hour.AppendUint(uint32_t(calendar::LocalSeconds(r.hours[i].utc, 480) % 86400) / 3600);
+                    hour.Append("时");
+                }
+            } else
+                hour.Append("--");
+            hours_[i].SetText(hour.c_str());
+            hourly_glyphs_[i].Set(known ? r.hours[i].code : 0, known);
+            hour_values_[i].SetText(known ? Temp(r.hours[i].temperature).c_str() : "--°");
+        }
+        int32_t low = 1000, high = -1000;
+        for (unsigned i = 1; i < r.day_count; ++i) {
+            low = std::min(low, r.days[i].low);
+            high = std::max(high, r.days[i].high);
+        }
+        for (unsigned i = 0; i < 3; ++i) {
+            bool known = i + 1 < r.day_count;
+            const auto& day = r.days[i + 1];
+            days_[i].SetText(!known ? "--" : !i ? "明天" : calendar::WeekdayName(calendar::LocalDate(day.utc, 480)));
+            daily_glyphs_[i].Set(day.code, known);
+            FixedString<64> text;
+            if (known) {
+                text.Append(Temp(day.low).c_str());
+                text.Append(" / ");
+                text.Append(Temp(day.high).c_str());
+            } else
+                text.Append("--° / --°");
+            day_values_[i].SetText(text.c_str());
+            int x = 192 + (known ? (day.low - low) * 300 / std::max(10, high - low) : 0);
+            int end = 192 + (known ? (day.high - low) * 300 / std::max(10, high - low) : 0);
+            bars_[i].SetRect({x, 458 + int(i) * 60, std::max(12, end - x), 7});
+            highs_[i].SetRect({std::max(x, end - 16), 458 + int(i) * 60, 16, 7});
+            bars_[i].SetVisible(known);
+            highs_[i].SetVisible(known);
+        }
+        FixedString<64> h, w;
+        h.Append("湿度 ");
+        if (r.humidity >= 0) {
+            h.AppendInt(r.humidity);
+            h.Append("%");
+        } else
+            h.Append("--");
+        w.Append("风速 ");
+        if (r.wind_tenths >= 0) {
+            w.AppendFixed(float(r.wind_tenths) / 10, 1);
+            w.Append(" km/h");
+        } else
+            w.Append("--");
+        humidity_.SetText(h.c_str());
+        wind_.SetText(w.c_str());
         refresh_.SetEnabled(!model_.busy);
-        status_.SetText(model_.failed ? "刷新失败，保留上次天气 · Open-Meteo"
-                                      : "每 15 分钟更新 · Open-Meteo · CC BY 4.0");
-        for (unsigned i = 0; i < 3; ++i) cities_[i].SetStyle(Style(i == model_.saved.city)).value();
+        FixedString<96> status;
+        status.Append(model_.busy ? "正在更新 · " : model_.failed ? "刷新失败 · 显示缓存 · " : "北京时间 · ");
+        status.Append("Open-Meteo · CC BY 4.0");
+        status_.SetText(status.c_str());
         app.renderer().Present(*scene_).value();
         seen_ = model_.revision;
     }
     Model& model_;
     std::optional<Scene> scene_;
+    std::unique_ptr<ui::NumeralAtlas> font_;
+    std::unique_ptr<ui::WeatherAtlas> icons_;
     std::optional<Timer> timer_;
-    ui::panel::Digits number_;
-    ui::panel::WeatherGlyph glyph_;
-    LabelNode city_, unit_, condition_, humidity_, wind_, updated_, status_;
-    std::array<ui::TextButton, 3> cities_;
-    ui::TextButton refresh_;
+    ui::Numerals number_;
+    ui::WeatherIcon glyph_;
+    std::array<ui::WeatherIcon, 5> hourly_glyphs_;
+    std::array<ui::WeatherIcon, 3> daily_glyphs_;
+    LabelNode city_, date_, range_, condition_, humidity_, wind_, status_;
+    std::array<LabelNode, 5> hours_, hour_values_;
+    std::array<LabelNode, 3> days_, day_values_;
+    std::array<RoundedRectNode, 3> bars_, highs_;
+    std::unique_ptr<CityPicker> picker_;
+    ui::MaterialIconButton refresh_;
+    ui::Button city_hit_;
     uint32_t seen_{};
 };
 }  // namespace weather

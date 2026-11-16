@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "app_id": "micropixel.weather",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "threading": "none",
   "title": "天气",
   "sources": [
@@ -28,7 +28,8 @@
       "lifecycle": 65536,
       "widget": 65536,
       "message": 65536,
-      "job": 65536
+      "job": 65536,
+      "resource": 65536
     },
     "system_font": "zh-CN",
     "components": {

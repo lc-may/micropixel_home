@@ -31,9 +31,9 @@ portable Wasm 仍直接在 x86 WAMR 中解释执行，不需要 MCU 的 wamrc。
 鼠标左键映射触摸，方向键/WASD 控制方向，Enter/空格确认，Backspace 返回，Z/X 映射游戏按键。
 `Home` / `F1` 返回系统 Home，Guest 在后台继续运行，音乐和自动下一首不中断。
 Home 的音乐卡片、应用目录中的“返回应用”或再次按 `Home/F1` 复用原会话，保留登录和播放队列。
-Home 显示模拟时钟、天气、闹钟与事项，底部进入日历/天气/音乐；“应用”打开目录和市场入口。
+Home 显示模拟时钟、天气、闹钟与事项，点击时间/天气主卡或四块功能卡片导航；“应用”打开目录、市场、音量和关闭操作。
 音乐卡片支持暂停/继续、下一首，底部保留系统主音量；`Esc` 从 Guest 返回 Home，保留后台播放。
-Home 的“关闭”停止最近的当前应用；在 Home 再按 `Esc` 保持主页，在市场或闹钟弹窗中按 `Esc` 仍执行返回或停止响铃。
+应用目录的“关闭当前应用”停止最近的当前应用；在 Home 再按 `Esc` 保持主页，在市场或闹钟弹窗中按 `Esc` 仍执行返回或停止响铃。
 默认分辨率 720×720，可用 `--width`、`--height` 调整；未完整移植固件的系统菜单、状态层和硬件转场。
 软件合成采用单个 App Surface，与 LVGL 刷新共用适配器锁，避免并发绘制导致保留文字丢失。
 
@@ -50,7 +50,7 @@ Home 是 `firmware/pc/home_app.*` 中的 Host 系统应用，前台 Activate 由
 天气、时钟和音乐可以共存，空闲 Job Service 挂起，媒体 Service 保持有效播放。`--single-app` 使用单槽兼容模式，切换应用会停止旧 Guest。
 生命周期与呈现边界见 [PC Home](../../docs/design/pc-home.zh-CN.md)。
 
-面板风格参考 MixPad 4 的米白表盘、深灰卡片与橙色圆形播放键；音乐仍直连网易云。
+Home、天气与闹钟按 [720×720 设计稿](../../docs/ui_design/index.html)使用数字主卡、四块功能卡片和 Material 圆润图标；音乐仍直连网易云。
 日历支持月份切换，事项支持键盘/输入法、提醒时间、完成/恢复和删除，最多六条。
 未来事项由 Host 保存，到期时即使 Clock Guest 已停止仍弹窗响铃；重启后保留已确认的计划。
 天气显示温度、湿度、风速和更新时间，缺少的数据用 `--`。
@@ -87,6 +87,7 @@ bash tools/pc.sh run --market-app local.tommy.liquidduck
 中文界面默认读取系统 Noto Sans CJK、文泉驿或宋体 TrueType 字体。缺少字体时安装 `fonts-noto-cjk`，
 或用 `MICROPIXEL_PC_FONT=/path/to/font.ttf` 指定本地 TTF/TTC（不超过 32 MiB）。
 字体由现有 LVGL Tiny TTF 渲染，不下载或加载市场发布的字体组件。
+Home 的大号数字使用 `fonts-noto-core` 中的 Noto Sans SemiBold；Guest 的数字子集与 Material 图标已随 SDK 提供。
 
 ## RV32 官方 AOT 运行
 

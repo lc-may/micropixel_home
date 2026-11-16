@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>86 面板 · 720×720 设计系统与画布</title>
+<style>
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{background:#F1F0ED;color:#16181A;overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;}
+
+  .app{display:grid;grid-template-columns:206px 1fr 300px;grid-template-rows:52px 1fr;height:100vh;}
+  .topbar{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:0 16px;
+    background:#FBFBF9;border-bottom:1px solid #E3E0DA;}
+  .brand{font-size:13.5px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;}
+  .brand span{color:#8A9096;font-weight:400;margin-left:8px;font-size:12px;}
+  .spacer{flex:1;}
+  .tb-btn{height:30px;min-width:30px;padding:0 10px;border:1px solid #E1DED8;background:#fff;border-radius:7px;
+    font-size:12.5px;color:#3E4347;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+    gap:5px;font-family:inherit;transition:.12s;flex:0 0 auto;}
+  .tb-btn:hover{background:#F6F4F1;border-color:#D6D2CB;}
+  .tb-btn.on{background:#8B5E83;border-color:#8B5E83;color:#fff;}
+  .zoombox{display:flex;align-items:center;border:1px solid #E1DED8;border-radius:7px;overflow:hidden;
+    background:#fff;flex:0 0 auto;}
+  .zoombox button{width:28px;height:28px;border:0;background:#fff;cursor:pointer;font-size:15px;color:#4A5054;line-height:1;}
+  .zoombox button:hover{background:#F6F4F1;}
+  .zoombox .v{width:52px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;color:#3E4347;
+    border-left:1px solid #EFEDE8;border-right:1px solid #EFEDE8;line-height:28px;}
+  .hint{font-size:11.5px;color:#9AA0A6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+  @media (max-width:1440px){ .hint{display:none;} }
+
+  .sidebar{background:#FBFBF9;border-right:1px solid #E3E0DA;overflow:auto;padding:10px 10px 30px;}
+  .sb-group{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#A3A8AE;font-weight:600;
+    padding:14px 9px 6px;}
+  .sb-item{display:flex;gap:9px;align-items:baseline;padding:6px 9px;border-radius:7px;cursor:pointer;
+    font-size:12.5px;color:#3E4347;border:1px solid transparent;}
+  .sb-item:hover{background:#F3F1ED;}
+  .sb-item.on{background:#8B5E83;color:#fff;border-color:#8B5E83;}
+  .sb-item .n{font-variant-numeric:tabular-nums;opacity:.5;font-size:10.5px;width:16px;flex:0 0 16px;}
+  .sb-item.on .n{opacity:.85;}
+
+  .canvas{position:relative;overflow:hidden;cursor:grab;
+    background:radial-gradient(circle at 1px 1px,#D9D6CF 1px,transparent 0) 0 0/22px 22px,#F1F0ED;}
+  .canvas.grabbing{cursor:grabbing;}
+  .stage{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;
+    display:grid;grid-template-columns:720px 720px;gap:150px 170px;padding:90px;}
+  .frame{position:relative;width:720px;}
+  .f-label{position:absolute;top:-46px;left:0;display:flex;align-items:center;gap:10px;font-size:20px;
+    color:#5A6065;white-space:nowrap;font-weight:500;}
+  .f-label b{color:#16181A;font-weight:600;}
+  .f-label em{font-style:normal;font-size:17px;color:#9AA0A6;font-variant-numeric:tabular-nums;}
+  .f-label i{width:12px;height:12px;border-radius:3px;background:#8B5E83;display:block;}
+  .frame.sel .scr,.frame.sel .board{outline:3px solid #8B5E83;outline-offset:6px;}
+
+  .inspector{background:#FBFBF9;border-left:1px solid #E3E0DA;overflow:auto;padding:16px 16px 60px;
+    font-size:12.5px;color:#3E4347;}
+  .in-title{font-size:15px;font-weight:600;color:#16181A;margin:0 0 3px;letter-spacing:-.01em;}
+  .in-role{font-size:11.5px;color:#9AA0A6;margin-bottom:4px;}
+  .in-sec{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#A3A8AE;font-weight:600;
+    margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid #EBE8E2;}
+  .kv{display:flex;justify-content:space-between;gap:12px;padding:3.5px 0;font-size:12px;}
+  .kv dt{color:#8A9096;flex:0 0 auto;margin:0;}
+  .kv dd{margin:0;text-align:right;color:#26292C;font-variant-numeric:tabular-nums;}
+  .in-note{font-size:11.5px;line-height:1.7;color:#6C7278;margin:10px 0 0;padding:10px 12px;
+    background:#F6F4F1;border-radius:7px;border-left:2px solid #D9D3CA;}
+  .in-empty{font-size:12px;color:#A3A8AE;line-height:1.6;}
+  .tag-el{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#8B5E83;background:#F6EEF5;
+    padding:2px 6px;border-radius:5px;display:inline-block;margin-bottom:6px;}
+
+  body.redline [data-el]{outline:1px dashed rgba(232,161,92,.9);outline-offset:-1px;}
+
+  /* ============ 设计系统 ============ */
+  .scr{width:720px;height:720px;background:#101214;border-radius:36px;overflow:hidden;position:relative;
+    color:#F5F7F8;display:flex;flex-direction:column;
+    font-family:-apple-system,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+    box-shadow:0 24px 60px -28px rgba(20,22,25,.5),0 0 0 1px rgba(0,0,0,.35);}
+  .bar{height:66px;flex:0 0 66px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 24px;color:#8C979E;font-size:21px;}
+  .bar .r{display:flex;align-items:center;gap:12px;font-size:21px;}
+  .dot{width:9px;height:9px;border-radius:50%;background:#E8A15C;display:inline-block;}
+  .si{display:block;}
+  .back{display:flex;align-items:center;gap:10px;font-size:21px;color:#F5F7F8;}
+
+  /* 01 */
+  .hero{margin:9px 24px 0;height:198px;border-radius:30px;padding:27px 30px;position:relative;
+    background:linear-gradient(140deg,#232A30 0%,#1A1F24 60%,#191D21 100%);border:1px solid rgba(255,255,255,.06);}
+  .hero .clock{font-size:96px;line-height:1;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+  .hero .clock .c{font-size:40px;color:#8C979E;font-weight:500;margin:0 1px;}
+  .hero .date{font-size:21px;color:#8C979E;margin-top:15px;}
+  .hero .wx{position:absolute;right:30px;top:27px;text-align:right;}
+  .hero .wx .temp{font-size:56px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;}
+  .hero .wx .desc{font-size:21px;color:#8C979E;margin-top:9px;}
+  .tiles{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:18px;margin:18px 24px 0;}
+  .tile{background:#1B1F23;border-radius:27px;padding:21px 24px;display:flex;flex-direction:column;
+    justify-content:space-between;border:1px solid rgba(255,255,255,.04);}
+  .tile.on{background:linear-gradient(150deg,#2C2622,#211D1A);border-color:rgba(232,161,92,.22);}
+  .tile .lbl{font-size:24px;color:#8C979E;}
+  .tile .val{font-size:40px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums;}
+  .tile .val small{font-size:21px;color:#8C979E;font-weight:400;margin-left:5px;}
+  .pager{display:flex;justify-content:center;gap:9px;margin:18px 0 24px;}
+  .pager i{width:8px;height:8px;border-radius:5px;background:#3A4248;display:block;}
+  .pager i.a{background:#E8A15C;width:24px;}
+
+  /* 02 */
+  .wx-main{display:flex;align-items:flex-start;gap:27px;padding:24px 24px 0;}
+  .wx-main .big{font-size:126px;line-height:.9;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;}
+  .wx-main .range{font-size:24px;margin-top:12px;}
+  .wx-main .cond{font-size:24px;color:#8C979E;}
+  .hourly{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:18px 24px 0;}
+  .hr{background:#1B1F23;border-radius:21px;padding:15px 0;text-align:center;}
+  .hr .h{font-size:18px;color:#8C979E;}
+  .hr .i{margin:9px 0 7px;display:flex;justify-content:center;}
+  .hr .t{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .daily{margin:15px 24px 0;}
+  .dr{display:flex;align-items:center;height:60px;gap:18px;font-size:21px;}
+  .dr .d{width:66px;color:#8C979E;}
+  .dr .ib{width:39px;display:flex;justify-content:center;}
+  .bar-t{flex:1;height:7px;border-radius:4px;background:#2B3238;position:relative;overflow:hidden;}
+  .bar-t i{position:absolute;top:0;bottom:0;border-radius:4px;background:linear-gradient(90deg,#4E8FB5,#E8A15C);}
+  .dr .v{width:114px;text-align:right;font-variant-numeric:tabular-nums;}
+  .aqi{margin:auto 24px 24px;background:#1B1F23;border-radius:21px;padding:18px 24px;display:flex;
+    align-items:center;justify-content:space-between;font-size:21px;}
+  .aqi .k{color:#8C979E;}
+
+  /* 03 */
+  .arm{margin:18px 24px 0;background:#1B1F23;border-radius:33px;padding:27px 33px 21px;position:relative;}
+  .arm .cap{font-size:18px;color:#8C979E;letter-spacing:.06em;}
+  .arm .time{font-size:96px;line-height:1;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:8px;}
+  .arm .left{font-size:21px;color:#E8A15C;margin-top:14px;}
+  .arm .sw{position:absolute;right:33px;top:30px;width:84px;height:48px;border-radius:24px;background:#E8A15C;}
+  .arm .sw i{position:absolute;right:5px;top:5px;width:38px;height:38px;border-radius:50%;background:#1A1A1A;}
+  .al-list{margin:15px 24px 0;}
+  .al-row{display:flex;align-items:center;height:84px;gap:21px;border-bottom:1px solid rgba(255,255,255,.05);}
+  .al-row:last-child{border-bottom:none;}
+  .al-row .tm{font-size:45px;font-weight:600;width:144px;font-variant-numeric:tabular-nums;}
+  .al-row.is-off .tm{color:#5C666D;}
+  .al-row .sub{flex:1;font-size:21px;color:#8C979E;}
+  .al-row .sw{width:72px;height:42px;border-radius:21px;background:#333B41;position:relative;}
+  .al-row .sw i{position:absolute;left:5px;top:5px;width:32px;height:32px;border-radius:50%;background:#7C868D;}
+  .al-row .sw.on{background:#E8A15C;}
+  .al-row .sw.on i{left:auto;right:5px;background:#1A1A1A;}
+  .al-acts{position:absolute;left:24px;right:24px;bottom:21px;display:flex;gap:18px;}
+  .al-acts div{flex:1;height:84px;border-radius:24px;background:#242A2F;display:flex;align-items:center;
+    justify-content:center;gap:12px;font-size:24px;}
+
+  /* 04 */
+  .chips{display:flex;gap:12px;margin:12px 24px 0;}
+  .chips span{font-size:21px;padding:10px 21px;border-radius:30px;background:#1B1F23;color:#8C979E;}
+  .chips span.a{background:#E8A15C;color:#1A1305;font-weight:600;}
+  .news{margin:21px 24px 0;display:flex;flex-direction:column;gap:15px;}
+  .nw{background:#1B1F23;border-radius:24px;padding:21px 24px;display:flex;gap:21px;align-items:center;}
+  .nw .txt{flex:1;min-width:0;}
+  .nw .h{font-size:26px;line-height:1.45;font-weight:500;display:-webkit-box;-webkit-line-clamp:2;
+    -webkit-box-orient:vertical;overflow:hidden;}
+  .nw .m{font-size:18px;color:#8C979E;margin-top:12px;}
+  .nw .thumb{width:96px;height:96px;border-radius:18px;flex:0 0 96px;background:linear-gradient(135deg,#2E3A42,#1F2629);}
+  .nw .thumb.b{background:linear-gradient(135deg,#3A2E28,#231D1A);}
+  .nw .thumb.c{background:linear-gradient(135deg,#26333A,#1B2226);}
+
+  /* 05 灯光 */
+  .lt-hero{margin:6px 24px 0;background:#1B1F23;border-radius:30px;padding:27px 30px 30px;}
+  .lt-hero .top{display:flex;justify-content:space-between;align-items:center;}
+  .lt-hero .nm{font-size:32px;font-weight:600;}
+  .lt-hero .pct{font-size:56px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:18px;line-height:1;}
+  .lt-hero .pct small{font-size:24px;color:#8C979E;font-weight:400;margin-left:6px;}
+  .slider{height:12px;border-radius:6px;background:#2B3238;position:relative;margin-top:27px;}
+  .slider .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;
+    background:linear-gradient(90deg,#7A5227,#E8A15C);}
+  .slider .knob{position:absolute;top:50%;width:40px;height:40px;border-radius:50%;background:#F5F7F8;
+    transform:translate(-50%,-50%);box-shadow:0 6px 16px rgba(0,0,0,.5);}
+  .cct{display:flex;gap:18px;margin:21px 24px 0;align-items:center;}
+  .cct .lb{font-size:21px;color:#8C979E;width:66px;}
+  .cct .pt{width:48px;height:48px;border-radius:50%;border:2px solid transparent;}
+  .cct .pt.a{border-color:#E8A15C;}
+  .rows{margin:15px 24px 0;}
+  .rowl{display:flex;align-items:center;height:84px;gap:18px;border-bottom:1px solid rgba(255,255,255,.05);}
+  .rowl:last-child{border:none;}
+  .rowl .ic{width:56px;height:56px;border-radius:16px;background:#242A2F;display:flex;align-items:center;justify-content:center;}
+  .rowl .nm{flex:1;font-size:24px;}
+  .rowl .st{font-size:21px;color:#8C979E;}
+
+  /* 06 温控 */
+  .ac-ring{width:288px;height:288px;border-radius:50%;margin:30px auto 0;position:relative;
+    background:conic-gradient(from 135deg,#E8A15C 0deg 210deg,#2B3238 210deg 360deg);}
+  .ac-ring::after{content:"";position:absolute;inset:20px;border-radius:50%;background:#101214;}
+  .ac-ring .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;z-index:2;}
+  .ac-ring .v{font-size:96px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;}
+  .ac-ring .u{font-size:21px;color:#8C979E;margin-top:9px;}
+  .seg{display:flex;gap:6px;background:#1B1F23;border-radius:21px;padding:6px;margin:30px 24px 0;}
+  .seg div{flex:1;height:60px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+    font-size:21px;color:#8C979E;}
+  .seg div.a{background:#E8A15C;color:#1A1305;font-weight:600;}
+  .ac-fan{display:flex;gap:12px;margin:15px 24px 0;}
+  .ac-fan div{flex:1;height:72px;border-radius:18px;background:#1B1F23;display:flex;align-items:center;
+    justify-content:center;font-size:21px;color:#8C979E;}
+  .ac-fan div.a{background:#242A2F;color:#F5F7F8;}
+
+  /* 07 窗帘 */
+  .cr-card{margin:18px 24px 0;background:#1B1F23;border-radius:30px;padding:36px 30px;text-align:center;
+    flex:1;display:flex;flex-direction:column;justify-content:center;}
+  .cr-card .v{font-size:96px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;}
+  .cr-card .u{font-size:21px;color:#8C979E;margin-top:12px;}
+  .cr-card .slider{margin-top:36px;}
+  .cr-btns{display:flex;gap:18px;margin:24px 24px 0;}
+  .cr-btns div{flex:1;height:96px;border-radius:24px;background:#242A2F;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:9px;font-size:18px;color:#8C979E;}
+  .cr-btns div.a{background:#E8A15C;color:#1A1305;font-weight:600;}
+  .cr-note{margin:24px 24px 21px;font-size:18px;color:#5C666D;text-align:center;line-height:1.6;}
+
+  /* 08 场景 */
+  .sc-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:18px;margin:9px 24px 0;}
+  .sc{background:#1B1F23;border-radius:27px;padding:24px;display:flex;flex-direction:column;
+    justify-content:space-between;border:1px solid rgba(255,255,255,.04);}
+  .sc.on{background:linear-gradient(150deg,#2C2622,#211D1A);border-color:rgba(232,161,92,.28);}
+  .sc .nm{font-size:26px;font-weight:600;}
+  .sc .ds{font-size:21px;color:#8C979E;}
+  .sc-bar{display:flex;justify-content:center;gap:9px;margin:18px 0 24px;}
+  .sc-bar i{width:8px;height:8px;border-radius:5px;background:#3A4248;display:block;}
+  .sc-bar i.a{background:#E8A15C;width:24px;}
+
+  /* 09 安防 */
+  .sec-card{margin:9px 24px 0;background:linear-gradient(150deg,#1E2A24,#18211C);border-radius:30px;
+    padding:27px 30px;display:flex;align-items:center;gap:24px;border:1px solid rgba(143,201,169,.18);}
+  .sec-card .t{font-size:32px;font-weight:600;}
+  .sec-card .s{font-size:21px;color:#8FC9A9;margin-top:9px;}
+  .sec-acts{display:flex;gap:15px;margin:18px 24px 0;}
+  .sec-acts div{flex:1;height:120px;border-radius:24px;background:#1B1F23;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:12px;font-size:21px;color:#8C979E;}
+  .sec-acts div.a{background:#8FC9A9;color:#0C1A13;font-weight:600;}
+  .sec-list{margin:auto 24px 24px;}
+  .sec-row{display:flex;align-items:center;height:72px;gap:15px;font-size:21px;color:#C7CDD2;
+    border-bottom:1px solid rgba(255,255,255,.05);}
+  .sec-row:last-child{border:none;}
+  .sec-row .ok{margin-left:auto;font-size:18px;color:#8FC9A9;}
+
+  /* 10 能耗 */
+  .en-big{margin:9px 24px 0;}
+  .en-big .k{font-size:21px;color:#8C979E;}
+  .en-big .v{font-size:96px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;margin-top:9px;}
+  .en-big .v small{font-size:24px;color:#8C979E;font-weight:400;margin-left:12px;}
+  .en-big .cmp{font-size:21px;color:#8FC9A9;margin-top:12px;}
+  .bars{display:flex;align-items:flex-end;gap:12px;height:198px;margin:27px 24px 0;
+    border-bottom:1px solid rgba(255,255,255,.07);}
+  .bars .b{flex:1;background:#2B3238;border-radius:8px 8px 0 0;position:relative;}
+  .bars .b.a{background:#E8A15C;}
+  .bars .b span{position:absolute;bottom:-30px;left:0;right:0;text-align:center;font-size:18px;color:#5C666D;}
+  .en-list{margin:44px 24px 0;}
+  .en-row{display:flex;align-items:center;height:60px;gap:15px;font-size:21px;}
+  .en-row .nm{width:120px;color:#C7CDD2;}
+  .en-row .pb{flex:1;height:8px;border-radius:4px;background:#2B3238;overflow:hidden;}
+  .en-row .pb i{display:block;height:100%;border-radius:4px;background:#8C979E;}
+  .en-row .pc{width:76px;text-align:right;color:#8C979E;font-variant-numeric:tabular-nums;}
+
+  /* 11 设置 */
+  .st-group{margin:9px 24px 0;background:#1B1F23;border-radius:27px;overflow:hidden;}
+  .st-row{display:flex;align-items:center;height:84px;padding:0 24px;gap:18px;font-size:24px;
+    border-bottom:1px solid rgba(255,255,255,.05);}
+  .st-row:last-child{border:none;}
+  .st-row .v{margin-left:auto;font-size:21px;color:#8C979E;}
+  .st-row .v.ok{color:#8FC9A9;}
+  .st-foot{margin:15px 24px 0;font-size:18px;color:#5C666D;text-align:center;}
+
+  /* 12 响铃 */
+  .ring{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(120% 80% at 50% 30%,rgba(232,161,92,.16),transparent 62%);}
+  .ring .cap{font-size:21px;color:#E8A15C;letter-spacing:.1em;}
+  .ring .time{font-size:168px;line-height:1;font-weight:600;letter-spacing:-.04em;
+    font-variant-numeric:tabular-nums;margin-top:18px;}
+  .ring .sub{font-size:21px;color:#8C979E;margin-top:18px;}
+  .ring .acts{position:absolute;left:24px;right:24px;bottom:42px;display:flex;gap:18px;}
+  .ring .acts div{flex:1;height:96px;border-radius:30px;display:flex;align-items:center;
+    justify-content:center;font-size:24px;}
+  .ring .acts .ghost{background:#242A2F;color:#F5F7F8;}
+  .ring .acts .solid{background:#E8A15C;color:#1A1305;font-weight:600;}
+
+  /* 13 门铃 */
+  .db{flex:1;position:relative;background:linear-gradient(160deg,#1E2A33,#141A1E 55%,#0E1215);}
+  .db .top{position:relative;padding:24px;display:flex;justify-content:space-between;font-size:21px;
+    color:#C7CDD2;z-index:2;}
+  .db .cam{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+  .db .acts{position:absolute;left:24px;right:24px;bottom:42px;display:flex;gap:18px;z-index:2;}
+  .db .acts div{flex:1;height:96px;border-radius:30px;display:flex;align-items:center;justify-content:center;
+    gap:12px;font-size:24px;}
+  .db .acts .ghost{background:rgba(36,42,47,.92);color:#F5F7F8;}
+  .db .acts .solid{background:#8FC9A9;color:#0C1A13;font-weight:600;}
+
+  /* 14 离线 */
+  .wxoff{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .wxoff .big{font-size:126px;line-height:1;font-weight:600;color:#6C757B;
+    font-variant-numeric:tabular-nums;margin-top:21px;}
+  .wxoff .dg{font-size:.28em;margin-left:10px;color:#5A6267;font-weight:500;}
+  .wxoff .t1{font-size:26px;margin-top:21px;color:#C7CDD2;}
+  .wxoff .t2{font-size:21px;color:#8C979E;margin-top:12px;}
+  .wxoff .btn{margin-top:45px;width:252px;height:72px;border-radius:24px;border:1px solid #333B41;
+    display:flex;align-items:center;justify-content:center;gap:12px;font-size:21px;color:#F5F7F8;}
+
+  /* 15 骨架 */
+  .sk{background:#1B1F23;border-radius:24px;padding:21px 24px;display:flex;gap:21px;align-items:center;}
+  .sk .w{flex:1;}
+  .sk .l{height:22px;border-radius:6px;background:#272D32;margin-bottom:15px;position:relative;overflow:hidden;}
+  .sk .l.s{width:58%;margin-bottom:20px;}
+  .sk .l.m{width:34%;height:17px;margin-bottom:0;}
+  .sk .th{width:96px;height:96px;border-radius:18px;background:#272D32;flex:0 0 96px;}
+  .sh{position:relative;overflow:hidden;}
+  .sh::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.055),transparent);animation:shim 1.9s infinite;}
+  @keyframes shim{100%{transform:translateX(100%);}}
+
+  /* 16 夜间 */
+  .night{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0A0B0C;}
+  .night .time{font-size:126px;line-height:1;font-weight:300;letter-spacing:-.03em;color:#6E767C;
+    font-variant-numeric:tabular-nums;}
+  .night .d{font-size:24px;color:#4C5359;margin-top:24px;}
+  .night .w{font-size:21px;color:#3E4449;margin-top:12px;}
+
+  /* 规格板 */
+  .board{width:720px;background:#fff;border-radius:24px;padding:42px 44px 48px;color:#16181A;
+    box-shadow:0 24px 60px -30px rgba(20,22,25,.35);}
+  .board h3{font-size:25px;margin:0 0 6px;letter-spacing:-.01em;}
+  .board .bs{font-size:14px;color:#8A9096;margin:0 0 24px;line-height:1.65;}
+  .b-sec{font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:#A3A8AE;font-weight:600;
+    margin:30px 0 12px;padding-bottom:8px;border-bottom:1px solid #EDEAE4;}
+  .b-sec:first-of-type{margin-top:4px;}
+  .pal{display:flex;gap:9px;}
+  .pal div{flex:1;border-radius:10px;border:1px solid #EDEAE4;overflow:hidden;}
+  .pal .c{height:54px;}
+  .pal .t{padding:7px 8px;font-size:10px;color:#8A9096;line-height:1.5;}
+  .pal .t b{display:block;color:#26292C;font-size:10.5px;font-family:ui-monospace,Menlo,monospace;}
+  .pal .t i{font-style:normal;color:#8B5E83;}
+
+  table.spec{width:100%;border-collapse:collapse;font-size:12px;}
+  table.spec th{text-align:left;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#A3A8AE;
+    font-weight:600;padding:7px 8px;border-bottom:1px solid #E6E2DC;}
+  table.spec td{padding:7px 8px;border-bottom:1px solid #F2EFEA;color:#4A5054;vertical-align:middle;}
+  table.spec td:first-child{color:#16181A;font-weight:500;font-family:ui-monospace,Menlo,monospace;font-size:11px;}
+  table.spec .demo{font-weight:600;letter-spacing:-.02em;line-height:1;}
+
+  .grid-a{display:flex;gap:12px;flex-wrap:wrap;}
+  .cell{background:#F7F5F2;border:1px solid #EDEAE4;border-radius:11px;padding:12px 14px;min-width:130px;}
+  .cell .t{font-size:10.5px;color:#8A9096;margin-bottom:7px;letter-spacing:.05em;}
+  .cell .v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;}
+
+  .comps{display:flex;gap:24px;flex-wrap:wrap;align-items:center;background:#0F1113;
+    border-radius:16px;padding:26px 24px;}
+  .cs{text-align:center;font-size:10.5px;color:#6C757B;margin-top:10px;}
+  .tog{width:72px;height:42px;border-radius:21px;background:#E8A15C;position:relative;}
+  .tog i{position:absolute;right:5px;top:5px;width:32px;height:32px;border-radius:50%;background:#1A1A1A;display:block;}
+  .tog.off{background:#333B41;}
+  .tog.off i{left:5px;right:auto;background:#7C868D;}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="#E8A15C" stroke-width="1.6" stroke-linecap="round">
+    <circle cx="12" cy="12" r="4.2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>
+  </symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="1.6" stroke-linecap="round">
+    <path d="M7.5 18h9a3.5 3.5 0 0 0 .3-6.98A5 5 0 0 0 7.3 11.6 3.6 3.6 0 0 0 7.5 18z"/>
+  </symbol>
+  <symbol id="i-partly" viewBox="0 0 24 24" fill="none" stroke="#E8A15C" stroke-width="1.5" stroke-linecap="round">
+    <circle cx="8.6" cy="8" r="3"/><path d="M8.6 2.6v1.4M8.6 12v1.4M3.2 8h1.4M12.6 8H14M4.8 4.2l1 1M11.4 10.8l1 1M12.4 4.2l-1 1"/>
+    <path d="M8.6 19h8.2a3.2 3.2 0 0 0 .3-6.4A4.6 4.6 0 0 0 8.4 13 3.3 3.3 0 0 0 8.6 19z" stroke="#8C979E"/>
+  </symbol>
+  <symbol id="i-rain" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="1.6" stroke-linecap="round">
+    <path d="M7.5 15h9a3.5 3.5 0 0 0 .3-6.98A5 5 0 0 0 7.3 8.6 3.6 3.6 0 0 0 7.5 15z"/>
+    <path d="M8.5 18l-.8 2.2M12 18l-.8 2.2M15.5 18l-.8 2.2" stroke="#7FB6D9"/>
+  </symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="2" stroke-linecap="round">
+    <path d="M2 8.8a15 15 0 0 1 20 0"/><path d="M5.5 12.5a10 10 0 0 1 13 0"/><path d="M9 16.2a5 5 0 0 1 6 0"/>
+    <circle cx="12" cy="20" r="1" fill="#8C979E" stroke="none"/>
+  </symbol>
+  <symbol id="i-wifioff" viewBox="0 0 24 24" fill="none" stroke="#6C757B" stroke-width="2" stroke-linecap="round">
+    <path d="M2 8.8a15 15 0 0 1 20 0"/><path d="M5.5 12.5a10 10 0 0 1 13 0"/><path d="M9 16.2a5 5 0 0 1 6 0"/>
+    <circle cx="12" cy="20" r="1" fill="#6C757B" stroke="none"/><path d="M3 3l18 18"/>
+  </symbol>
+  <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="#F5F7F8" stroke-width="2" stroke-linecap="round">
+    <path d="M15 5l-7 7 7 7"/>
+  </symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="2" stroke-linecap="round">
+    <path d="M12 5v14M5 12h14"/>
+  </symbol>
+</svg>
+
+<div class="app">
+  <div class="topbar">
+    <div class="brand">86 面板中控屏<span>720 × 720 · 设计系统 v2</span></div>
+    <div class="spacer"></div>
+    <button class="tb-btn" id="btnFitW">适应宽度</button>
+    <button class="tb-btn" id="btnFitAll">全部可见</button>
+    <div class="zoombox"><button id="zOut">−</button><div class="v" id="zoomVal">55%</div><button id="zIn">+</button></div>
+    <button class="tb-btn" id="btnRed">标注</button>
+    <div class="hint">滚轮缩放 · 空白拖动 · 地址栏加 #f9 可直达画板</div>
+  </div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-group">主导航</div>
+    <div class="sb-item" data-target="f1"><span class="n">01</span><span>主页</span></div>
+    <div class="sb-item" data-target="f2"><span class="n">02</span><span>天气</span></div>
+    <div class="sb-item" data-target="f3"><span class="n">03</span><span>闹钟</span></div>
+    <div class="sb-item" data-target="f4"><span class="n">04</span><span>新闻</span></div>
+    <div class="sb-group">设备控制</div>
+    <div class="sb-item" data-target="f5"><span class="n">05</span><span>灯光</span></div>
+    <div class="sb-item" data-target="f6"><span class="n">06</span><span>温控</span></div>
+    <div class="sb-item" data-target="f7"><span class="n">07</span><span>窗帘</span></div>
+    <div class="sb-item" data-target="f8"><span class="n">08</span><span>场景</span></div>
+    <div class="sb-group">系统</div>
+    <div class="sb-item" data-target="f9"><span class="n">09</span><span>安防</span></div>
+    <div class="sb-item" data-target="f10"><span class="n">10</span><span>能耗</span></div>
+    <div class="sb-item" data-target="f11"><span class="n">11</span><span>设置</span></div>
+    <div class="sb-group">系统状态</div>
+    <div class="sb-item" data-target="f12"><span class="n">12</span><span>响铃打断</span></div>
+    <div class="sb-item" data-target="f13"><span class="n">13</span><span>门铃弹窗</span></div>
+    <div class="sb-item" data-target="f14"><span class="n">14</span><span>天气离线</span></div>
+    <div class="sb-item" data-target="f15"><span class="n">15</span><span>新闻加载</span></div>
+    <div class="sb-item" data-target="f16"><span class="n">16</span><span>夜间待机</span></div>
+    <div class="sb-group">设计规格</div>
+    <div class="sb-item" data-target="f17"><span class="n">17</span><span>色彩令牌</span></div>
+    <div class="sb-item" data-target="f18"><span class="n">18</span><span>字体排印</span></div>
+    <div class="sb-item" data-target="f19"><span class="n">19</span><span>控件尺寸</span></div>
+  </aside>
+
+  <main class="canvas" id="canvas">
+    <div class="stage" id="stage">
+
+      <div class="frame" data-id="f1">
+        <div class="f-label"><i></i><b>01 主页</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar" data-el="bar h66">
+            <span><i class="dot"></i>&nbsp; 家中 · 已连接</span>
+            <span class="r"><svg class="si" width="23" height="23"><use href="#i-wifi"/></svg> 室内 24.5°</span>
+          </div>
+          <div class="hero" data-el="主卡 672×198 r30">
+            <div class="clock">08<span class="c">:</span>42</div>
+            <div class="date">11月16日 周一</div>
+            <div class="wx">
+              <svg class="si" width="54" height="54" style="margin-left:auto;margin-bottom:12px"><use href="#i-partly"/></svg>
+              <div class="temp">26°</div><div class="desc">多云转晴</div>
+            </div>
+          </div>
+          <div class="tiles" data-el="瓷贴区 2×2 gap18">
+            <div class="tile on" data-el="瓷贴 327×174 r27">
+              <div class="lbl">客厅灯</div>
+              <svg class="si" width="39" height="39" viewBox="0 0 24 24" fill="none" stroke="#E8A15C" stroke-width="1.7" stroke-linecap="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.7.5 1.1h6c0-.4.1-.8.5-1.1A6 6 0 0 0 12 3z"/></svg>
+              <div class="val">3 <small>盏已开</small></div>
+            </div>
+            <div class="tile" data-el="瓷贴">
+              <div class="lbl">空调</div>
+              <svg class="si" width="39" height="39" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="1.7" stroke-linecap="round"><path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/></svg>
+              <div class="val">26<small>° 制冷</small></div>
+            </div>
+            <div class="tile" data-el="瓷贴">
+              <div class="lbl">窗帘</div>
+              <svg class="si" width="39" height="39" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="1.7" stroke-linecap="round"><path d="M3 3h18"/><path d="M6 3v18M18 3v18M6 8h12M6 14h12"/></svg>
+              <div class="val">已关<small> 100%</small></div>
+            </div>
+            <div class="tile" data-el="瓷贴">
+              <div class="lbl">场景</div>
+              <svg class="si" width="39" height="39" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="1.7" stroke-linecap="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-7h6v7"/></svg>
+              <div class="val">回家</div>
+            </div>
+          </div>
+          <div class="pager" data-el="分页 4 点"><i class="a"></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f2">
+        <div class="f-label"><i></i><b>02 天气</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar" data-el="bar h66"><span>南京 · 建邺</span><span class="r">11月16日 周一</span></div>
+          <div class="wx-main" data-el="主温度区 126px">
+            <div><div class="big">26°</div><div class="range">最高 29° &nbsp;·&nbsp; 最低 21°</div></div>
+            <div style="padding-top:9px">
+              <svg class="si" width="117" height="117"><use href="#i-partly"/></svg>
+              <div class="cond" style="text-align:center;margin-top:6px">多云转晴</div>
+            </div>
+          </div>
+          <div class="hourly" data-el="逐小时 5×119">
+            <div class="hr"><div class="h">现在</div><div class="i"><svg width="34" height="34"><use href="#i-sun"/></svg></div><div class="t">26°</div></div>
+            <div class="hr"><div class="h">11时</div><div class="i"><svg width="34" height="34"><use href="#i-sun"/></svg></div><div class="t">28°</div></div>
+            <div class="hr"><div class="h">12时</div><div class="i"><svg width="34" height="34"><use href="#i-partly"/></svg></div><div class="t">29°</div></div>
+            <div class="hr"><div class="h">13时</div><div class="i"><svg width="34" height="34"><use href="#i-partly"/></svg></div><div class="t">28°</div></div>
+            <div class="hr"><div class="h">14时</div><div class="i"><svg width="34" height="34"><use href="#i-cloud"/></svg></div><div class="t">27°</div></div>
+          </div>
+          <div class="daily" data-el="日预报 行高60">
+            <div class="dr"><div class="d">明天</div><div class="ib"><svg width="34" height="34"><use href="#i-partly"/></svg></div>
+              <div class="bar-t"><i style="left:10%;right:30%"></i></div><div class="v">21° / 29°</div></div>
+            <div class="dr"><div class="d">周三</div><div class="ib"><svg width="34" height="34"><use href="#i-cloud"/></svg></div>
+              <div class="bar-t"><i style="left:20%;right:20%"></i></div><div class="v">19° / 26°</div></div>
+            <div class="dr"><div class="d">周四</div><div class="ib"><svg width="34" height="34"><use href="#i-rain"/></svg></div>
+              <div class="bar-t"><i style="left:35%;right:8%"></i></div><div class="v">17° / 22°</div></div>
+          </div>
+          <div class="aqi" data-el="AQI 672×69 r21">
+            <span><span class="k">空气质量</span> &nbsp;<b style="color:#8FC9A9">62 良</b></span>
+            <span class="k">湿度 52% · 东南风 2 级</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f3">
+        <div class="f-label"><i></i><b>03 闹钟</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar" data-el="bar h66">
+            <span>闹钟</span><span class="r"><svg width="33" height="33"><use href="#i-plus"/></svg></span>
+          </div>
+          <div class="arm" data-el="闹钟卡 672×228 r33">
+            <div class="cap">下次闹钟</div>
+            <div class="time">07:30</div>
+            <div class="left">还有 6 小时 12 分 · 工作日</div>
+            <div class="sw"><i></i></div>
+          </div>
+          <div class="al-list" data-el="列表 行高84">
+            <div class="al-row">
+              <div class="tm">07:30</div><div class="sub">工作日 &nbsp;·&nbsp; 轻柔铃声</div><div class="sw on"><i></i></div>
+            </div>
+            <div class="al-row is-off">
+              <div class="tm">08:15</div><div class="sub">周末 &nbsp;·&nbsp; 已关闭</div><div class="sw"><i></i></div>
+            </div>
+            <div class="al-row">
+              <div class="tm">22:40</div><div class="sub">每天 &nbsp;·&nbsp; 睡眠提醒</div><div class="sw on"><i></i></div>
+            </div>
+          </div>
+          <div class="al-acts" data-el="次级按钮 h84 r24">
+            <div><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F5F7F8" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>计时器</div>
+            <div><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F5F7F8" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>秒表</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f4">
+        <div class="f-label"><i></i><b>04 新闻</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar" data-el="bar h66"><span>资讯</span><span class="r">09:12 更新</span></div>
+          <div class="chips" data-el="chip h56 r30">
+            <span class="a">推荐</span><span>科技</span><span>本地</span><span>财经</span>
+          </div>
+          <div class="news" data-el="列表 gap15">
+            <div class="nw" data-el="新闻卡 672×161 r24">
+              <div class="txt"><div class="h">Wi-Fi 8 草案进入投票阶段，重点转向多接入点协同</div>
+                <div class="m">电子工程专辑 &nbsp;·&nbsp; 12 分钟前</div></div>
+              <div class="thumb"></div>
+            </div>
+            <div class="nw" data-el="新闻卡">
+              <div class="txt"><div class="h">本地：江北新区新增三条夜间公交线路，覆盖地铁末班</div>
+                <div class="m">南京发布 &nbsp;·&nbsp; 38 分钟前</div></div>
+              <div class="thumb b"></div>
+            </div>
+            <div class="nw" data-el="新闻卡">
+              <div class="txt"><div class="h">RISC-V 国际基金会发布新版服务器级扩展规范</div>
+                <div class="m">开源硬件观察 &nbsp;·&nbsp; 1 小时前</div></div>
+              <div class="thumb c"></div>
+            </div>
+          </div>
+          <div class="pager" style="margin-top:auto;margin-bottom:24px"><i class="a"></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f5">
+        <div class="f-label"><i></i><b>05 灯光</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar"><span class="back"><svg width="30" height="30"><use href="#i-back"/></svg> 客厅</span><span class="r">3 盏 · 已开</span></div>
+          <div class="lt-hero" data-el="主灯卡 672×256 r30">
+            <div class="top">
+              <div class="nm">主灯</div>
+              <div style="width:84px;height:48px;border-radius:24px;background:#E8A15C;position:relative;flex:0 0 auto">
+                <i style="position:absolute;right:5px;top:5px;width:38px;height:38px;border-radius:50%;background:#1A1A1A;display:block"></i>
+              </div>
+            </div>
+            <div class="pct">80<small>%</small></div>
+            <div class="slider" data-el="滑块 672×12 球Ø40">
+              <div class="fill" style="width:80%"></div>
+              <div class="knob" style="left:80%"></div>
+            </div>
+          </div>
+          <div class="cct" data-el="色温 4×Ø48">
+            <div class="lb">色温</div>
+            <div class="pt" style="background:#FFD9A0"></div>
+            <div class="pt a" style="background:#FFE9CC"></div>
+            <div class="pt" style="background:#EAF2FF"></div>
+            <div class="pt" style="background:#D6E6FF"></div>
+          </div>
+          <div class="rows" data-el="灯具列表 行高84">
+            <div class="rowl">
+              <div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#E8A15C" stroke-width="1.7" stroke-linecap="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.7.5 1.1h6c0-.4.1-.8.5-1.1A6 6 0 0 0 12 3z"/></svg></div>
+              <div class="nm">主灯</div><div class="st">80%</div>
+            </div>
+            <div class="rowl">
+              <div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="1.7" stroke-linecap="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.7.5 1.1h6c0-.4.1-.8.5-1.1A6 6 0 0 0 12 3z"/></svg></div>
+              <div class="nm">落地灯</div><div class="st">已关</div>
+            </div>
+            <div class="rowl">
+              <div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#E8A15C" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/></svg></div>
+              <div class="nm">灯带</div><div class="st">35%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f6">
+        <div class="f-label"><i></i><b>06 温控</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar"><span class="back"><svg width="30" height="30"><use href="#i-back"/></svg> 客厅空调</span><span class="r">运行中</span></div>
+          <div class="ac-ring" data-el="环形 Ø288 环宽20">
+            <div class="in"><div class="v">26</div><div class="u">目标温度 · ℃</div></div>
+          </div>
+          <div class="seg" data-el="分段 672×72 段高60">
+            <div class="a">制冷</div><div>制热</div><div>除湿</div><div>送风</div>
+          </div>
+          <div class="ac-fan" data-el="风速 chip h72 r18">
+            <div>自动</div><div class="a">中风</div><div>高风</div>
+          </div>
+          <div class="cr-note">室内 24.5℃ · 湿度 52% · 已运行 1 小时 20 分</div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f7">
+        <div class="f-label"><i></i><b>07 窗帘</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar"><span class="back"><svg width="30" height="30"><use href="#i-back"/></svg> 客厅窗帘</span><span class="r">65%</span></div>
+          <div class="cr-card" data-el="位置卡 672×弹性 r30">
+            <div class="v">65<small style="font-size:24px;color:#8C979E">%</small></div>
+            <div class="u">已开 · 剩余行程约 4 秒</div>
+            <div class="slider" data-el="滑块 672×12">
+              <div class="fill" style="width:65%"></div><div class="knob" style="left:65%"></div>
+            </div>
+          </div>
+          <div class="cr-btns" data-el="三段按钮 h96 r24">
+            <div><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="2" stroke-linecap="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>上升</div>
+            <div class="a"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1A1305" stroke-width="2.2" stroke-linecap="round"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>停止</div>
+            <div><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>下降</div>
+          </div>
+          <div class="cr-note">定时：每天 07:00 开启 80% · 21:30 全关</div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f8">
+        <div class="f-label"><i></i><b>08 场景</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar"><span>场景</span><span class="r">4 个 · 长按编辑</span></div>
+          <div class="sc-grid" data-el="场景 2×2 gap18">
+            <div class="sc on" data-el="场景卡 327×288 r27">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#E8A15C" stroke-width="1.5" stroke-linecap="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-7h6v7"/></svg>
+              <div><div class="nm">回家</div><div class="ds">主灯 80% · 空调 26°</div></div>
+            </div>
+            <div class="sc">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="1.5" stroke-linecap="round"><path d="M4 20h16M6 20V9l6-5 6 5v11"/><path d="M10 20v-5h4v5"/></svg>
+              <div><div class="nm">离家</div><div class="ds">全关 · 布防</div></div>
+            </div>
+            <div class="sc">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 5v14M17 5v14"/></svg>
+              <div><div class="nm">观影</div><div class="ds">灯带 20% · 窗帘关</div></div>
+            </div>
+            <div class="sc">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="1.5" stroke-linecap="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+              <div><div class="nm">睡眠</div><div class="ds">全关 · 夜间模式</div></div>
+            </div>
+          </div>
+          <div class="sc-bar"><i class="a"></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f9">
+        <div class="f-label"><i></i><b>09 安防</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar"><span>安防</span><span class="r">3 个传感器在线</span></div>
+          <div class="sec-card" data-el="状态卡 672×132 r30">
+            <svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="#8FC9A9" stroke-width="1.6" stroke-linecap="round"><path d="M12 3l7 3v6c0 4.4-3 8-7 9-4-1-7-4.6-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+            <div><div class="t">已布防</div><div class="s">离家模式 · 21:40 生效</div></div>
+          </div>
+          <div class="sec-acts" data-el="布防按钮 3×212×120 r24">
+            <div class="a"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0C1A13" stroke-width="1.8" stroke-linecap="round"><path d="M12 3l7 3v6c0 4.4-3 8-7 9-4-1-7-4.6-7-9V6z"/></svg>在家</div>
+            <div><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="1.8" stroke-linecap="round"><path d="M4 20h16M6 20V9l6-5 6 5v11"/></svg>离家</div>
+            <div><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#8C979E" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>撤防</div>
+          </div>
+          <div class="sec-list" data-el="传感器 行高72">
+            <div class="sec-row"><span>入户门磁</span><span class="ok">正常</span></div>
+            <div class="sec-row"><span>客厅红外</span><span class="ok">正常</span></div>
+            <div class="sec-row"><span>厨房烟感</span><span class="ok">正常</span></div>
+            <div class="sec-row"><span>次卧门磁</span><span class="ok">正常</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f10">
+        <div class="f-label"><i></i><b>10 能耗</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar"><span>今日用电</span><span class="r">11月16日</span></div>
+          <div class="en-big" data-el="主数值 96px">
+            <div class="k">累计 12.4 kWh</div>
+            <div class="v">¥ 8.6<small>今日电费</small></div>
+            <div class="cmp">较昨日 -12%</div>
+          </div>
+          <div class="bars" data-el="7 日柱状 672×198">
+            <div class="b" style="height:46%"><span>一</span></div>
+            <div class="b" style="height:62%"><span>二</span></div>
+            <div class="b" style="height:38%"><span>三</span></div>
+            <div class="b" style="height:74%"><span>四</span></div>
+            <div class="b" style="height:56%"><span>五</span></div>
+            <div class="b" style="height:88%"><span>六</span></div>
+            <div class="b a" style="height:66%"><span>日</span></div>
+          </div>
+          <div class="en-list" data-el="分项 行高60">
+            <div class="en-row"><div class="nm">空调</div><div class="pb"><i style="width:58%"></i></div><div class="pc">7.2</div></div>
+            <div class="en-row"><div class="nm">照明</div><div class="pb"><i style="width:24%"></i></div><div class="pc">3.0</div></div>
+            <div class="en-row"><div class="nm">其他</div><div class="pb"><i style="width:18%"></i></div><div class="pc">2.2</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f11">
+        <div class="f-label"><i></i><b>11 设置</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar"><span>设置</span><span class="r">86-Panel-01</span></div>
+          <div class="st-group" data-el="分组 672×336 r27">
+            <div class="st-row"><span>网络</span><span class="v ok">已连接</span></div>
+            <div class="st-row"><span>亮度</span><span class="v">60%</span></div>
+            <div class="st-row"><span>声音</span><span class="v">40%</span></div>
+            <div class="st-row"><span>语言</span><span class="v">简体中文</span></div>
+          </div>
+          <div class="st-group" style="margin-top:15px">
+            <div class="st-row"><span>夜间模式</span><span class="v">23:00 – 07:00</span></div>
+            <div class="st-row"><span>固件版本</span><span class="v">1.4.2</span></div>
+          </div>
+          <div class="st-foot">恢复出厂设置需长按电源键 10 秒</div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f12">
+        <div class="f-label"><i></i><b>12 响铃打断</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="ring">
+            <div class="cap">闹钟 · 工作日</div>
+            <div class="time">07:30</div>
+            <div class="sub">轻柔铃声 &nbsp;·&nbsp; 音量 40%</div>
+            <div class="acts">
+              <div class="ghost">稍后 10 分钟</div>
+              <div class="solid">关闭闹钟</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f13">
+        <div class="f-label"><i></i><b>13 门铃弹窗</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="db">
+            <div class="cam">
+              <svg width="230" height="230" viewBox="0 0 24 24" fill="none" stroke="#2E3A42" stroke-width=".7" stroke-linecap="round">
+                <circle cx="12" cy="9" r="3.2"/><path d="M5 21c0-4 3.1-6.4 7-6.4s7 2.4 7 6.4"/>
+              </svg>
+            </div>
+            <div class="top"><span>门口机 · 正在呼叫</span><span>1080P</span></div>
+            <div class="acts">
+              <div class="ghost">忽略</div>
+              <div class="solid">接听</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f14">
+        <div class="f-label"><i></i><b>14 天气离线</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar"><span>南京 · 建邺</span><span class="r"><svg class="si" width="23" height="23"><use href="#i-wifioff"/></svg> 未连接</span></div>
+          <div class="wxoff">
+            <svg width="132" height="132" viewBox="0 0 24 24" fill="none" stroke="#4C5459" stroke-width="1.2" stroke-linecap="round">
+              <path d="M7.5 18h9a3.5 3.5 0 0 0 .3-6.98A5 5 0 0 0 7.3 11.6 3.6 3.6 0 0 0 7.5 18z"/>
+            </svg>
+            <div class="big">--<span class="dg">°C</span></div>
+            <div class="t1">暂无天气数据</div>
+            <div class="t2">上次同步 09:12，正在显示缓存</div>
+            <div class="btn">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F5F7F8" stroke-width="1.8" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg>
+              重新连接
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f15">
+        <div class="f-label"><i></i><b>15 新闻加载</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="bar"><span>资讯</span><span class="r">正在更新…</span></div>
+          <div class="chips"><span class="a">推荐</span><span>科技</span><span>本地</span><span>财经</span></div>
+          <div class="news">
+            <div class="sk"><div class="w"><div class="l sh"></div><div class="l s sh"></div><div class="l m sh"></div></div><div class="th"></div></div>
+            <div class="sk"><div class="w"><div class="l sh"></div><div class="l s sh"></div><div class="l m sh"></div></div><div class="th"></div></div>
+            <div class="sk"><div class="w"><div class="l sh"></div><div class="l s sh"></div><div class="l m sh"></div></div><div class="th"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f16">
+        <div class="f-label"><i></i><b>16 夜间待机</b><em>720×720</em></div>
+        <div class="scr">
+          <div class="night">
+            <div class="time">23:14</div>
+            <div class="d">11月16日 周一</div>
+            <div class="w">室外 18° · 客厅 24.5°</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f17">
+        <div class="f-label"><i></i><b>17 色彩令牌</b><em>720×auto</em></div>
+        <div class="board">
+          <h3>色彩令牌</h3>
+          <p class="bs">6 个基础色 + 6 个语义色。对比度为 WCAG 2.1 实测值（相对 #101214 底）。</p>
+
+          <div class="b-sec">基础色</div>
+          <div class="pal">
+            <div><div class="c" style="background:#101214"></div><div class="t"><b>bg/base</b>#101214</div></div>
+            <div><div class="c" style="background:#1B1F23"></div><div class="t"><b>bg/card</b>#1B1F23</div></div>
+            <div><div class="c" style="background:#242A2F"></div><div class="t"><b>bg/raise</b>#242A2F</div></div>
+            <div><div class="c" style="background:#2B3238"></div><div class="t"><b>line/strong</b>#2B3238</div></div>
+            <div><div class="c" style="background:#F5F7F8"></div><div class="t"><b>ink/primary</b>#F5F7F8</div></div>
+            <div><div class="c" style="background:#8C979E"></div><div class="t"><b>ink/secondary</b>#8C979E</div></div>
+          </div>
+
+          <div class="b-sec">语义色</div>
+          <div class="pal">
+            <div><div class="c" style="background:#E8A15C"></div><div class="t"><b>accent</b>#E8A15C<br><i>8.66:1</i></div></div>
+            <div><div class="c" style="background:#8FC9A9"></div><div class="t"><b>success</b>#8FC9A9<br><i>8.76:1</i></div></div>
+            <div><div class="c" style="background:#7FB6D9"></div><div class="t"><b>cool</b>#7FB6D9<br><i>7.21:1</i></div></div>
+            <div><div class="c" style="background:#1A1305"></div><div class="t"><b>on-accent</b>#1A1305<br><i>8.50:1</i></div></div>
+            <div><div class="c" style="background:#6C757B"></div><div class="t"><b>ink/disabled</b>#6C757B<br><i>3.99:1</i></div></div>
+            <div><div class="c" style="background:#0A0B0C"></div><div class="t"><b>bg/night</b>#0A0B0C</div></div>
+          </div>
+
+          <div class="b-sec">对比度实测</div>
+          <table class="spec">
+            <tr><th>前景 / 背景</th><th>比值</th><th>适用</th></tr>
+            <tr><td>#F5F7F8 / #101214</td><td>17.47 : 1</td><td>正文、主信息</td></tr>
+            <tr><td>#F5F7F8 / #1B1F23</td><td>15.43 : 1</td><td>卡片内正文</td></tr>
+            <tr><td>#8C979E / #1B1F23</td><td>5.55 : 1</td><td>次要信息（≥18px 可读）</td></tr>
+            <tr><td>#E8A15C / #101214</td><td>8.66 : 1</td><td>强调、可点状态</td></tr>
+            <tr><td>#6C757B / #101214</td><td>3.99 : 1</td><td>降级态，仅大字</td></tr>
+            <tr><td>#6E767C / #0A0B0C</td><td>4.26 : 1</td><td>夜间主时间</td></tr>
+            <tr><td>#4C5359 / #0A0B0C</td><td>2.52 : 1</td><td>夜间次级（刻意低于 3:1）</td></tr>
+            <tr><td>#3E4449 / #0A0B0C</td><td>2.00 : 1</td><td>夜间三级（仅装饰）</td></tr>
+          </table>
+          <p class="bs" style="margin-top:14px;font-size:12.5px">
+            夜间次级 2.52:1 低于 WCAG AA 阈值 3:1，属有意降级——代价是弱视用户不可读。
+            落地时应在设置里提供「夜间高对比」开关，切回 4.26:1 主文色。
+          </p>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f18">
+        <div class="f-label"><i></i><b>18 字体排印</b><em>720×auto</em></div>
+        <div class="board">
+          <h3>字体与字号阶梯</h3>
+          <p class="bs">11 档字号：数字/西文 6 档，中文 5 档。大字（≥56px）只承载数字与 °，可用纯 ASCII 子集，不占中文字形空间。</p>
+
+          <div class="b-sec">字体族</div>
+          <table class="spec">
+            <tr><th>用途</th><th>首选</th><th>备选</th><th>许可</th></tr>
+            <tr><td>中文正文</td><td>Noto Sans SC</td><td>HarmonyOS Sans SC / MiSans</td><td>OFL 1.1 / 免费商用</td></tr>
+            <tr><td>数字 · 西文</td><td>Inter</td><td>Roboto</td><td>OFL 1.1 / Apache-2.0</td></tr>
+            <tr><td>等宽数字</td><td>Inter tabular</td><td>Roboto Mono</td><td>OFL 1.1 / Apache-2.0</td></tr>
+            <tr><td>图标</td><td>Material Symbols</td><td>Lucide / MDI</td><td>Apache-2.0 / ISC</td></tr>
+          </table>
+          <p class="bs" style="margin-top:12px;font-size:12.5px">
+            字重只用 300 / 400 / 500 / 600 四档。所有数字启用 <code>font-variant-numeric: tabular-nums</code>，
+            否则秒级刷新时时间会左右跳动。
+          </p>
+
+          <div class="b-sec">字号阶梯（px / 行高 / 字重）</div>
+          <table class="spec">
+            <tr><th>令牌</th><th>规格</th><th>字符集</th><th>用途</th><th>示例</th></tr>
+            <tr><td>d1</td><td>168 / 1.00 / 600</td><td>数字</td><td>响铃主时间</td><td class="demo" style="font-size:28px">07:30</td></tr>
+            <tr><td>d2</td><td>126 / 0.90 / 600</td><td>数字</td><td>天气主温度</td><td class="demo" style="font-size:25px">26°</td></tr>
+            <tr><td>d3</td><td>96 / 1.00 / 600</td><td>数字</td><td>主页时间 / 能耗 / 温控</td><td class="demo" style="font-size:22px">08:42</td></tr>
+            <tr><td>d4</td><td>96 / 1.00 / 300</td><td>数字</td><td>夜间待机时间</td><td class="demo" style="font-size:22px;font-weight:300">23:14</td></tr>
+            <tr><td>h1</td><td>56 / 1.15 / 600</td><td>数字</td><td>主卡温度、亮度百分比</td><td class="demo" style="font-size:20px">80%</td></tr>
+            <tr><td>h2</td><td>45 / 1.00 / 600</td><td>数字</td><td>闹钟列表时间</td><td class="demo" style="font-size:18px">07:30</td></tr>
+            <tr><td>h3</td><td>40 / 1.10 / 600</td><td>数字 + 中文</td><td>瓷贴数值</td><td class="demo" style="font-size:16px">26° 制冷</td></tr>
+            <tr><td>b1</td><td>32 / 1.35 / 600</td><td>中文</td><td>页面内标题</td><td class="demo" style="font-size:15px">主灯 / 已布防</td></tr>
+            <tr><td>b2</td><td>26 / 1.45 / 500</td><td>中文</td><td>正文、新闻标题</td><td class="demo" style="font-size:13px;font-weight:500">Wi-Fi 8 草案进入投票阶段</td></tr>
+            <tr><td>b3</td><td>24 / 1.45 / 400</td><td>中文</td><td>列表项、设置项</td><td class="demo" style="font-size:12px;font-weight:400">客厅灯 / 网络 / 亮度</td></tr>
+            <tr><td>l1</td><td>21 / 1.50 / 400</td><td>中文</td><td>说明、次文、抬头</td><td class="demo" style="font-size:11px;font-weight:400">还有 6 小时 12 分</td></tr>
+            <tr><td>l2</td><td>18 / 1.60 / 400</td><td>中文</td><td>元信息、来源、标签</td><td class="demo" style="font-size:10px;font-weight:400">电子工程专辑 · 12 分钟前</td></tr>
+          </table>
+
+          <div class="b-sec">固件字形预算（推算）</div>
+          <table class="spec">
+            <tr><th>集合</th><th>字数</th><th>档位</th><th>1bpp 体积</th></tr>
+            <tr><td>中文 GB2312 一级</td><td>约 3755</td><td>5 档</td><td>约 1.1 MB</td></tr>
+            <tr><td>中文 常用 1200 字</td><td>1200</td><td>5 档</td><td>约 360 KB</td></tr>
+            <tr><td>数字 + 西文</td><td>约 96</td><td>6 档</td><td>约 50 KB</td></tr>
+          </table>
+          <p class="bs" style="margin-top:12px;font-size:12.5px">
+            体积按 1bpp 位图、字宽 ≈ 字高估算，含索引开销通常再 +15%。4bpp 抗锯齿约为 4 倍，
+            若需抗锯齿建议只对 ≥56px 的数字开 4bpp。
+          </p>
+        </div>
+      </div>
+
+      <div class="frame" data-id="f19">
+        <div class="f-label"><i></i><b>19 控件尺寸</b><em>720×auto</em></div>
+        <div class="board">
+          <h3>控件尺寸与状态</h3>
+          <p class="bs">尺寸为 720×720 画布下的实际像素。触控下限 84×84（4″ / 180 ppi 下约 11.9 mm）。</p>
+
+          <div class="b-sec">容器</div>
+          <table class="spec">
+            <tr><th>控件</th><th>尺寸</th><th>圆角</th><th>内边距</th><th>间距</th></tr>
+            <tr><td>主卡 hero</td><td>672 × 198</td><td>30</td><td>27 / 30</td><td>距顶 9</td></tr>
+            <tr><td>瓷贴 tile</td><td>327 × 174</td><td>27</td><td>21 / 24</td><td>gap 18</td></tr>
+            <tr><td>列表行 row</td><td>672 × 84</td><td>—</td><td>0 / 24</td><td>分隔线 1px</td></tr>
+            <tr><td>新闻卡 card</td><td>672 × 161</td><td>24</td><td>21 / 24</td><td>gap 15</td></tr>
+            <tr><td>状态卡</td><td>672 × 132</td><td>30</td><td>27 / 30</td><td>距顶 9</td></tr>
+            <tr><td>分组列表</td><td>672 × 84/行</td><td>27</td><td>0 / 24</td><td>组间 15</td></tr>
+          </table>
+
+          <div class="b-sec">交互件</div>
+          <table class="spec">
+            <tr><th>控件</th><th>尺寸</th><th>圆角</th><th>状态</th></tr>
+            <tr><td>开关 · 大</td><td>84 × 48（球 38）</td><td>24</td><td>开 #E8A15C / 关 #333B41</td></tr>
+            <tr><td>开关 · 小</td><td>72 × 42（球 32）</td><td>21</td><td>同上</td></tr>
+            <tr><td>chip</td><td>高 56，内距 10 / 21</td><td>30</td><td>选中底 #E8A15C 字 #1A1305</td></tr>
+            <tr><td>分段控件 seg</td><td>672 × 72（内 6）</td><td>21 / 16</td><td>段高 60</td></tr>
+            <tr><td>主按钮</td><td>324 × 96</td><td>30</td><td>实心 / 幽灵两态</td></tr>
+            <tr><td>次级按钮</td><td>324 × 84</td><td>24</td><td>底 #242A2F</td></tr>
+            <tr><td>滑块轨道</td><td>672 × 12，球 Ø40</td><td>6 / 50%</td><td>#E8A15C → #7A5227</td></tr>
+            <tr><td>环形进度</td><td>Ø288，环宽 20</td><td>50%</td><td>conic 210°</td></tr>
+            <tr><td>分页点</td><td>8×8 / 24×8</td><td>5</td><td>当前为长条</td></tr>
+          </table>
+
+          <div class="b-sec">图标与图形</div>
+          <div class="grid-a">
+            <div class="cell"><div class="t">图标 · 小</div><div class="v">23 × 23</div></div>
+            <div class="cell"><div class="t">图标 · 常规</div><div class="v">34 × 34</div></div>
+            <div class="cell"><div class="t">图标 · 大</div><div class="v">54 × 54</div></div>
+            <div class="cell"><div class="t">图标 · 特征</div><div class="v">66–72</div></div>
+            <div class="cell"><div class="t">缩略图</div><div class="v">96 × 96 · r18</div></div>
+            <div class="cell"><div class="t">线宽</div><div class="v">1.6–2.0</div></div>
+          </div>
+
+          <div class="b-sec">组件状态示例</div>
+          <div class="comps">
+            <div><div class="tog"><i></i></div><div class="cs">开关 · 开</div></div>
+            <div><div class="tog off"><i></i></div><div class="cs">开关 · 关</div></div>
+            <div><div style="width:110px;height:56px;border-radius:30px;background:#E8A15C;color:#1A1305;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600">推荐</div><div class="cs">chip · 选中</div></div>
+            <div><div style="width:110px;height:56px;border-radius:30px;background:#1B1F23;color:#8C979E;display:flex;align-items:center;justify-content:center;font-size:18px">科技</div><div class="cs">chip · 默认</div></div>
+            <div><div style="width:130px;height:84px;border-radius:24px;background:#242A2F;color:#F5F7F8;display:flex;align-items:center;justify-content:center;font-size:18px">计时器</div><div class="cs">次级按钮</div></div>
+            <div><div style="width:130px;height:96px;border-radius:30px;background:#E8A15C;color:#1A1305;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600">关闭闹钟</div><div class="cs">主按钮</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <aside class="inspector" id="inspector">
+    <div class="in-title">01 主页</div>
+    <div class="in-role">默认落地页 · 全屋概览</div>
+    <div class="in-sec">规格</div>
+  </aside>
+</div>
+
+<script>
+(function(){
+  var stage = document.getElementById('stage');
+  var canvas = document.getElementById('canvas');
+  var inspector = document.getElementById('inspector');
+  var z = 0.55, tx = 40, ty = 30;
+
+  function apply(){
+    stage.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + z + ')';
+    document.getElementById('zoomVal').textContent = Math.round(z*100) + '%';
+  }
+  function setZoom(nz, cx, cy){
+    nz = Math.max(0.10, Math.min(2, nz));
+    if (cx === undefined){ cx = canvas.clientWidth/2; cy = canvas.clientHeight/2; }
+    tx = cx - (cx - tx) * (nz / z);
+    ty = cy - (cy - ty) * (nz / z);
+    z = nz; apply();
+  }
+
+  canvas.addEventListener('wheel', function(e){
+    e.preventDefault();
+    var r = canvas.getBoundingClientRect();
+    setZoom(z * Math.exp(-e.deltaY * 0.0016), e.clientX - r.left, e.clientY - r.top);
+  }, {passive:false});
+
+  var dragging = false, sx = 0, sy = 0, stx = 0, sty = 0;
+  canvas.addEventListener('pointerdown', function(e){
+    if (e.target.closest('.frame')) return;
+    dragging = true; sx = e.clientX; sy = e.clientY; stx = tx; sty = ty;
+    canvas.classList.add('grabbing'); canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', function(e){
+    if (!dragging) return;
+    tx = stx + (e.clientX - sx); ty = sty + (e.clientY - sy); apply();
+  });
+  canvas.addEventListener('pointerup', function(){ dragging = false; canvas.classList.remove('grabbing'); });
+
+  document.getElementById('zIn').onclick  = function(){ setZoom(z * 1.2); };
+  document.getElementById('zOut').onclick = function(){ setZoom(z / 1.2); };
+  document.getElementById('btnRed').onclick = function(){
+    document.body.classList.toggle('redline'); this.classList.toggle('on');
+  };
+  document.getElementById('btnFitW').onclick = function(){
+    var w = 720*2 + 170 + 180;
+    z = Math.min(1, (canvas.clientWidth - 40) / w); tx = 40; ty = 30; apply();
+  };
+  document.getElementById('btnFitAll').onclick = function(){
+    var w = stage.offsetWidth, h = stage.offsetHeight;
+    z = Math.min((canvas.clientWidth - 40) / w, (canvas.clientHeight - 40) / h);
+    tx = (canvas.clientWidth - w * z) / 2;
+    ty = (canvas.clientHeight - h * z) / 2;
+    apply();
+  };
+
+  var SPECS = {
+    f1:{t:'01 主页',r:'默认落地页 · 全屋概览',rows:[['画板','720 × 720'],['安全边距','24'],['主卡','672 × 198 · r30'],['瓷贴','327 × 174 · r27'],['字号','96 / 56 / 40 / 24 / 21'],['分页','4 页 · 距底 24']],
+      note:'主卡承载时间与天气两个最高频信息。瓷贴固定 4 个——720 画布上超过 6 个，单块宽度会低于 200px，远距命中率明显下降。'},
+    f2:{t:'02 天气',r:'信息页 · 单屏无滚动',rows:[['画板','720 × 720'],['主温度','126 / lh 0.9'],['逐小时','5 列 · 每列 119'],['日预报','3 行 · 行高 60'],['AQI 行','672 × 69 · r21'],['贴底','margin-top:auto']],
+      note:'AQI 行用 auto 外边距贴底，保证天气文案长短变化时版式不塌。城市名超过 8 字时需在 bar 内做省略号截断。'},
+    f3:{t:'03 闹钟',r:'设置页 · 列表 + 次级入口',rows:[['画板','720 × 720'],['闹钟卡','672 × 228 · r33'],['主时间','96 / 600'],['列表行','672 × 84'],['开关','72 × 42 · 球 32'],['次级按钮','324 × 84 · r24']],
+      note:'行高 84 时，三行是 720 高度的上限（累计 579，底部按钮上沿 615）。第 4 条起必须改滚动列表，或把行高降到 72。'},
+    f4:{t:'04 新闻',r:'信息流 · 可上滑',rows:[['画板','720 × 720'],['chip','高 56 · r30'],['卡片','672 × 161 · r24'],['标题','26 / 1.45 · 2 行截断'],['缩略图','96 × 96 · r18'],['间距','gap 15']],
+      note:'标题固定两行截断，是三卡等高成立的前提。缺图时保留 96×96 占位块，不要重排文字。'},
+    f5:{t:'05 灯光',r:'设备控制 · 亮度与色温',rows:[['画板','720 × 720'],['主灯卡','672 × 256 · r30'],['滑块','672 × 12 · 球 Ø40'],['色温点','Ø48 · 4 档'],['列表行','672 × 84']],
+      note:'滑块球 40px 小于 84 的触控下限，需把可点区域向上下各外扩 22px（透明热区），视觉尺寸不变。'},
+    f6:{t:'06 温控',r:'设备控制 · 环形目标温度',rows:[['画板','720 × 720'],['环形','Ø288 · 环宽 20'],['中心数值','96 / 600'],['分段控件','672 × 72 · 段高 60'],['风速 chip','高 72 · r18']],
+      note:'环形用 conic-gradient 实现（0° 在 12 点、顺时针），210° 对应 18–30℃ 区间中偏上的 26℃。移植到 LVGL 的 lv_arc 要注意坐标系差异：lv_arc 的 0° 在 3 点方向，须把设计角减 90°，否则整段弧会偏一个象限。'},
+    f7:{t:'07 窗帘',r:'设备控制 · 行程控制',rows:[['画板','720 × 720'],['位置卡','672 × 弹性 · r30'],['位置数值','96 / 600'],['三段按钮','3 × 212 × 96 · r24']],
+      note:'「停止」是当前可执行动作，用实心强调色；上升/下降用次级底色。电机运动中位置数值建议 4Hz 刷新，过快会跳字。'},
+    f8:{t:'08 场景',r:'一键执行 · 2×2 卡片',rows:[['画板','720 × 720'],['场景卡','327 × 288 · r27'],['图标','48'],['名称','26 / 600'],['描述','21 / 400']],
+      note:'当前场景用暖色渐变底 + 边框高亮，不用勾选标记——远距时色块比图标更容易识别。'},
+    f9:{t:'09 安防',r:'系统级 · 布撤防',rows:[['画板','720 × 720'],['状态卡','672 × 132 · r30'],['主标题','32 / 600'],['布防按钮','3 × 212 × 120 · r24'],['传感器行','行高 72']],
+      note:'布防属高风险操作，必须有二次确认（长按 1.5s 或二次弹窗）。本画板为常态展示，确认态需另出画板。'},
+    f10:{t:'10 能耗',r:'系统级 · 7 日趋势',rows:[['画板','720 × 720'],['主数值','96 / 600'],['柱状区','672 × 198 · 7 柱'],['柱宽','约 80 · gap 12'],['分项行','行高 60']],
+      note:'柱子底部标签放在负偏移 30px 处，容器需预留下边距，否则会被 720 高度裁切。'},
+    f11:{t:'11 设置',r:'系统级 · 分组列表',rows:[['画板','720 × 720'],['分组','672 · r27'],['行高','84'],['组间','15'],['右侧值','21 / #8C979E']],
+      note:'设置项不加图标，只用文字 + 右侧值。面板场景下图标会增加视觉噪声，且语义不如文字直接。'},
+    f12:{t:'12 响铃打断',r:'状态页 · 全屏接管',rows:[['画板','720 × 720'],['主时间','168 / 600'],['按钮','324 × 96 · r30'],['距底','42'],['背景','琥珀径向光']],
+      note:'全屏打断只允许闹钟与门铃两类事件。第三种打断会让用户失去「这只是一块面板」的预期。'},
+    f13:{t:'13 门铃弹窗',r:'状态页 · 摄像头接管',rows:[['画板','720 × 720'],['画面','720 × 654 满幅'],['顶条','h 68 · 半透明'],['按钮','324 × 96 · r30']],
+      note:'接听键用成功绿而非强调色——避免与闹钟页的「关闭」视觉同权，两者后果不同。视频流未建立时先显示灰阶人形占位，不要黑屏。'},
+    f14:{t:'14 天气离线',r:'降级态 · 保留缓存',rows:[['画板','720 × 720'],['占位图标','132 · 灰阶'],['占位温度','-- + .28em °C'],['重连按钮','252 × 72 · r24']],
+      note:'降级链：完整 → 灰阶图标 + 缓存温度 + 时间戳 → --°C + 重连。任一级都不留空块。大号 -- 后必须用 .28em 的 °C，否则度数符号会飘成一个独立圆圈。'},
+    f15:{t:'15 新闻加载',r:'骨架屏 · 1.9s 循环',rows:[['画板','720 × 720'],['骨架行','h22 / h17'],['缩略图','96 × 96'],['扫光','1.9s linear · 5.5% 白']],
+      note:'骨架尺寸必须与真实卡片一致，否则加载完成会跳版。扫光透明度控制在 5.5%，再高在深色底上会闪。'},
+    f16:{t:'16 夜间待机',r:'常亮态 · 低亮度',rows:[['画板','720 × 720'],['主时间','126 / 300'],['对比度','4.26 : 1'],['次文','2.52 : 1（刻意）'],['建议亮度','≤ 8%']],
+      note:'夜间只留时间、日期、室温三项。次级文字刻意压到 2.52:1，低于 WCAG 3:1——这是有意的降级，需配套「夜间高对比」开关。'},
+    f17:{t:'17 色彩令牌',r:'Design tokens · 色彩',rows:[['基础色','6 个'],['语义色','6 个'],['对比度','WCAG 2.1 实测'],['最低可用','3.99 : 1']],
+      note:'所有对比度为实测值，非估算。唯一低于 AA 的是夜间次级/三级文字，用法已在备注中限定。'},
+    f18:{t:'18 字体排印',r:'Design tokens · 字体',rows:[['字号阶梯','11 档（数字 6 / 中文 5）'],['字重','300 / 400 / 500 / 600'],['中文首选','Noto Sans SC'],['数字首选','Inter + tabular'],['中文字形','约 360 KB @1200 字']],
+      note:'大字（≥56）只承载数字与 °，可用纯 ASCII 子集——这是把字体体积压下来的关键，不必为 168px 再嵌一套中文字模。'},
+    f19:{t:'19 控件尺寸',r:'Design tokens · 尺寸',rows:[['触控下限','84 × 84'],['主卡','672 × 198 · r30'],['瓷贴','327 × 174 · r27'],['列表行','672 × 84'],['主按钮','324 × 96 · r30'],['图标','23 / 34 / 54 / 66']],
+      note:'滑块球、开关球等视觉尺寸小于 84 的控件，都要补透明热区到 84×84，否则远距操作命中率会掉。'}
+  };
+
+  var frames = document.querySelectorAll('.frame');
+  var navItems = document.querySelectorAll('.sb-item');
+
+  function select(fr){
+    frames.forEach(function(x){ x.classList.remove('sel'); });
+    fr.classList.add('sel');
+    var sp = SPECS[fr.dataset.id];
+    if (!sp) return;
+    inspector.innerHTML = '<div class="in-title">' + sp.t + '</div>' +
+      '<div class="in-role">' + sp.r + '</div>' +
+      '<div class="in-sec">规格</div>' +
+      sp.rows.map(function(r){ return '<dl class="kv"><dt>'+r[0]+'</dt><dd>'+r[1]+'</dd></dl>'; }).join('') +
+      '<div class="in-note">' + sp.note + '</div>' +
+      '<div class="in-sec">选择元素</div>' +
+      '<div class="in-empty" id="elInfo">点击画板内任意元素查看实测尺寸</div>';
+  }
+
+  navItems.forEach(function(it){
+    it.onclick = function(){
+      navItems.forEach(function(x){ x.classList.remove('on'); });
+      it.classList.add('on');
+      var fr = document.querySelector('[data-id="'+it.dataset.target+'"]');
+      if (!fr) return;
+      select(fr);
+      z = Math.max(z, 0.5);
+      tx = canvas.clientWidth/2 - (fr.offsetLeft + 360) * z;
+      ty = canvas.clientHeight/2 - (fr.offsetTop + 300) * z;
+      apply();
+    };
+  });
+
+  frames.forEach(function(fr){
+    fr.addEventListener('click', function(e){
+      select(fr);
+      var el = e.target.closest('[data-el]');
+      var info = document.getElementById('elInfo');
+      if (el && info){
+        var r = el.getBoundingClientRect(), k = 1/z;
+        info.innerHTML = '<span class="tag-el">' + el.dataset.el + '</span><br>实测 ' +
+          Math.round(r.width*k) + ' × ' + Math.round(r.height*k) + ' px';
+      }
+      e.stopPropagation();
+    });
+  });
+
+  setTimeout(function(){
+    var hash = (location.hash || '').replace('#','');
+    var target = hash ? document.querySelector('[data-id="'+hash+'"]') : null;
+    if (target){
+      z = 0.92;
+      tx = canvas.clientWidth/2 - (target.offsetLeft + 360) * z;
+      ty = canvas.clientHeight/2 - (target.offsetTop + 300) * z;
+      apply(); select(target);
+      var it = document.querySelector('.sb-item[data-target="'+hash+'"]');
+      if (it){ it.classList.add('on'); }
+      return;
+    }
+    document.getElementById('btnFitW').click();
+    select(document.querySelector('.frame'));
+    document.querySelector('.sb-item').classList.add('on');
+  }, 60);
+})();
+</script>
+</body>
+</html>

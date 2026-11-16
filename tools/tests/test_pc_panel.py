@@ -19,17 +19,43 @@ from test_pc_music import mp3
 
 
 class Handler(HomeHandler):
+    weather_code = 1
+    offline = False
+    weather_queries = []
+
     def do_GET(self):
         if urllib.parse.urlsplit(self.path).path == "/weather":
+            Handler.weather_queries.append(
+                urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            )
+            if Handler.offline:
+                self.send_response(503)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            now = int(time.time())
+            hour = now // 3600 * 3600
+            day = (now + 28800) // 86400 * 86400 - 28800
             return self.data(
                 {
+                    "hourly": {
+                        "time": [hour + i * 3600 for i in range(5)],
+                        "temperature_2m": [21.5, 22, 23, 22, 20],
+                        "weather_code": [1, 0, 2, 3, 61],
+                    },
+                    "daily": {
+                        "time": [day + i * 86400 for i in range(4)],
+                        "temperature_2m_min": [18, 17, 16, 15],
+                        "temperature_2m_max": [24, 25, 23, 21],
+                        "weather_code": [1, 2, 3, 61],
+                    },
                     "current": {
                         "time": int(time.time()),
                         "temperature_2m": 21.5,
-                        "weather_code": 1,
+                        "weather_code": Handler.weather_code,
                         "relative_humidity_2m": 65,
                         "wind_speed_10m": 13.2,
-                    }
+                    },
                 }
             )
         return super().do_GET()
@@ -122,34 +148,137 @@ def main():
                         f.seek(at)
                         return any(f.read())
 
+                def weather_ready(shot):
+                    # A service reply precedes the Activity's next render. Wait
+                    # for its enabled refresh icon and populated temperature.
+                    return (
+                        sum(
+                            r > 180 and g > 180 and b > 180
+                            for r, g, b in shot.crop((635, 25, 675, 60)).getdata()
+                        )
+                        > 40
+                        and sum(
+                            r > 180 and g > 180 and b > 180
+                            for r, g, b in shot.crop((24, 90, 340, 210)).getdata()
+                        )
+                        > 1500
+                    )
+
                 wait_for("WEATHER refresh success")
                 wait_for("CLOCK service ready")
-                capture("home")
-                fresh("WEATHER activity created", lambda: click(548, 300))
-                capture("weather")
-                fresh("WEATHER refresh success", lambda: click(360, 118))
-                capture("weather-beijing")
+                wait_for("HOME_WIDGET snapshot: app=2 template=1")
+                capture(
+                    "home",
+                    lambda shot: (
+                        sum(
+                            r > 180 and g > 180 and b > 180
+                            for r, g, b in shot.crop((504, 148, 684, 212)).getdata()
+                        )
+                        > 1000
+                    ),
+                )
+                fresh("WEATHER activity created", lambda: click(570, 185))
+                capture("weather", weather_ready)
+                click(150, 42)
+                capture("weather-popular-cities")
+                fresh("WEATHER refresh success", lambda: click(360, 270))
+                wait_for("WEATHER city selected: 北京")
+                capture("weather-beijing", weather_ready)
+
+                def drag(start, end):
+                    event(6, 0, 570, start)
+                    event(4, 1, 570, start)
+                    for i in range(1, 9):
+                        event(6, 0, 570, start + (end - start) * i // 8)
+                    event(5, 1, 570, end)
+                    time.sleep(0.2)
+
+                click(150, 42)
+                click(530, 138)
+                capture("weather-provinces")
+                selections = log_path.read_text().count("WEATHER city selected:")
+                drag(640, 260)
+                drag(640, 260)
+                assert (
+                    log_path.read_text().count("WEATHER city selected:") == selections
+                )
+                click(
+                    130, 534
+                )  # Xinjiang: region 30, at the bottom of the scrolled region list.
+                capture("weather-xinjiang-cities")
+                drag(640, 260)  # Recycle city rows, then return to the first row.
+                drag(260, 640)
+                assert (
+                    log_path.read_text().count("WEATHER city selected:") == selections
+                )
+                fresh("WEATHER refresh success", lambda: click(130, 270))
+                wait_for("WEATHER city selected: 乌鲁木齐")
+                query = Handler.weather_queries[-1]
+                assert (
+                    43 < float(query["latitude"][0]) < 44
+                    and 87 < float(query["longitude"][0]) < 88
+                ), query
+                capture("weather-urumqi", weather_ready)
+                previous = (
+                    Image.open(results / "weather-urumqi.png")
+                    .convert("RGB")
+                    .crop((480, 96, 597, 213))
+                    .tobytes()
+                )
+                for code, name in (
+                    (0, "sunny"),
+                    (3, "cloudy"),
+                    (45, "fog"),
+                    (53, "drizzle"),
+                    (61, "rain"),
+                    (71, "snow"),
+                    (95, "thunder"),
+                ):
+                    Handler.weather_code = code
+                    fresh("WEATHER refresh success", lambda: click(654, 42))
+                    capture(
+                        "weather-" + name,
+                        lambda shot: (
+                            weather_ready(shot)
+                            and (shot.crop((480, 96, 597, 213)).tobytes() != previous)
+                        ),
+                    )
+                    previous = (
+                        Image.open(results / ("weather-" + name + ".png"))
+                        .convert("RGB")
+                        .crop((480, 96, 597, 213))
+                        .tobytes()
+                    )
+                Handler.offline = True
+                fresh("WEATHER refresh failed", lambda: click(654, 42))
+                capture("weather-cached", weather_ready)
+                Handler.offline = False
+                Handler.weather_code = 1
+                fresh("WEATHER refresh success", lambda: click(654, 42))
                 event.key(0xFFBE)
-                fresh("CLOCK calendar opened", lambda: click(72, 686))
+                fresh("CLOCK calendar opened", lambda: click(540, 375))
                 capture("calendar")
-                fresh("CLOCK notes opened", lambda: click(584, 118))
+                click(42, 42)
+                fresh("CLOCK notes opened", lambda: click(530, 657))
                 capture("notes-empty")
                 fresh("CLOCK editor opened", lambda: click(360, 664))
-                click(270, 220)
+                click(270, 150)
                 for char in "meeting":
                     event.key(ord(char))
                 event.key(0xFF0D)
                 capture("note-editor")
                 fresh("NOTE saved", lambda: click(480, 664))
                 capture("notes")
-                fresh("NOTE completed", lambda: click(56, 198))
-                fresh("NOTE reopened", lambda: click(56, 198))
-                fresh("CLOCK alarm opened", lambda: click(120, 118))
-                fresh("CLOCK saved", lambda: click(520, 395))
+                fresh("NOTE completed", lambda: click(66, 135))
+                fresh("NOTE reopened", lambda: click(66, 135))
+                fresh("CLOCK alarm opened", lambda: click(42, 42))
+                fresh("CLOCK alarm editor opened", lambda: click(654, 42))
+                capture("alarm-editor")
+                fresh("CLOCK saved", lambda: click(480, 657))
                 capture("alarm")
                 event.key(0xFFBE)
                 capture("home-reminder")
-                click(296, 686)
+                click(100, 566)
                 wait_for("NETEASE_LOGIN authenticated")
                 wait_for("NETEASE_HOME playlists:")
                 click(128, 680)
@@ -185,13 +314,13 @@ def main():
                 wait_for("HOME_WIDGET snapshot: app=1 template=3")
                 capture("home-music")
                 assert sound(), "Home stopped background music"
-                fresh("HOME_MEDIA paused=1", lambda: click(548, 606))
+                fresh("HOME_MEDIA paused=1", lambda: click(207, 601))
                 assert not sound()
-                fresh("HOME_MEDIA paused=0", lambda: click(548, 606))
+                fresh("HOME_MEDIA paused=0", lambda: click(207, 601))
                 assert sound()
-                fresh("HOME catalog opened", lambda: click(410, 686))
+                fresh("HOME catalog opened", lambda: click(540, 570))
                 capture("apps")
-                click(650, 40)
+                fresh("HOME catalog closed", escape)
 
             origin = f"http://127.0.0.1:{server.server_port}"
             args = [
@@ -213,7 +342,7 @@ def main():
                 directory,
                 args,
                 driver,
-                seconds=90 if rv32 else 70,
+                seconds=120 if rv32 else 90,
                 wait_seconds=30,
             )
             log = (directory / "navigation.log").read_text()
@@ -224,13 +353,13 @@ def main():
             with Image.open(results / "home.png") as shot:
                 assert (
                     sum(
-                        r > 180 and g > 180 and b > 160
+                        r > 180 and g > 180 and b > 180
                         for r, g, b in shot.convert("RGB")
-                        .crop((70, 92, 330, 360))
+                        .crop((54, 90, 460, 215))
                         .getdata()
                     )
-                    > 30000
-                ), "analog clock face missing"
+                    > 2000
+                ), "large numeric Home clock missing"
             with Image.open(results / "music-player.png") as shot:
                 assert (
                     sum(
@@ -246,18 +375,44 @@ def main():
                     sum(
                         r > 180 and g > 180 and b > 180
                         for r, g, b in shot.convert("RGB")
-                        .crop((190, 330, 208, 344))
+                        .crop((24, 90, 340, 210))
                         .getdata()
                     )
-                    > 20
-                ), "temperature decimal point missing"
+                    > 1500
+                ), "large weather temperature missing"
             assert not LoginHandler.failures, LoginHandler.failures
+
+            def restored_city(click, event, wait_for, log_path, process, escape):
+                wait_for("WEATHER service ready")
+                click(570, 185)
+                wait_for("WEATHER activity created")
+                click(
+                    654, 42
+                )  # The durable periodic job can still be scheduled in the future.
+                wait_for("WEATHER refresh success")
+                query = Handler.weather_queries[-1]
+                assert (
+                    43 < float(query["latitude"][0]) < 44
+                    and 87 < float(query["longitude"][0]) < 88
+                ), query
+
+            navigate_x11(
+                env,
+                directory,
+                args,
+                restored_city,
+                seconds=18 if rv32 else 12,
+                wait_seconds=15,
+            )
+            restart = (directory / "navigation.log").read_text()
+            assert "Guest failed:" not in restart, restart[-16000:]
+            (results / "city-restored.log").write_text(restart)
         finally:
             server.shutdown()
             server.server_close()
             thread.join()
     print(
-        "PASS panel: analog Home, weather/city switch, calendar/Notes, durable reminders, music controls/favorites/seek, background PCM and screenshots"
+        "PASS panel: numeric Home, 394-city catalog/popular/province/scroll/persist, Material weather icons/forecast/cache, calendar/Notes, durable reminders, music controls/favorites/seek, background PCM and screenshots"
     )
 
 

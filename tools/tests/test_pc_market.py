@@ -32,19 +32,24 @@ COVER = cover.getvalue()
 
 def open_home_app(click, index):
     """Open a catalog entry through the panel's Apps drawer."""
-    click(410, 686)
+    click(540, 570)
     click(120 + (index % 2) * 348, 180 + (index // 2) * 116)
 
 
 def open_home_market(click):
-    click(410, 686)
+    click(540, 570)
     click(500, 40)
 
 
 def close_home_app(click, escape):
     """Leave the foreground Guest, then explicitly stop that instance from Home."""
     escape()
-    click(656, 686)
+    stop_home_app(click)
+
+
+def stop_home_app(click):
+    click(540, 570)
+    click(570, 654)
 
 
 def navigate_x11(env, output, arguments=(), driver=None, seconds=10, wait_seconds=3):

@@ -474,8 +474,12 @@ int main(int argc, char** argv) {
                 }
             }
         }
-        pc::HomeApp home(apps, media, audio, &sessions);
-        pc::AlarmOverlay alarm_overlay(sessions);
+        pc::HomeApp home(apps, media, audio, &sessions,
+                         {.clock = screen_font.display_time,
+                          .temperature = screen_font.display_temperature,
+                          .body = screen_font.guest_font_adapters[1].source,
+                          .value = screen_font.guest_font_adapters[3].source});
+        pc::AlarmOverlay alarm_overlay(sessions, screen_font.display_alarm, screen_font.guest_font_adapters[2].source);
         pc::Market market;
         if (options.market)
             market.Show(options.market_app);
@@ -643,6 +647,11 @@ int main(int argc, char** argv) {
                 esp_lv_adapter_unlock();
             } else if (back && session && foreground)
                 go_home = true;
+            else if (back && home.Visible()) {
+                esp_lv_adapter_lock(-1);
+                home.Back();
+                esp_lv_adapter_unlock();
+            }
             if (go_home) show_home();
             if (home.resume_requested) {
                 home.resume_requested = false;

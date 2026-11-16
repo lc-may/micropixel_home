@@ -15,6 +15,8 @@ struct ScreenFont {
     lv_font_t* font{};
     graphics::SystemFontSet guest_fonts{};
     std::array<pc::GuestFont, 4> guest_font_adapters{};
+    std::vector<uint8_t> numeric_bytes;
+    lv_font_t *display_time{}, *display_temperature{}, *display_alarm{};
     ScreenFont() {
         const char* configured = std::getenv("MICROPIXEL_PC_FONT");
         const std::array candidates{configured, "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -41,6 +43,24 @@ struct ScreenFont {
             }
             lv_obj_set_style_text_font(lv_screen_active(), font, 0);
             lv_obj_set_style_text_font(lv_layer_top(), font, 0);
+            const char* numeric = "/usr/share/fonts/truetype/noto/NotoSans-SemiBold.ttf";
+            if (FILE* file = std::fopen(numeric, "rb")) {
+                if (std::fseek(file, 0, SEEK_END) == 0) {
+                    auto size = std::ftell(file);
+                    if (size > 0 && size < 2 * 1024 * 1024 && std::fseek(file, 0, SEEK_SET) == 0) {
+                        numeric_bytes.resize(size);
+                        if (std::fread(numeric_bytes.data(), 1, size, file) == static_cast<size_t>(size)) {
+                            display_time =
+                                lv_tiny_ttf_create_data_ex(numeric_bytes.data(), size, 96, LV_FONT_KERNING_NONE, 32);
+                            display_temperature =
+                                lv_tiny_ttf_create_data_ex(numeric_bytes.data(), size, 56, LV_FONT_KERNING_NONE, 32);
+                            display_alarm =
+                                lv_tiny_ttf_create_data_ex(numeric_bytes.data(), size, 168, LV_FONT_KERNING_NONE, 32);
+                        }
+                    }
+                }
+                std::fclose(file);
+            }
             std::fprintf(stderr, "PC UI font: %s\n", path);
             return;
         }
@@ -52,6 +72,9 @@ struct ScreenFont {
         for (const auto& adapter : guest_font_adapters)
             if (adapter.source) lv_tiny_ttf_destroy(adapter.source);
         if (font) lv_tiny_ttf_destroy(font);
+        if (display_time) lv_tiny_ttf_destroy(display_time);
+        if (display_temperature) lv_tiny_ttf_destroy(display_temperature);
+        if (display_alarm) lv_tiny_ttf_destroy(display_alarm);
     }
 };
 }  // namespace micropixel::pc

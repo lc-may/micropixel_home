@@ -11,15 +11,19 @@
 
 namespace micropixel::pc {
 class AppSessions;
+struct HomeFonts {
+    const lv_font_t *clock{}, *temperature{}, *body{}, *value{};
+};
 // Host system application. All methods run on the UI thread under the LVGL lock.
 class HomeApp final {
    public:
     HomeApp(std::vector<std::unique_ptr<PortableApp>>& apps, MediaPlayer& media, SdlAudio& audio,
-            AppSessions* sessions = nullptr);
+            AppSessions* sessions = nullptr, HomeFonts fonts = {});
     ~HomeApp();
     void Show(int width, int height);
     void Hide();
     void Update();
+    void Back();
     void SetRunning(const PortableApp* app);
     void SetMedia(MediaPlayer& media) { media_ = &media; }
     bool Visible() const { return root_ != nullptr; }
@@ -38,16 +42,17 @@ class HomeApp final {
     SdlAudio& audio_;
     AppSessions* sessions_{};
     const PortableApp* running_{};
+    HomeFonts fonts_{};
     lv_obj_t *root_{}, *catalog_{}, *running_title_{}, *status_{}, *resume_{}, *pause_{}, *close_{};
     int32_t scroll_y_{};
     int64_t updated_at_{};
     int width_{}, height_{};
     lv_obj_t *catalog_overlay_{}, *weather_city_{}, *weather_value_{}, *weather_condition_{}, *date_{}, *time_{},
-        *alarm_time_{}, *agenda_title_{}, *agenda_subtitle_{}, *weather_refresh_{}, *clock_face_{}, *weather_sun_{},
-        *weather_cloud_{}, *weather_bump_{}, *weather_rain_{}, *next_{};
-    std::array<lv_obj_t*, 3> hands_{};
-    std::array<std::array<lv_point_precise_t, 2>, 60> ticks_{};
-    std::array<std::array<lv_point_precise_t, 2>, 3> hand_points_{};
+        *alarm_time_{}, *agenda_title_{}, *agenda_subtitle_{}, *weather_refresh_{}, *next_{}, *weather_icon_{};
+    std::vector<uint8_t> weather_pixels_;
+    lv_image_dsc_t weather_image_{};
+    lv_obj_t *alarm_subtitle_{}, *apps_count_{}, *pause_icon_{};
+    lv_obj_t* Icon(lv_obj_t* parent, int x, int y, int size, unsigned symbol);
     uint64_t clock_second_{UINT64_MAX};
     std::array<host::WidgetSnapshot, 8> widgets_{};
     std::array<bool, 8> widget_valid_{};

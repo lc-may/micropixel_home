@@ -13,11 +13,11 @@
 | 功能 | 已支持的能力 |
 |---|---|
 | 显示与输入 | LVGL + SDL 窗口、鼠标模拟触摸和键盘输入、中文字体，复用 Scene/Raster/Direct Surface 服务。 |
-| Home 面板 | 参考 MixPad 4 的深色界面，显示模拟时钟、天气、下一次闹钟、Note 事项与音乐播控；支持应用目录和市场，音乐后台继续播放。 |
+| Home 面板 | 依据 720×720 设计稿，显示数字时钟、天气、下一次闹钟、Note 事项与音乐播控；支持应用目录和市场，音乐后台继续播放。 |
 | 官方应用市场 | 浏览、搜索和查看版本，下载校验并安装支持的官方 RV32 AOT Bundle，由 QEMU 执行；portable Wasm 直接由本机 WAMR 解释执行。 |
 | 网易云音乐 Guest | 无 API 网关直连，支持官网微信扫码登录、个人资料与歌单、每日推荐、搜索、红星收藏、滚动列表与播放控制；完整播放或试听以服务端权限为准。 |
 | 网络与音频 | POSIX socket、mbedTLS、Guest 异步 HTTP/HTTPS、Host MQTT/MQTTS 连通性测试，以及本地／网络 MP3、WAV、Ogg/Opus 文件的 SDL 立体声播放。 |
-| 天气与后台任务 | Open-Meteo 直连，三座城市、温度/湿度/风速与成功缓存；持久 Job、有限工作票据、冷/热/挂起唤醒与用户关闭策略。 |
+| 天气与后台任务 | Open-Meteo 直连，当前/小时/三日预报；34 省区 394 城市地区、10 个常用城市、选择与天气缓存；持久 Job、有限工作票据及冷/热/挂起唤醒。 |
 | 日历与提醒 | 月历、六条可编辑/完成/删除的 Note 提醒、单次/每周闹钟；Host 持久登记，关闭应用仍响铃，弹窗输入优先并压低音乐音量。 |
 | Guest UI SDK | IconButton、ListItem、ScrollView、Slider，共享面板配色/可缩放数字、公历计算，以及下载图片的 PNG/JPEG 纹理解码。 |
 
@@ -51,7 +51,7 @@ bash tools/pc.sh run --music-login
 ```
 
 `--home` 会构建天气、时钟和音乐 Guest；音乐命令自动构建音乐 Guest。按 `Home` 或 `F1` 返回 Home，保留后台运行；
-`Esc` 同样返回 Home 并保留后台播放；需要停止应用时点击 Home 的“关闭”。
+`Esc` 同样返回 Home 并保留后台播放；需要停止应用时点击 应用目录的“关闭当前应用”。
 运行官方 RV32 AOT 还需要 `qemu-system-riscv32` 和支持 `rv32imafc/ilp32f` Newlib 的裸机 GCC，
 先执行 `bash tools/pc.sh rv32-build`，再从市场安装。当前不支持 Xtensa AOT 或 Wi-Fi 硬件模拟，
 音频文件下载完成后播放。

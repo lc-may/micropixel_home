@@ -98,14 +98,14 @@ def main():
                 wait_for("HOME_WIDGET snapshot: app=1 template=2")
                 wait_for("HOME_WIDGET snapshot: app=2 template=3")
                 assert sound()
-                wait_new("HOME_MEDIA paused=1", lambda: click(548, 606))
+                wait_new("HOME_MEDIA paused=1", lambda: click(207, 601))
                 assert not sound(), "widget pause did not stop PCM"
-                wait_new("HOME_MEDIA paused=0", lambda: click(548, 606))
+                wait_new("HOME_MEDIA paused=0", lambda: click(207, 601))
                 assert sound(), "widget resume did not restore PCM"
                 HomeHandler.resolve_id = 1002
-                wait_new("NETEASE_GUEST selected: 1002", lambda: click(636, 606))
-                wait_new("WIDGET_PROVIDER refreshed", lambda: click(660, 96))
-                click(200, 606)
+                wait_new("NETEASE_GUEST selected: 1002", lambda: click(291, 601))
+                wait_new("WIDGET_PROVIDER refreshed", lambda: click(654, 36))
+                click(100, 566)
                 wait_for("APP_SHELL foreground: micropixel.netease-music reused=1")
                 assert log_path.read_text().count("NETEASE_GUEST started:") == 1
                 assert log_path.read_text().count("NETEASE_LOGIN authenticated") == 1
@@ -114,7 +114,7 @@ def main():
                 wait_new("APP_SHELL stopped: test.widget.weather", lambda: close_home_app(click, escape))
                 assert "APP_SHELL stopped: test.widget.clock" not in log_path.read_text()
                 assert sound(), "closing weather stopped music"
-                wait_new("NETEASE_ACTIVITY resumed", lambda: click(200, 606))
+                wait_new("NETEASE_ACTIVITY resumed", lambda: click(100, 566))
                 wait_new("APP_SHELL stopped: micropixel.netease-music", lambda: close_home_app(click, escape))
                 assert not sound(), "closing music left its PCM alive"
                 assert "APP_SHELL stopped: test.widget.clock" not in log_path.read_text()

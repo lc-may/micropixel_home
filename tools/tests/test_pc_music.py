@@ -162,7 +162,7 @@ def main():
                     while log_path.read_text(errors="replace").count("Audio playing:") < 2 and time.monotonic() < deadline:
                         time.sleep(.05)
                     assert log_path.read_text(errors="replace").count("Audio playing:") >= 2
-                    close_home_app(click, escape); time.sleep(.3); click(296, 686); wait_for("NETEASE_GUEST search: 2 tracks")
+                    close_home_app(click, escape); time.sleep(.3); click(100, 566); wait_for("NETEASE_GUEST search: 2 tracks")
                     before=Handler.hits.count("/weapi/search/get")
                     click(200, 112)
                     for char in "jazz": event.key(ord(char))

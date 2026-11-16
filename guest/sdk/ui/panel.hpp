@@ -4,30 +4,63 @@
 
 #include "sdk/micropixel.hpp"
 namespace micropixel::ui::panel {
-inline constexpr Color Background = Color::Rgb(21, 24, 29), Surface = Color::Rgb(39, 43, 50),
-                       Raised = Color::Rgb(51, 56, 64), Text = Color::Rgb(245, 246, 248),
-                       Muted = Color::Rgb(159, 166, 179), Accent = Color::Rgb(245, 174, 57),
-                       Blue = Color::Rgb(121, 190, 218), Red = Color::Rgb(230, 80, 96), Line = Color::Rgb(62, 68, 78);
+inline constexpr Color Background = Color::Rgb(16, 18, 20), Surface = Color::Rgb(27, 31, 35),
+                       Raised = Color::Rgb(36, 42, 47), Text = Color::Rgb(245, 247, 248),
+                       Muted = Color::Rgb(140, 151, 158), Accent = Color::Rgb(232, 161, 92),
+                       Blue = Color::Rgb(127, 182, 217), Red = Color::Rgb(230, 80, 96), Line = Color::Rgb(43, 50, 56),
+                       OnAccent = Color::Rgb(26, 19, 5), Disabled = Color::Rgb(108, 117, 123);
 inline TextButtonStyle Style(bool selected = false) {
     return {.background = selected ? Accent : Surface,
-            .text = selected ? Background : Text,
+            .text = selected ? OnAccent : Text,
             .feedback = Muted,
             .font = SystemFont::kMedium,
-            .corner_radius = 18};
+            .corner_radius = 24};
 }
+// Visual switch and an independent 84 px touch target.
+class Switch {
+   public:
+    static Switch Create(Container& parent, Rect hit) {
+        Switch result;
+        result.hit_ = Button(hit);
+        result.track_ =
+            parent.CreateRoundedRect({hit.x, hit.y + (hit.height - 48) / 2, 84, 48}, {.fill = Raised, .radius = 24})
+                .value();
+        result.knob_ =
+            parent.CreateRoundedRect({hit.x + 5, hit.y + (hit.height - 38) / 2, 38, 38}, {.fill = Muted, .radius = 19})
+                .value();
+        result.bounds_ = hit;
+        return result;
+    }
+    void Set(bool on) {
+        track_.SetFillColor(on ? Accent : Raised);
+        knob_.SetFillColor(on ? OnAccent : Muted);
+        knob_.SetRect({bounds_.x + (on ? 41 : 5), bounds_.y + (bounds_.height - 38) / 2, 38, 38});
+    }
+    bool Touch(const TouchEvent& event) { return hit_.OnTouch(event).clicked; }
+    void Reset() { hit_.Reset(); }
+
+   private:
+    Button hit_;
+    Rect bounds_;
+    RoundedRectNode track_, knob_;
+};
 inline void Card(Container& parent, Rect bounds, Color color = Surface) {
     (void)parent.CreateRoundedRect(bounds, {.fill = color, .radius = 24}).value();
 }
 inline const char* WeatherName(int code) {
     if (code == 0) return "晴";
-    if (code <= 3) return "多云";
-    if (code <= 48) return "雾";
-    if (code <= 57) return "毛毛雨";
-    if (code <= 67) return "雨";
-    if (code <= 77) return "雪";
-    if (code <= 82) return "阵雨";
-    if (code <= 86) return "阵雪";
-    return "雷雨";
+    if (code == 1 || code == 2) return "多云";
+    if (code == 3) return "阴";
+    if (code == 45 || code == 48) return "雾";
+    if (code == 51 || code == 53 || code == 55) return "毛毛雨";
+    if (code == 56 || code == 57) return "冻毛毛雨";
+    if (code == 61 || code == 63 || code == 65) return "雨";
+    if (code == 66 || code == 67) return "冻雨";
+    if (code == 71 || code == 73 || code == 75 || code == 77) return "雪";
+    if (code == 80 || code == 81 || code == 82) return "阵雨";
+    if (code == 85 || code == 86) return "阵雪";
+    if (code == 95 || code == 96 || code == 99) return "雷暴";
+    return "未知天气";
 }
 class WeatherGlyph {
    public:
