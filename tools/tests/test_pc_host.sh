@@ -15,6 +15,11 @@ if [[ "${1:-}" == "--news" ]]; then
     for news_app in weather clock-alarm netease-music news; do
         python3 tools/pc.py "guest/apps/$news_app" --backend "$news_backend"
     done
+    for news_argument in "$@"; do
+        if [[ "$news_argument" == "--content" ]]; then
+            exec python3 tools/tests/test_pc_news_content.py "$@"
+        fi
+    done
     exec python3 tools/tests/test_pc_news.py "$@"
 fi
 if [[ "${1:-}" == "--panel" ]]; then

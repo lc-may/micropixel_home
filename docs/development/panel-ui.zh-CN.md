@@ -91,3 +91,23 @@ bash tools/tests/test_firmware_host.sh --pc --news --rv32 --live
 同时运行天气、时钟、音乐和新闻，验证浏览/关闭新闻时 PCM 持续输出；Home 新播控的可见面积、背景颜色、暂停和恢复也被检查。
 `--live` 通过 Guest Network SDK 直连公开今日头条 HTTPS 接口，实际解析 50 条内容。
 截图位于 `build/news-tests/`、`build/news-rv32-tests/`，运行与接口边界见[新闻应用](../../guest/apps/news/README.zh-CN.md)。
+
+## 新闻正文
+
+新闻现默认使用央视新闻首页的 JSONP 列表，点击卡片后通过文章 HTTPS 地址下载真实正文。
+顶栏左侧切换央视新闻和头条话题；头条话题不冒充文章正文。正文保留段落与来源，支持滚动、重试、取消后恢复，
+并缓存最近一篇文章的最多 3072 个 UTF-8 字节；长文离线内容明确标为节选。
+
+```sh
+bash tools/tests/test_firmware_host.sh --pc --news --content
+bash tools/tests/test_firmware_host.sh --pc --news --content --rv32
+bash tools/tests/test_firmware_host.sh --pc --news --content --live
+bash tools/tests/test_firmware_host.sh --pc --news --content --rv32 --live
+```
+
+原生 Wasm 和 RV32 AOT 的正文下载、实际显示、滚动、来源切换、错误/视频处理、重试、离线节选、
+隐藏/恢复和关闭重开测试通过，四个应用共存时 PCM 持续输出。两个后端的真实央视列表及正文 HTTPS 验证通过。
+模型测试验证 JSONP、文章路径、HTML 正文区域与引用字符串、实体、UTF-8 长文分行、视频代码去除和响应长度边界。
+原有头条热榜交互回归也通过。
+截图位于 `build/news-content-tests/` 和 `build/news-content-rv32-tests/`，
+接口地址与资源边界见[新闻应用](../../guest/apps/news/README.zh-CN.md)。

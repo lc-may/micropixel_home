@@ -16,7 +16,7 @@ This repository also includes a Linux/WSL2 PC Host for developing and running Gu
 | Home panel | 720×720 design-system panel with a large digital clock, weather, next alarm, Note reminders and music controls. Launch apps and the market; music continues in the background. |
 | Official app market | Browse, search, and view releases; download, validate, and install supported official RV32 AOT bundles, then execute them with QEMU. Portable Wasm runs directly in the native WAMR interpreter. |
 | NetEase Cloud Music Guest | Direct connection without an API gateway; official website WeChat QR login, account profile and playlists, daily recommendations, search, favorites, scrolling lists, and playback controls. Full playback or previews depend on the server's permissions. |
-| News Guest | Direct Toutiao hot-board feed: up to 50 headlines and heat values, ranked cards, read/unread filters, full-title previews, refresh and offline cache. |
+| News Guest | Direct CCTV news and article downloads with paragraph-aware scrolling, read filters, source selection, retries and offline article cache; retains Toutiao trending topics. |
 | Network and audio | POSIX sockets and mbedTLS, asynchronous Guest HTTP/HTTPS, Host MQTT/MQTTS diagnostics, and local/network MP3, WAV, and Ogg/Opus playback through SDL stereo audio. |
 | Weather and jobs | Direct Open-Meteo current/hourly/daily weather; 394 city locations in 34 regions, ten popular shortcuts, saved selection and cache; persistent plans and bounded cold/hot work. |
 | Calendar and reminders | Month calendar, six editable Note reminders with completion/deletion, persistent one-shot/weekly alarms, ringing after Guest close, modal input and audio ducking. |

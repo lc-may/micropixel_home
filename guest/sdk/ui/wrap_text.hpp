@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <string>
@@ -23,6 +24,32 @@ inline bool ValidUtf8(std::string_view text) {
     }
     return true;
 }
+// One measured line from a potentially long text. The returned byte count is
+// always a complete UTF-8 prefix; work is bounded to 512 bytes per call.
+template <class Measure>
+size_t FittingTextPrefix(std::string_view text, uint32_t width, Measure measure) {
+    size_t end = std::min<size_t>(512, text.find('\n'));
+    end = std::min(end, text.size());
+    while (end < text.size() && end && (uint8_t(text[end]) & 0xc0) == 0x80) --end;
+    text = text.substr(0, end);
+    if (!width || !ValidUtf8(text)) return 0;
+    std::array<uint16_t, 513> boundaries{};
+    unsigned count = 0;
+    for (size_t p = 0; p < text.size();) {
+        ++p;
+        while (p < text.size() && (uint8_t(text[p]) & 0xc0) == 0x80) ++p;
+        boundaries[++count] = uint16_t(p);
+    }
+    unsigned low = 0, high = count;
+    while (low < high) {
+        unsigned mid = (low + high + 1) / 2;
+        if (measure(text.substr(0, boundaries[mid])) <= width)
+            low = mid;
+        else
+            high = mid - 1;
+    }
+    return boundaries[low];
+}
 // Bounded Unicode wrapping with measured pixel widths and last-line ellipsis.
 // Measure accepts string_view and returns a pixel width; no Host font dependency.
 template <size_t Lines, class Measure>
@@ -32,40 +59,21 @@ std::array<std::string, Lines> WrapText(std::string_view text, uint32_t width, M
     size_t at = 0;
     for (size_t line = 0; line < Lines && at < text.size(); ++line) {
         while (at < text.size() && text[at] == ' ') ++at;
-        auto end = text.find('\n', at);
-        if (end == std::string_view::npos) end = text.size();
-        std::array<uint16_t, 513> boundaries{};
-        unsigned count = 0;
-        for (size_t p = at; p < end;) {
-            ++p;
-            while (p < end && (uint8_t(text[p]) & 0xc0) == 0x80) ++p;
-            boundaries[++count] = uint16_t(p - at);
-        }
-        auto fit = [&](bool ellipsis) {
-            unsigned low = 0, high = count;
-            while (low < high) {
-                unsigned mid = (low + high + 1) / 2;
-                std::string candidate(text.substr(at, boundaries[mid]));
-                if (ellipsis) candidate += "…";
-                if (measure(candidate) <= width)
-                    low = mid;
-                else
-                    high = mid - 1;
-            }
-            return low;
-        };
-        unsigned n = fit(false);
-        bool clipped = line + 1 == Lines && at + boundaries[n] < text.size();
-        if (clipped) n = fit(true);
-        result[line] = text.substr(at, boundaries[n]);
+        auto remaining = text.substr(at);
+        size_t n = FittingTextPrefix(remaining, width, measure);
+        bool clipped = line + 1 == Lines && at + n < text.size();
+        if (clipped)
+            n = FittingTextPrefix(remaining, width,
+                                  [&](std::string_view value) { return measure(std::string(value) + "…"); });
+        result[line] = text.substr(at, n);
         while (!result[line].empty() && result[line].back() == ' ') result[line].pop_back();
         if (clipped) {
             if (measure("…") <= width) result[line] += "…";
             break;
         }
-        if (!n && count) break;
-        at += boundaries[n];
-        if (at == end && at < text.size()) ++at;
+        if (!n && !remaining.starts_with('\n')) break;
+        at += n;
+        if (at < text.size() && text[at] == '\n') ++at;
     }
     return result;
 }

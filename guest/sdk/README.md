@@ -136,7 +136,7 @@ already covers the need; apps must not re-implement these locally.
 | Seek preview, release commit and cancellation | `Container::CreateSlider`, `ui::Slider` | `ui/slider.hpp` |
 | Dark panel colors, cards, weather glyphs and scalable digits | `ui::panel::*` | `ui/panel.hpp` (explicit include) |
 | Antialiased numeric displays and Material icon buttons | `ui::NumeralAtlas`, `ui::Numerals`, `ui::MaterialAtlas`, `ui::MaterialIconButton` | `ui/numerals.hpp`, `ui/material_icons.hpp` |
-| Bounded UTF-8 wrapping, measured widths and last-line ellipsis | `ui::ValidUtf8`, `ui::WrapText<Lines>` | `ui/wrap_text.hpp` (measurement callback) |
+| Bounded UTF-8 wrapping, measured widths and last-line ellipsis | `ui::ValidUtf8`, `ui::FittingTextPrefix`, `ui::WrapText<Lines>` | `ui/wrap_text.hpp` (measurement callback) |
 | Gregorian dates, leap years, month lengths, weekdays and fixed UTC offsets | `calendar::*` | `calendar.hpp` (explicit include) |
 | Multi-note sound effects from `audio/sfx.json` | `ToneSequencer<N>`, `ToneSpec::ToTone` | `tone_sequencer.hpp`, `audio.hpp` |
 | Clips, PCM streams, tones | `Audio::Play/Load/OpenPcmStream` | `audio.hpp` |

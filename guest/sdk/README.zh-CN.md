@@ -68,7 +68,7 @@ PC Guest 新增 `Activity`、`AppService`、`ComponentContext` 和 `Application:
 | 带 hit padding 的按下/松开判定 | `ui::Button` | `ui/button.hpp` |
 | 深色面板配色、卡片、天气图形、可缩放数字 | `ui::panel::*` | `ui/panel.hpp`（显式包含） |
 | 大号抗锯齿数字与 Material 图标按钮 | `ui::NumeralAtlas`、`ui::Numerals`、`ui::MaterialAtlas`、`ui::MaterialIconButton` | `ui/numerals.hpp`、`ui/material_icons.hpp` |
-| 有界 UTF-8 折行、像素宽度与末行省略号 | `ui::ValidUtf8`、`ui::WrapText<Lines>` | `ui/wrap_text.hpp`（传入测量回调） |
+| 有界 UTF-8 折行、像素宽度与末行省略号 | `ui::ValidUtf8`、`ui::FittingTextPrefix`、`ui::WrapText<Lines>` | `ui/wrap_text.hpp`（传入测量回调） |
 | 公历日期、闰年、月份长度、星期与固定时区换算 | `calendar::*` | `calendar.hpp`（显式包含） |
 | `audio/sfx.json` 生成的多音符音效 | `ToneSequencer<N>`、`ToneSpec::ToTone` | `tone_sequencer.hpp`、`audio.hpp` |
 | 音频片段、PCM 流、单音 | `Audio::Play/Load/OpenPcmStream` | `audio.hpp` |

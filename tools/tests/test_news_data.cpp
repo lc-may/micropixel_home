@@ -4,7 +4,7 @@
 #include <fstream>
 #include <iterator>
 
-#include "apps/news/news_client.hpp"
+#include "apps/news/article_client.hpp"
 
 int main(int argc, char** argv) {
     std::vector<news::Article> articles;
@@ -48,12 +48,61 @@ int main(int argc, char** argv) {
     assert(joined == "中文标题ABCDE再来一段");
     auto newline = micropixel::ui::WrapText<3>("a\nb", 8, measure);
     assert(newline[0] == "a" && newline[1] == "b");
-    if (argc == 2) {
+    std::string long_text;
+    for (unsigned i = 0; i < 300; ++i) long_text += "中文ABC";
+    size_t offset = 0;
+    while (offset < long_text.size()) {
+        auto n = micropixel::ui::FittingTextPrefix(std::string_view(long_text).substr(offset), 8, measure);
+        assert(n && micropixel::ui::ValidUtf8(std::string_view(long_text).substr(offset, n)));
+        assert(measure(std::string_view(long_text).substr(offset, n)) <= 8);
+        offset += n;
+    }
+    const std::string path = "2026/11/17/ARTItest123261117.shtml";
+    assert(news::NewsClient::ValidCctvPath(path));
+    assert(!news::NewsClient::ValidCctvPath("2026/11/17/../../secret.shtml"));
+    assert(news::NewsClient::ParseCctv(
+        "news({\"data\":{\"list\":[{\"title\":\"正文新闻\",\"url\":\"https://news.cctv.com/" + path +
+            "\"},{\"title\":\"outside\",\"url\":\"https://other.example/" + path + "\"}]}});",
+        articles));
+    assert(articles.size() == 1 && articles[0].path == path && articles[0].key == news::TitleKey(path));
+    assert(!news::NewsClient::ParseCctv("news({\"data\":{\"list\":[]}});alert(1)", articles));
+    assert(news::NewsClient::ParseCctv("{\"data\":{\"list\":[]}}", articles) && articles.empty());
+    news::Document doc;
+    assert(news::ParseDocument(
+        R"(<html><meta name="source" content="测试来源"><div id="content_area"><p>首段 &amp; &#x4E2D;&#25991;。</p><script>hidden()</script><style>hide</style><p>第二段<strong>加粗</strong>&ldquo;引号&rdquo;</p></div><footer>不得读到页脚</footer></html>)",
+        doc));
+    assert(doc.text == "首段 & 中文。\n第二段加粗“引号”" && doc.source == "测试来源");
+    assert(news::ParseDocument(
+        R"(<script>var contentdate = '<p>正文第一段。</p><p>第二段\u4e2d\u6587 &nbsp; &mdash; &#128512;。</p>';</script><div id="content_area"></div>)",
+        doc));
+    assert(doc.text.find("正文第一段。\n第二段中文") == 0 && doc.text.find("😀") != doc.text.npos);
+    const auto saved_doc = doc.text;
+    assert(!news::ParseDocument("<html><nav>not an article</nav></html>", doc) && doc.text == saved_doc);
+    assert(news::ParseDocument(
+               "<script>var contentdate = '<p>[!--begin:htmlVideoCode--]abc123[!--end:htmlVideoCode--]</p>';</script>",
+               doc) &&
+           doc.media_only && doc.text.empty());
+    assert(news::ParseDocument("<div id=\"content_area\"><p>" + std::string(40000, 'a') + "</p></div>", doc) &&
+           doc.truncated && doc.text.size() == news::MaxArticleText);
+    if (argc >= 2) {
         std::ifstream file(argv[1]);
         std::string live((std::istreambuf_iterator<char>(file)), {});
         assert(news::NewsClient::Parse(live, articles) && articles.size() == 50);
         std::puts("PASS captured live Toutiao response: 50 titles and heat values");
     }
+    if (argc >= 3) {
+        std::ifstream file(argv[2]);
+        std::string live((std::istreambuf_iterator<char>(file)), {});
+        assert(news::NewsClient::ParseCctv(live, articles) && !articles.empty());
+        std::puts("PASS captured live CCTV news feed and trusted article paths");
+    }
+    if (argc >= 4) {
+        std::ifstream file(argv[3]);
+        std::string live((std::istreambuf_iterator<char>(file)), {});
+        assert(news::ParseDocument(live, doc) && doc.text.size() > 100 && !doc.media_only);
+        std::puts("PASS captured live CCTV article text extraction");
+    }
     std::puts(
-        "PASS bounded news parsing, deduplication, cache preservation, heat formatting, UTF-8 and measured wrapping");
+        "PASS news sources, JSONP, trusted paths, HTML/quoted data/entity extraction, media/size bounds, UTF-8 "
+        "wrapping and cache preservation");
 }
