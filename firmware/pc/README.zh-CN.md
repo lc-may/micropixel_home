@@ -31,8 +31,8 @@ portable Wasm 仍直接在 x86 WAMR 中解释执行，不需要 MCU 的 wamrc。
 鼠标左键映射触摸，方向键/WASD 控制方向，Enter/空格确认，Backspace 返回，Z/X 映射游戏按键。
 `Home` / `F1` 返回系统 Home，Guest 在后台继续运行，音乐和自动下一首不中断。
 Home 的音乐卡片、应用目录中的“返回应用”或再次按 `Home/F1` 复用原会话，保留登录和播放队列。
-Home 显示模拟时钟、天气、闹钟与事项，点击时间/天气主卡或四块功能卡片导航；“应用”打开目录、市场、音量和关闭操作。
-音乐卡片支持暂停/继续、下一首，底部保留系统主音量；`Esc` 从 Guest 返回 Home，保留后台播放。
+Home 显示数字时钟、天气、闹钟与事项，点击时间/天气主卡或四块功能卡片导航；“应用”打开目录、市场、音量和关闭操作。
+音乐卡片支持暂停/继续、下一首，系统主音量位于应用目录底部；`Esc` 从 Guest 返回 Home，保留后台播放。
 应用目录的“关闭当前应用”停止最近的当前应用；在 Home 再按 `Esc` 保持主页，在市场或闹钟弹窗中按 `Esc` 仍执行返回或停止响铃。
 默认分辨率 720×720，可用 `--width`、`--height` 调整；未完整移植固件的系统菜单、状态层和硬件转场。
 软件合成采用单个 App Surface，与 LVGL 刷新共用适配器锁，避免并发绘制导致保留文字丢失。
@@ -45,9 +45,9 @@ bash tools/tests/test_firmware_host.sh --pc --launcher
 bash tools/tests/test_firmware_host.sh --pc --launcher --rv32
 ```
 
-`--home` 会增量构建天气、时钟和音乐 Guest，再打开四槽 Home；已安装 Bundle 也会列出。
+`--home` 会增量构建天气、时钟、音乐和新闻 Guest，再打开四槽 Home；已安装 Bundle 也会列出。
 Home 是 `firmware/pc/home_app.*` 中的 Host 系统应用，前台 Activate 由它调度；授权逻辑消息可以冷启动目标 Service。
-天气、时钟和音乐可以共存，空闲 Job Service 挂起，媒体 Service 保持有效播放。`--single-app` 使用单槽兼容模式，切换应用会停止旧 Guest。
+天气、时钟、音乐和新闻可以共存，空闲 Job Service 挂起，媒体 Service 保持有效播放。`--single-app` 使用单槽兼容模式，切换应用会停止旧 Guest。
 生命周期与呈现边界见 [PC Home](../../docs/design/pc-home.zh-CN.md)。
 
 Home、天气与闹钟按 [720×720 设计稿](../../docs/ui_design/index.html)使用数字主卡、四块功能卡片和 Material 圆润图标；音乐仍直连网易云。
@@ -55,6 +55,8 @@ Home、天气与闹钟按 [720×720 设计稿](../../docs/ui_design/index.html)�
 未来事项由 Host 保存，到期时即使 Clock Guest 已停止仍弹窗响铃；重启后保留已确认的计划。
 天气显示温度、湿度、风速和更新时间，缺少的数据用 `--`。
 旧数据中曾手动关闭天气时，点击“天气”重新启动刷新。
+应用目录中的[新闻热榜](../../guest/apps/news/README.zh-CN.md)直连今日头条，提供标题、热度、排名、已读过滤与缓存；浏览新闻时音乐继续播放。
+Home 音乐播控采用 168×60 的圆角矩形背景，64×48 的可见主按钮和独立的 84×84 触摸区域。
 指定 `--screenshot build/panel.png` 后按 F12 保存当前画面。
 详见[界面设计](../../docs/design/panel-ui.zh-CN.md)和[自动验证](../../docs/development/panel-ui.zh-CN.md)。
 

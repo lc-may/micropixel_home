@@ -347,15 +347,29 @@ void HomeApp::Show(int width, int height) {
     lv_obj_set_style_bg_opa(resume_, LV_OPA_TRANSP, 0);
     Label(current, 24, 17, 279, "音乐", kMuted);
     running_title_ = Label(current, 24, 51, 279, "网易云音乐", kText);
-    status_ = Label(current, 24, 120, 112, "选择音乐", kMuted);
-    pause_ = Button(current, 141, 76, 84, 84, "", kPause, Action, this, true);
-    lv_obj_set_style_radius(pause_, 42, 0);
-    pause_icon_ = Icon(pause_, 25, 25, 34, unsigned(micropixel::ui::material_art::Symbol::Play));
+    lv_obj_set_height(running_title_, 32);
+    status_ = Label(current, 24, 127, 96, "选择音乐", kMuted);
+    auto* transport = lv_obj_create(current);
+    lv_obj_set_pos(transport, 135, 96);
+    lv_obj_set_size(transport, 168, 60);
+    Panel(transport, kRaised, 20);
+    lv_obj_set_clickable(transport, false);
+    // Compact visible controls, with independent 84 px hit regions.
+    pause_ = Button(current, 135, 84, 84, 84, "", kPause, Action, this);
+    lv_obj_set_style_bg_opa(pause_, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_bg_opa(pause_, LV_OPA_TRANSP, LV_STATE_DISABLED);
+    auto* play_background = lv_obj_create(pause_);
+    lv_obj_set_pos(play_background, 10, 18);
+    lv_obj_set_size(play_background, 64, 48);
+    Panel(play_background, kAmber, 16);
+    lv_obj_set_clickable(play_background, false);
+    pause_icon_ = Icon(pause_, 28, 28, 28, unsigned(micropixel::ui::material_art::Symbol::Play));
     lv_obj_set_style_image_recolor(pause_icon_, lv_color_hex(0x1a1305), 0);
     lv_obj_set_style_image_recolor_opa(pause_icon_, LV_OPA_COVER, 0);
-    next_ = Button(current, 225, 76, 84, 84, "", kNext, Action, this);
-    lv_obj_set_style_radius(next_, 42, 0);
-    Icon(next_, 25, 25, 34, unsigned(micropixel::ui::material_art::Symbol::Next));
+    next_ = Button(current, 219, 84, 84, 84, "", kNext, Action, this);
+    lv_obj_set_style_bg_opa(next_, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_bg_opa(next_, LV_OPA_TRANSP, LV_STATE_DISABLED);
+    Icon(next_, 28, 28, 28, unsigned(micropixel::ui::material_art::Symbol::Next));
     auto* apps = Button(root_, 369, 483, 327, 174, "", kApps, Action, this);
     lv_obj_set_style_radius(apps, 27, 0);
     Label(apps, 24, 21, 279, "应用", kMuted);
@@ -392,6 +406,7 @@ void HomeApp::Show(int width, int height) {
         auto symbol = apps_[i]->app_id == "micropixel.netease-music" ? art::Symbol::Music
                       : apps_[i]->app_id == "micropixel.weather"     ? art::Symbol::PartlyCloudy
                       : apps_[i]->app_id == "micropixel.clock-alarm" ? art::Symbol::Calendar
+                      : apps_[i]->app_id == "micropixel.news"        ? art::Symbol::News
                                                                      : art::Symbol::Apps;
         Icon(b, 25, 33, 34, unsigned(symbol));
         Label(b, 84, 22, 224, apps_[i]->title.c_str(), kText);
@@ -486,8 +501,8 @@ void HomeApp::Update() {
     lv_label_set_text(apps_count_, count);
     unsigned play_icon =
         unsigned(playing ? micropixel::ui::material_art::Symbol::Pause : micropixel::ui::material_art::Symbol::Play);
-    lv_obj_set_pos(pause_icon_, -int(play_icon % micropixel::ui::material_art::Columns) * 34,
-                   -int(play_icon / micropixel::ui::material_art::Columns) * 34);
+    lv_obj_set_pos(pause_icon_, -int(play_icon % micropixel::ui::material_art::Columns) * 28,
+                   -int(play_icon / micropixel::ui::material_art::Columns) * 28);
     lv_obj_set_state(pause_, LV_STATE_DISABLED, !active || widget_ticket_);
     lv_obj_set_state(next_, LV_STATE_DISABLED, media_widget_ >= 8 || !active || widget_ticket_);
     lv_obj_set_state(close_, LV_STATE_DISABLED, !running_ && media_widget_ >= 8);

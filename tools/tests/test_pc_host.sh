@@ -4,6 +4,19 @@ pc_test_root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$pc_test_root"
 pc_test_binary="${MICROPIXEL_PC_BINARY:-$pc_test_root/build/pc/micropixel-pc}"
 mkdir -p build/pc-test-results
+if [[ "${1:-}" == "--news" ]]; then
+    shift
+    news_backend=native
+    for news_argument in "$@"; do
+        if [[ "$news_argument" == "--rv32" ]]; then news_backend=rv32; fi
+    done
+    bash tools/pc.sh build > build/pc-test-results/news-host.build.log 2>&1
+    if [[ "$news_backend" == rv32 ]]; then bash tools/pc.sh rv32-build > build/pc-test-results/news-runner.build.log 2>&1; fi
+    for news_app in weather clock-alarm netease-music news; do
+        python3 tools/pc.py "guest/apps/$news_app" --backend "$news_backend"
+    done
+    exec python3 tools/tests/test_pc_news.py "$@"
+fi
 if [[ "${1:-}" == "--panel" ]]; then
     shift
     panel_backend=native

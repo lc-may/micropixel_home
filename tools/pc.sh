@@ -88,7 +88,7 @@ case "${1:-help}" in
             python3 tools/pc.py guest/apps/netease-music --backend "$pc_backend" > "$pc_root/build/netease-music-build.log" 2>&1 || { cat "$pc_root/build/netease-music-build.log" >&2; exit 1; }
         fi
         if "$pc_build_home"; then
-            for pc_builtin in weather clock-alarm; do
+            for pc_builtin in weather clock-alarm news; do
                 python3 tools/pc.py "guest/apps/$pc_builtin" --backend "$pc_backend" > "$pc_root/build/$pc_builtin-build.log" 2>&1 || { cat "$pc_root/build/$pc_builtin-build.log" >&2; exit 1; }
             done
         fi

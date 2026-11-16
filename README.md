@@ -16,19 +16,20 @@ This repository also includes a Linux/WSL2 PC Host for developing and running Gu
 | Home panel | 720×720 design-system panel with a large digital clock, weather, next alarm, Note reminders and music controls. Launch apps and the market; music continues in the background. |
 | Official app market | Browse, search, and view releases; download, validate, and install supported official RV32 AOT bundles, then execute them with QEMU. Portable Wasm runs directly in the native WAMR interpreter. |
 | NetEase Cloud Music Guest | Direct connection without an API gateway; official website WeChat QR login, account profile and playlists, daily recommendations, search, favorites, scrolling lists, and playback controls. Full playback or previews depend on the server's permissions. |
+| News Guest | Direct Toutiao hot-board feed: up to 50 headlines and heat values, ranked cards, read/unread filters, full-title previews, refresh and offline cache. |
 | Network and audio | POSIX sockets and mbedTLS, asynchronous Guest HTTP/HTTPS, Host MQTT/MQTTS diagnostics, and local/network MP3, WAV, and Ogg/Opus playback through SDL stereo audio. |
 | Weather and jobs | Direct Open-Meteo current/hourly/daily weather; 394 city locations in 34 regions, ten popular shortcuts, saved selection and cache; persistent plans and bounded cold/hot work. |
 | Calendar and reminders | Month calendar, six editable Note reminders with completion/deletion, persistent one-shot/weekly alarms, ringing after Guest close, modal input and audio ducking. |
 | Guest UI SDK | IconButton, ListItem, ScrollView, Slider, shared panel styles/scalable digits, Gregorian calendar helpers and PNG/JPEG texture decoding. |
 
-PC Home defaults to four native Wasm slots with weather, clock and music; `--single-app` keeps the compatibility profile.
+PC Home defaults to four native Wasm slots with weather, clock, music and news; `--single-app` keeps the compatibility profile.
 Activity/Service, ownership, widgets, messages, Jobs, alarms and focus use the same SDK. See the
 [component contract](docs/design/app-components.zh-CN.md), [D4](docs/development/app-manager-d4.zh-CN.md),
 [D5](docs/development/app-manager-d5.zh-CN.md), [D6](docs/development/app-manager-d6.zh-CN.md) and
 [D7 guide](docs/development/app-manager-d7.zh-CN.md). RV32 multi-instance and mixed backends are available;
 see [D8](docs/development/app-manager-d8.zh-CN.md). MCU multi-instance support remains D9.
 The new HTTP and URL audio adapters currently target PC; MCU support requires platform adapters.
-The Home, music, weather and calendar screens share a dark gray/orange visual style; see the
+The Home, music, weather, news and calendar screens share a dark gray/orange visual style; see the
 [panel design](docs/design/panel-ui.zh-CN.md) and [verification guide](docs/development/panel-ui.zh-CN.md).
 
 ## Run on a PC
@@ -42,7 +43,7 @@ bash tools/pc.sh deps
 bash tools/pc.sh configure
 bash tools/pc.sh build
 bash tools/pc.sh run --home
-# RV32 instances: builds the runner and three SDK AOT bundles.
+# RV32 instances: builds the runner and four SDK AOT bundles.
 bash tools/pc.sh run --home --rv32
 
 # Open the official market or the music login screen.
@@ -50,7 +51,7 @@ bash tools/pc.sh run --market
 bash tools/pc.sh run --music-login
 ```
 
-`--home` builds the weather, clock and music Guests; music commands build the music Guest. Press `Home` or `F1` to return
+`--home` builds the weather, clock, music and news Guests; music commands build the music Guest. Press `Home` or `F1` to return
 to Home while keeping it running. `Esc` also returns to Home with background playback; the app drawer's Close button stops the current app.
 Official RV32 AOT apps additionally require `qemu-system-riscv32` and a bare-metal GCC with
 `rv32imafc/ilp32f` Newlib support. Run `bash tools/pc.sh rv32-build` before installing them from the market.

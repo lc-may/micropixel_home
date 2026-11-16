@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Render vendored Material Symbols Rounded SVGs into a small shared weather atlas."""
+"""Render vendored Material Symbols Rounded SVGs into a bounded shared panel atlas."""
 
 import argparse, io
 from pathlib import Path
@@ -40,6 +40,7 @@ NAMES = (
     "notifications_active",
     "arrow_back",
     "stop",
+    "newspaper",
 )
 COLORS = ((245, 247, 248), (232, 161, 92), (127, 182, 217), (140, 151, 158))
 
@@ -100,6 +101,7 @@ def main():
         "#include <span>",
         "namespace micropixel::ui::material_art {",
         f"inline constexpr unsigned Width={width}, Height={height}, Cell={cell}, Columns={columns};",
+        f"inline constexpr unsigned SymbolCount={len(NAMES)};",
         "inline constexpr std::array<uint32_t,4> Colors{0xf5f7f8,0xe8a15c,0x7fb6d9,0x8c979e};",
         f"inline constexpr std::array<uint8_t,{len(encoded)}> Coverage{{",
     ]
@@ -109,7 +111,7 @@ def main():
     )
     lines.append("};")
     lines.append(
-        "enum class Symbol: unsigned { Sunny, PartlyCloudy, Cloud, Fog, Drizzle, Rain, Snow, Thunder, Unavailable, Alarm, Calendar, Notes, Music, Apps, Add, Close, Left, Right, Refresh, Volume, Play, Pause, Next, Done, Delete, Unchecked, Edit, Timer, Schedule, Ringing, Back, Stop };"
+        "enum class Symbol: unsigned { Sunny, PartlyCloudy, Cloud, Fog, Drizzle, Rain, Snow, Thunder, Unavailable, Alarm, Calendar, Notes, Music, Apps, Add, Close, Left, Right, Refresh, Volume, Play, Pause, Next, Done, Delete, Unchecked, Edit, Timer, Schedule, Ringing, Back, Stop, News };"
     )
     lines.append("""inline constexpr unsigned Index(int code) {
     if(code==0)return 0;if(code==1||code==2)return 1;if(code==3)return 2;
@@ -131,7 +133,7 @@ inline bool Expand(std::span<uint8_t> pixels) {
 } // namespace micropixel::ui::material_art
 """)
     args.output.write_text("\n".join(lines))
-    print("Material atlas: 32 icons, RLE bytes", len(encoded))
+    print("Material atlas:", len(NAMES), "icons, RLE bytes", len(encoded))
 
 
 if __name__ == "__main__":

@@ -7,12 +7,12 @@ Upstream path: `symbols/web/<name>/materialsymbolsrounded/<name>_48px.svg`.
 Copyright Google LLC, licensed under [Apache-2.0](../../../../LICENSE).
 
 `tools/build_panel_icons.py` applies the panel palette and generates the
-bounded atlas in `material_icons_data.hpp`. Home, weather and clock/calendar share it.
+bounded atlas in `material_icons_data.hpp`. Home, weather, clock/calendar and news share it.
 Sunny, partly cloudy, cloudy, fog, drizzle, rain, snow, thunderstorm and unavailable
 states have different shapes. Mapping uses Open-Meteo's WMO codes; unknown values
 show the unavailable icon. No network fetch is needed at runtime.
 
-The 32 symbols also cover alarm, calendar, Notes, music, apps, navigation,
+The 33 symbols also cover alarm, calendar, Notes, music, news, apps, navigation,
 refresh, volume and playback/edit controls. Use `ui::MaterialAtlas` once per
 Activity, then share it between `ui::MaterialIcon` and `ui::MaterialIconButton`.
 The SVG geometry stays upstream; the generator applies white, amber, blue and

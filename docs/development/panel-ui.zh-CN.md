@@ -51,7 +51,7 @@ bash tools/tests/test_firmware_host.sh --pc --panel --rv32
 `home-music.png`、`music-list.png`、`music-liked.png`、`weather.png`、`calendar.png` 和 `notes.png`。
 
 面板原生 Wasm 和 RV32 AOT 的交互及事项持久化测试均已通过；AppManager/Widget/消息/Job/Alarm
-模型、公历对照、天气解析与 32 个 Material 图形展开测试通过。本轮以下相关回归通过：
+模型、公历对照、天气解析与 33 个 Material 图形展开测试通过。本轮以下相关回归通过：
 
 ```sh
 bash tools/tests/test_firmware_host.sh --pc --home-widgets
@@ -73,3 +73,21 @@ Widget 回归验证显式关闭天气不会停止后台音乐，重新进入音�
 网络业务由本地 fixture 验证，真实网易云服务可用性与手机授权沿用已有实现。
 本环境另一次 Open-Meteo HTTPS 请求在 TLS 握手阶段超时，因此本轮不声明真实天气网络连通性通过。
 本轮未构建 MCU 目标或执行硬件测试。
+
+## 新闻与紧凑播控
+
+Home 音乐控件的可见背景缩为 168×60 圆角矩形，主按钮为 64×48，两个操作仍各有 84×84 触摸区。
+以下测试通过：
+
+```sh
+bash tools/tests/test_firmware_host.sh --pc --news
+bash tools/tests/test_firmware_host.sh --pc --news --rv32
+bash tools/tests/test_firmware_host.sh --pc --news --live
+bash tools/tests/test_firmware_host.sh --pc --news --rv32 --live
+```
+
+测试使用真实 SDL 窗口和 130 KiB fixture，检查 50 条新闻、加载骨架、滚动不误选、完整标题与热度、
+已读/未读、空列表、503 保留缓存、隐藏时取消请求、关闭/重开后恢复缓存与已读标识。
+同时运行天气、时钟、音乐和新闻，验证浏览/关闭新闻时 PCM 持续输出；Home 新播控的可见面积、背景颜色、暂停和恢复也被检查。
+`--live` 通过 Guest Network SDK 直连公开今日头条 HTTPS 接口，实际解析 50 条内容。
+截图位于 `build/news-tests/`、`build/news-rv32-tests/`，运行与接口边界见[新闻应用](../../guest/apps/news/README.zh-CN.md)。

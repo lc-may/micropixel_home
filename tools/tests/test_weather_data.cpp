@@ -51,7 +51,7 @@ int main() {
            Index(95) == unsigned(Symbol::Thunder) && Index(-1) == unsigned(Symbol::Unavailable));
     std::vector<uint8_t> pixels(Width * Height * 4);
     assert(Expand(pixels));
-    for (unsigned icon = 0; icon < 32; ++icon) {
+    for (unsigned icon = 0; icon < SymbolCount; ++icon) {
         unsigned visible = 0;
         for (unsigned y = 0; y < Cell; ++y)
             for (unsigned x = 0; x < Cell; ++x)
@@ -60,6 +60,6 @@ int main() {
     }
     assert(!Expand({pixels.data(), pixels.size() - 1}));
     std::puts(
-        "PASS weather current/forecast parsing, missing/null/range fallback, cache preservation and 32 Material "
+        "PASS weather current/forecast parsing, missing/null/range fallback, cache preservation and Material "
         "glyphs/WMO mapping; 394 unique locations/34 regions and popular city ordering");
 }

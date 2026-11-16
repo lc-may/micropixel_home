@@ -368,7 +368,7 @@ int main(int argc, char** argv) {
         std::vector<std::filesystem::path> files;
         if (options.paths.empty()) {
             if (options.home) {
-                for (const char* name : {"clock-alarm", "netease-music", "weather"}) {
+                for (const char* name : {"clock-alarm", "netease-music", "news", "weather"}) {
                     auto path = std::filesystem::path(options.rv32 ? "build/pc-rv32-apps" : "build/pc-apps") / name /
                                 (std::string(name) + ".pc.json");
                     if (std::filesystem::exists(path)) options.paths.push_back(path);

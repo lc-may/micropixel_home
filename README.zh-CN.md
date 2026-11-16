@@ -16,19 +16,20 @@
 | Home 面板 | 依据 720×720 设计稿，显示数字时钟、天气、下一次闹钟、Note 事项与音乐播控；支持应用目录和市场，音乐后台继续播放。 |
 | 官方应用市场 | 浏览、搜索和查看版本，下载校验并安装支持的官方 RV32 AOT Bundle，由 QEMU 执行；portable Wasm 直接由本机 WAMR 解释执行。 |
 | 网易云音乐 Guest | 无 API 网关直连，支持官网微信扫码登录、个人资料与歌单、每日推荐、搜索、红星收藏、滚动列表与播放控制；完整播放或试听以服务端权限为准。 |
+| 新闻热榜 Guest | 直连今日头条热榜，50 条标题与热度、双行卡片与排名、未读/已读过滤、完整标题速览、刷新与离线缓存。 |
 | 网络与音频 | POSIX socket、mbedTLS、Guest 异步 HTTP/HTTPS、Host MQTT/MQTTS 连通性测试，以及本地／网络 MP3、WAV、Ogg/Opus 文件的 SDL 立体声播放。 |
 | 天气与后台任务 | Open-Meteo 直连，当前/小时/三日预报；34 省区 394 城市地区、10 个常用城市、选择与天气缓存；持久 Job、有限工作票据及冷/热/挂起唤醒。 |
 | 日历与提醒 | 月历、六条可编辑/完成/删除的 Note 提醒、单次/每周闹钟；Host 持久登记，关闭应用仍响铃，弹窗输入优先并压低音乐音量。 |
 | Guest UI SDK | IconButton、ListItem、ScrollView、Slider，共享面板配色/可缩放数字、公历计算，以及下载图片的 PNG/JPEG 纹理解码。 |
 
-PC Home 默认四个原生 Wasm 槽，天气、时钟与音乐共存；`--single-app` 保留单槽兼容路径。
+PC Home 默认四个原生 Wasm 槽，天气、时钟、音乐与新闻共存；`--single-app` 保留单槽兼容路径。
 Activity/Service、资源归属、Widget、消息、Job、闹钟与焦点使用同一套 SDK，见
 [组件契约](docs/design/app-components.zh-CN.md)、[D4](docs/development/app-manager-d4.zh-CN.md)、
 [D5](docs/development/app-manager-d5.zh-CN.md)、[D6](docs/development/app-manager-d6.zh-CN.md)和
 [D7](docs/development/app-manager-d7.zh-CN.md)。RV32 多实例与混合后端已接入，见
 [D8](docs/development/app-manager-d8.zh-CN.md)；MCU 多实例留在 D9。
 新增 HTTP 与 URL 音频适配器目前用于 PC，MCU 需要补齐对应平台适配。
-Home、音乐、天气和日历使用统一的深灰与橙色控件，详见
+Home、音乐、天气、新闻和日历使用统一的深灰与橙色控件，详见
 [面板界面设计](docs/design/panel-ui.zh-CN.md)和[运行与验证](docs/development/panel-ui.zh-CN.md)。
 
 ## 在 PC 上运行
@@ -42,7 +43,7 @@ bash tools/pc.sh deps
 bash tools/pc.sh configure
 bash tools/pc.sh build
 bash tools/pc.sh run --home
-# RV32 多实例，自动构建 runner 和三个新 SDK AOT 包。
+# RV32 多实例，自动构建 runner 和四个新 SDK AOT 包。
 bash tools/pc.sh run --home --rv32
 
 # 单独打开官方市场或音乐登录界面。
@@ -50,14 +51,14 @@ bash tools/pc.sh run --market
 bash tools/pc.sh run --music-login
 ```
 
-`--home` 会构建天气、时钟和音乐 Guest；音乐命令自动构建音乐 Guest。按 `Home` 或 `F1` 返回 Home，保留后台运行；
+`--home` 会构建天气、时钟、音乐和新闻 Guest；音乐命令自动构建音乐 Guest。按 `Home` 或 `F1` 返回 Home，保留后台运行；
 `Esc` 同样返回 Home 并保留后台播放；需要停止应用时点击 应用目录的“关闭当前应用”。
 运行官方 RV32 AOT 还需要 `qemu-system-riscv32` 和支持 `rv32imafc/ilp32f` Newlib 的裸机 GCC，
 先执行 `bash tools/pc.sh rv32-build`，再从市场安装。当前不支持 Xtensa AOT 或 Wi-Fi 硬件模拟，
 音频文件下载完成后播放。
 
 详见 [PC Home](docs/design/pc-home.zh-CN.md)、[RV32 运行方案](docs/design/pc-rv32.zh-CN.md)
-和[网易云音乐应用指南](guest/apps/netease-music/README.zh-CN.md)。
+和[网易云音乐应用指南](guest/apps/netease-music/README.zh-CN.md)、[新闻应用指南](guest/apps/news/README.zh-CN.md)。
 
 ## 支持硬件
 
