@@ -26,7 +26,7 @@ PC 应用由 `.wasm`、原格式的 `generated/resources.pack` 和 `.pc.json` �
 Host 校验资源范围、重叠、格式、FNV 内容哈希和 SHA-256 目录摘要，再交给原资源服务。
 RISC-V Bundle 可通过下面的 RV32 后端执行；Xtensa AOT 当前不支持。
 portable Wasm 仍直接在 x86 WAMR 中解释执行，不需要 MCU 的 wamrc。
-实例仍遵守单 AppSession 约束；线性内存上限最多 64 MiB，工具构建的 Guest 上限为 16 MiB。
+每个实例使用独立 AppSession；原生与 RV32 的线性内存上限均为 16 MiB。
 
 鼠标左键映射触摸，方向键/WASD 控制方向，Enter/空格确认，Backspace 返回，Z/X 映射游戏按键。
 `Home` / `F1` 返回系统 Home，Guest 在后台继续运行，音乐和自动下一首不中断。
@@ -230,4 +230,18 @@ bash tools/tests/test_firmware_host.sh --pc --multi-app
 bash tools/tests/test_firmware_host.sh --pc --components
 ```
 
-详见[组件与资源契约](../../docs/design/app-components.zh-CN.md)及[D7](../../docs/development/app-manager-d7.zh-CN.md)。Widget、消息、Job、天气和 Host 闹钟已接入；RV32 多实例与 MCU 适配留在 D8/D9。
+详见[组件与资源契约](../../docs/design/app-components.zh-CN.md)及[D7](../../docs/development/app-manager-d7.zh-CN.md)。Widget、消息、Job、天气和 Host 闹钟已接入；RV32 多实例与混合后端见 [D8](../../docs/development/app-manager-d8.zh-CN.md)，MCU 适配留在 D9。
+
+## RV32 多应用
+
+```sh
+bash tools/pc.sh build
+bash tools/pc.sh run --home --rv32
+bash tools/tests/test_firmware_host.sh --pc --rv32-multi
+bash tools/tests/test_firmware_host.sh --pc --rv32-suite
+```
+
+`--rv32` 为默认内置应用选择 RV32 release Bundle；显式传入的 `.pc.json` 或 Bundle 按自身后端运行，
+因此可混合原生音乐与 RV32 天气，或反向组合。每个 RV32 槽独立 QEMU、RAM 和 socket。
+四槽、576 MiB 准入预算和最多四个子进程共同限制并发数。
+运行条件、产物与能力矩阵见 [D8](../../docs/development/app-manager-d8.zh-CN.md)。

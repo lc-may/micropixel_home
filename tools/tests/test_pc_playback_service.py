@@ -4,6 +4,8 @@ import array
 import http.server
 import json
 import os
+import sys
+from pc_test_backend import app_path
 from pathlib import Path
 import tempfile
 import threading
@@ -56,6 +58,8 @@ class Handler(LoginHandler):
 
 
 def main():
+    peer_backend = ("native" if "--rv32" in sys.argv else "rv32") if "--mixed" in sys.argv else ("rv32" if "--rv32" in sys.argv else "native")
+    peer_id = "micropixel.components-demo" if peer_backend == "rv32" else "test.playback.peer"
     images()
     Handler.audio = mp3(3)
     LoginHandler.mode = "wait"
@@ -67,9 +71,9 @@ def main():
     try:
         with tempfile.TemporaryDirectory(dir=results) as temporary:
             directory = Path(temporary)
-            music = descriptor(ROOT / "build/pc-apps/netease-music/netease-music.pc.json",
+            music = descriptor(app_path("netease-music"),
                                directory / "a-music.pc.json", "micropixel.netease-music")
-            peer = descriptor(ROOT / "build/pc-apps/components-demo/components-demo.pc.json",
+            peer = descriptor(app_path("components-demo", peer_backend),
                               directory / "b-peer.pc.json", "test.playback.peer")
             pcm = results / "background.pcm"
             env = dict(os.environ, MICROPIXEL_PC_DATA_DIR=str(directory / "storage"),
@@ -87,7 +91,7 @@ def main():
                 assert Handler.long_started.wait(3), log_path.read_text()
                 event.key(0xffbe)
                 click(480, 180)
-                wait_for("APP_SHELL started: test.playback.peer")
+                wait_for("APP_SHELL started: " + peer_id)
                 wait_for("NETEASE_GUEST selected: 102")
                 wait_for("NETEASE_GUEST selected: 103")
                 assert Handler.resolved_during_poll >= 2 and not Handler.long_done.is_set()
@@ -98,7 +102,7 @@ def main():
 
             args = ["--home", "--multi-app", "--guest-arg", "--test-origin", "--guest-arg",
                     f"http://127.0.0.1:{server.server_port}", music, peer]
-            navigate_x11(env, results, args, driver=scenario, seconds=39, wait_seconds=6)
+            navigate_x11(env, results, args, driver=scenario, seconds=39, wait_seconds=30 if "--rv32" in sys.argv or "--mixed" in sys.argv else 6)
             assert Handler.long_done.wait(3)
             log = (results / "navigation.log").read_text()
             assert "Guest failed:" not in log, log
@@ -119,7 +123,7 @@ def main():
     try:
         with tempfile.TemporaryDirectory(dir=results) as temporary:
             directory = Path(temporary)
-            music = descriptor(ROOT / "build/pc-apps/netease-music/netease-music.pc.json",
+            music = descriptor(app_path("netease-music"),
                                directory / "a-music.pc.json", "micropixel.netease-music")
             env = dict(os.environ, MICROPIXEL_PC_DATA_DIR=str(directory / "storage"))
 
@@ -145,7 +149,7 @@ def main():
 
             args = ["--home", "--multi-app", "--guest-arg", "--login", "--guest-arg", "--destroy-activity",
                     "--guest-arg", "--test-origin", "--guest-arg", f"http://127.0.0.1:{server.server_port}", music]
-            navigate_x11(env, results, args, driver=recreate, seconds=12, wait_seconds=6)
+            navigate_x11(env, results, args, driver=recreate, seconds=12, wait_seconds=30 if "--rv32" in sys.argv or "--mixed" in sys.argv else 6)
             log = (results / "navigation.log").read_text()
             assert "Guest failed:" not in log, log
             (results / "recreate.log").write_text(log)

@@ -8,6 +8,7 @@
 #include <mutex>
 #include <optional>
 
+#include "backend_limits.hpp"
 #include "esp_lv_adapter.h"
 #include "esp_timer.h"
 #include "platform/adapters/graphics_adapter.hpp"
@@ -284,7 +285,7 @@ struct Slot final : runtime::SessionRunner {
         audio.SetComponentScope(0);
         http.SetComponentScope(0);
         applications.Bind(app, key);
-        session = std::make_unique<Session>(*apps[app], devices);
+        session = std::make_unique<Session>(*apps[app], devices, key);
         apps[app]->launch_arguments = {};
         session->Start();
         std::fprintf(stderr, "APP_SHELL started: %s\n", apps[app]->app_id.c_str());
@@ -306,7 +307,8 @@ struct Slot final : runtime::SessionRunner {
     void RequestWork() override {
         if (session) {
             if (session->ComponentInfo().service_state != 2 && !service_bootstrap_until)
-                service_bootstrap_until = static_cast<uint64_t>(esp_timer_get_time() / 1000) + 10000;
+                service_bootstrap_until =
+                    static_cast<uint64_t>(esp_timer_get_time() / 1000) + StartupTimeout(*apps[app_index]);
             session->RequestWork();
         }
     }
@@ -414,7 +416,7 @@ struct AppSessions::Impl {
                                               development_tasks);
             runners[i] = slots[i].get();
         }
-        manager.emplace(std::span(runners.data(), capacity), hub.boot);
+        manager.emplace(std::span(runners.data(), capacity), hub.boot, host::AppLimits{kSessionMemoryBudget, 4});
         for (uint32_t i = 0; i < apps.size(); ++i) Register(i);
         for (uint32_t i = 0; i < apps.size(); ++i) {
             hub.store.LoadJobs(apps[i]->app_id, i, hub.jobs);
@@ -441,7 +443,10 @@ struct AppSessions::Impl {
         (void)manager->Register(
             app, {.background = capacity == 1 || (req.component_flags & MICROPIXEL_COMPONENT_FLAG_BACKGROUND),
                   .activity = req.schema_version != 2 || (req.component_flags & MICROPIXEL_COMPONENT_FLAG_ACTIVITY),
-                  .messages = static_cast<bool>(req.component_flags & MICROPIXEL_COMPONENT_FLAG_SERVICE)});
+                  .messages = static_cast<bool>(req.component_flags & MICROPIXEL_COMPONENT_FLAG_SERVICE),
+                  .start_timeout_ms = StartupTimeout(*apps[app]),
+                  .memory_bytes = MemoryReservation(*apps[app]),
+                  .subprocesses = apps[app]->rv32 ? 1U : 0U});
     }
     Slot* Find(uint32_t app) {
         for (uint32_t i = 0; i < capacity; ++i)
@@ -599,10 +604,6 @@ void AppSessions::Process() {
 bool AppSessions::Activate(uint32_t app) {
     auto& self = *impl_;
     if (app >= self.apps.size() || !self.apps[app]->available || self.removing[app]) return false;
-    if (self.capacity > 1 && self.apps[app]->rv32) {
-        std::fputs("RV32 multi-app execution is reserved for D8; use the single-slot profile\n", stderr);
-        return false;
-    }
     auto result = self.manager->Activate(app);
     if (result == host::ManagerResult::kAccepted) {
         {
@@ -627,9 +628,7 @@ void AppSessions::ShowHome() {
 }
 bool AppSessions::EnsureWork(uint32_t app, bool user) {
     auto& self = *impl_;
-    if (app >= self.apps.size() || !self.apps[app]->available || self.removing[app] ||
-        (self.capacity > 1 && self.apps[app]->rv32))
-        return false;
+    if (app >= self.apps.size() || !self.apps[app]->available || self.removing[app]) return false;
     auto result = self.manager->EnsureWork(app, user);
     if (result != host::ManagerResult::kAccepted) return false;
     if (user) {
@@ -792,7 +791,7 @@ int32_t AppSessions::WidgetAction(const host::WidgetSnapshot& widget, uint16_t t
                           value,
                           type,
                           sequence,
-                          static_cast<uint64_t>(esp_timer_get_time() / 1000) + 10000,
+                          static_cast<uint64_t>(esp_timer_get_time() / 1000) + StartupTimeout(*impl_->apps[widget.app]),
                           0,
                           false};
                 return 0;

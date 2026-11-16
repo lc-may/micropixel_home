@@ -23,6 +23,14 @@ class ComponentModel final {
         return token &&
                ((activity.token == token && activity.state != 0) || (service.token == token && service.state != 0));
     }
+    bool CanSuspend() const {
+        if (!declared) return true;
+        if (!registered || visible || activity.in_flight || service.in_flight) return false;
+        const bool activity_settled =
+            want_activity ? (activity.state == 1 || activity.state == 3) : activity.state == 0;
+        const bool service_settled = want_service ? service.state == 2 : service.state == 0;
+        return activity_settled && service_settled;
+    }
     bool Next(micropixel_component_event_payload_t& event) {
         if (!registered) return false;
         uint32_t command = 0;

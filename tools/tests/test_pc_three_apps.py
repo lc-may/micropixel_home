@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Three actual application Guests, Host alarm/input/focus and optional 10-minute soak."""
 import array,http.server,json,math,os,re,subprocess,sys,tempfile,threading,time,urllib.parse
+from pc_test_backend import app_path
 from pathlib import Path
 from test_pc_components import descriptor
 from test_pc_home import HomeHandler
@@ -29,7 +30,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix="data-",dir=results) as temporary:
             directory=Path(temporary);paths=[]
             for prefix,name in (("a","weather"),("b","clock-alarm"),("c","netease-music")):
-                paths.append(descriptor(ROOT/f"build/pc-apps/{name}/{name}.pc.json",directory/f"{prefix}-{name}.pc.json",f"micropixel.{name}"))
+                paths.append(descriptor(app_path(name),directory/f"{prefix}-{name}.pc.json",f"micropixel.{name}"))
             pcm=results/"combined.pcm";env=dict(os.environ,MICROPIXEL_PC_DATA_DIR=str(directory/"storage"),SDL_AUDIODRIVER="disk",SDL_DISKAUDIOFILE=str(pcm))
             def driver(click,event,wait_for,log_path,process,escape):
                 def wait_new(marker,action,timeout=8):

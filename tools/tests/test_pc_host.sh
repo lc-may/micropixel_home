@@ -4,6 +4,50 @@ pc_test_root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$pc_test_root"
 pc_test_binary="${MICROPIXEL_PC_BINARY:-$pc_test_root/build/pc/micropixel-pc}"
 mkdir -p build/pc-test-results
+if [[ "${1:-}" == "--rv32-suite" ]]; then
+    bash tools/tests/test_firmware_host.sh --app-framework
+    bash tools/tests/test_firmware_host.sh --pc --rv32-multi
+    for rv32_app in weather clock-alarm netease-music; do
+        python3 tools/pc.py "guest/apps/$rv32_app" --backend rv32
+    done
+    python3 tools/tests/build_pc_rv32_fixtures.py
+    for native_app in netease-music weather clock-alarm; do
+        python3 tools/pc.py "guest/apps/$native_app"
+    done
+    python3 tools/pc.py guest/tests/conformance/auth_contract.cpp
+    python3 tools/pc.py guest/tests/conformance/network_media.cpp --extra-source guest/apps/netease-music/weapi.cpp
+    python3 tools/tests/test_pc_rv32_services.py
+    python3 tools/tests/test_pc_jobs.py --rv32
+    python3 tools/tests/test_pc_alarm_store.py --rv32
+    python3 tools/tests/test_pc_three_apps.py --rv32
+    python3 tools/tests/test_pc_music.py --rv32
+    python3 tools/tests/test_pc_login.py --rv32
+    python3 tools/tests/test_pc_home.py --rv32
+    python3 tools/tests/test_pc_home.py --rv32 --interactive
+    python3 tools/tests/test_pc_feed.py --rv32
+    python3 tools/tests/test_pc_feed.py --rv32 --refresh
+    python3 tools/tests/test_pc_playback_service.py --mixed
+    python3 tools/tests/test_pc_playback_service.py --rv32 --mixed
+    python3 tools/tests/test_pc_rv32_launch.py
+    python3 tools/tests/test_pc_rv32.py
+    python3 tools/tests/test_pc_rv32.py --interactive
+    exec python3 tools/tests/test_pc_rv32.py --multi-home
+fi
+if [[ "${1:-}" == "--rv32-multi" ]]; then
+    bash tools/pc.sh build > build/pc-test-results/rv32-multi-host.build.log 2>&1
+    bash tools/pc.sh rv32-build > build/pc-test-results/rv32-runner.build.log 2>&1
+    python3 tools/pc.py guest/apps/components-demo
+    python3 tools/pc.py guest/apps/components-demo --backend rv32
+    rv32_data_dir="$(mktemp -d "$pc_test_root/build/pc-test-results/rv32-data.XXXXXX")"
+    trap 'rm -rf "$rv32_data_dir"' EXIT
+    MICROPIXEL_PC_DATA_DIR="$rv32_data_dir" timeout -k 2s 180s \
+        "$(dirname "$pc_test_binary")/pc-rv32-multi-test" \
+        "$pc_test_root/build/pc-rv32-apps/components-demo/components-demo.pc.json" \
+        "$pc_test_root/build/pc-apps/components-demo/components-demo.pc.json" \
+        > build/pc-test-results/rv32-multi.log 2>&1
+    rg '^PASS' build/pc-test-results/rv32-multi.log
+    exit
+fi
 if [[ "${1:-}" == "--alarm-store" ]]; then
     bash tools/pc.sh build > build/pc-test-results/alarm-store-host.build.log 2>&1
     python3 tools/pc.py guest/apps/clock-alarm

@@ -19,6 +19,7 @@ class SdlAudio final : public device::Audio {
     uint8_t MasterVolume() const { return master_percent_.load(); }
     void SetAlarmFocus(bool active);
     bool AlarmFocus() const { return alarm_active_.load(); }
+    uint64_t RenderedFrames(uint64_t owner);
     int32_t GetInfo(micropixel_audio_info_t&) override;
     int32_t PlayTone(const micropixel_audio_tone_t&) override;
     int32_t StartPcm(const device::PcmSource&, uint32_t, uint16_t, device::PcmStreamHandle&) override;
@@ -52,6 +53,7 @@ class SdlAudio final : public device::Audio {
         void* context{};
         bool suspended{};
         uint32_t component{};
+        uint64_t rendered_frames{};
     };
     Voice* Find(device::PcmStreamHandle);
     Binding* FindBinding(uint64_t owner);

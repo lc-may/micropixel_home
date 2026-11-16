@@ -73,18 +73,23 @@ case "${1:-help}" in
         shift
         pc_build_home=false
         pc_build_music=false
+        pc_backend=native
         for pc_argument in "$@"; do
             case "$pc_argument" in
+                --rv32) pc_backend=rv32 ;;
                 --home) pc_build_home=true;pc_build_music=true ;;
                 --music|--music-login|--music-query|--music-song) pc_build_music=true ;;
             esac
         done
+        if [[ "$pc_backend" == rv32 && ( "$pc_build_music" == true || "$pc_build_home" == true ) ]]; then
+            pc_rv32_build > build/pc-rv32-build.log 2>&1 || { cat build/pc-rv32-build.log >&2; exit 1; }
+        fi
         if "$pc_build_music"; then
-            python3 tools/pc.py guest/apps/netease-music > "$pc_root/build/netease-music-build.log" 2>&1 || { cat "$pc_root/build/netease-music-build.log" >&2; exit 1; }
+            python3 tools/pc.py guest/apps/netease-music --backend "$pc_backend" > "$pc_root/build/netease-music-build.log" 2>&1 || { cat "$pc_root/build/netease-music-build.log" >&2; exit 1; }
         fi
         if "$pc_build_home"; then
             for pc_builtin in weather clock-alarm; do
-                python3 tools/pc.py "guest/apps/$pc_builtin" > "$pc_root/build/$pc_builtin-build.log" 2>&1 || { cat "$pc_root/build/$pc_builtin-build.log" >&2; exit 1; }
+                python3 tools/pc.py "guest/apps/$pc_builtin" --backend "$pc_backend" > "$pc_root/build/$pc_builtin-build.log" 2>&1 || { cat "$pc_root/build/$pc_builtin-build.log" >&2; exit 1; }
             done
         fi
         exec "$pc_build/micropixel-pc" "$@"

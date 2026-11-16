@@ -1,7 +1,7 @@
 # PC AppManager 与组件契约
 
 组件实现使用原生 WAMR 解释器。PC Home 默认四槽，`--single-app` 保留兼容路径，`--multi-app` 显式启用开发配置。
-MCU 组合根尚未接入多会话；RV32 多实例在 D8 接入。七个 Core imports、Core ABI 2.0、AOT v6 和
+MCU 组合根尚未接入多会话；PC 原生 / RV32 多实例和混合后端共用 AppManager，见 [D8](../development/app-manager-d8.zh-CN.md)。七个 Core imports、Core ABI 2.0、AOT v6 和
 Bundle v1 外壳保持原样。后续阶段见[交付计划](../development/app-manager-plan.zh-CN.html)。
 
 ## 管理与可见性

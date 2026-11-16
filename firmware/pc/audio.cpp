@@ -192,6 +192,13 @@ void SdlAudio::SetAlarmFocus(bool active) {
     alarm_active_ = active;
     SDL_UnlockAudioDevice(device_);
 }
+uint64_t SdlAudio::RenderedFrames(uint64_t owner) {
+    SDL_LockAudioDevice(device_);
+    const auto* binding = FindBinding(owner);
+    auto result = binding ? binding->rendered_frames : 0;
+    SDL_UnlockAudioDevice(device_);
+    return result;
+}
 void SdlAudio::Render(int16_t* output, uint32_t frames) {
     if (suspended_) return;
     constexpr uint32_t chunk = 128;
@@ -207,6 +214,7 @@ void SdlAudio::Render(int16_t* output, uint32_t frames) {
             if (!v.active || v.paused || (binding && binding->suspended)) continue;
             const auto result = v.source.read(v.source.context, pcm_scratch_[i].data(), count);
             counts[i] = std::min(result.frames, count);
+            if (binding) binding->rendered_frames += counts[i];
             if (result.finished || result.frames > count) {
                 completed_owners[completions] = v.owner;
                 completed[completions++] = {v.token,

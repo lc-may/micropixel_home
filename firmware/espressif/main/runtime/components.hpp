@@ -21,6 +21,7 @@ class Components final {
                    uint32_t request_size, const uint8_t* response, uint32_t response_size, int32_t status);
     micropixel_component_info_t Info() const;
     bool CanDraw() const;
+    bool CanSuspend() const;
     bool StopAudioScoped();
     void Wake();
 

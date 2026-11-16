@@ -115,7 +115,7 @@ struct Options {
     uint64_t music_song{};
     std::string market_app;
     std::string install_app, remove_app;
-    bool uninstall{};
+    bool uninstall{}, rv32{};
     std::vector<std::string> guest_arguments;
     std::string screenshot;
     std::string play, http, mqtt, topic = "micropixel/pc/test", message = "MicroPixel PC", output;
@@ -130,7 +130,7 @@ bool Parse(int argc, char** argv, Options& options) {
                 "Usage: micropixel-pc [--headless] [--seconds N] [--width N --height N]\n"
                 "       [--screenshot file.png] [--autostart] [--exit-on-app-complete]\n"
                 "       [--play local.wav|https://... --exit-on-audio-complete]\n"
-                "       [--home | --market | --market-app APP_ID] [--multi-app | --single-app]\n"
+                "       [--home | --market | --market-app APP_ID] [--multi-app | --single-app] [--rv32]\n"
                 "       [--install-app APP_ID] (download and run official RV32 Bundle)\n       [--uninstall-app APP_ID "
                 "| --clear-app-data APP_ID]\n"
                 "       [--music | --music-login | --music-query TEXT | --music-song SONG_ID] [--guest-arg TEXT ...]\n"
@@ -149,6 +149,8 @@ bool Parse(int argc, char** argv, Options& options) {
             options.profile_explicit = true;
         } else if (arg == "--market")
             options.market = true;
+        else if (arg == "--rv32")
+            options.rv32 = true;
         else if (arg == "--home")
             options.home = true;
         else if (arg == "--music-login") {
@@ -367,7 +369,8 @@ int main(int argc, char** argv) {
         if (options.paths.empty()) {
             if (options.home) {
                 for (const char* name : {"clock-alarm", "netease-music", "weather"}) {
-                    auto path = std::filesystem::path("build/pc-apps") / name / (std::string(name) + ".pc.json");
+                    auto path = std::filesystem::path(options.rv32 ? "build/pc-rv32-apps" : "build/pc-apps") / name /
+                                (std::string(name) + ".pc.json");
                     if (std::filesystem::exists(path)) options.paths.push_back(path);
                 }
             } else if (std::filesystem::is_directory("build/pc-apps"))
@@ -410,9 +413,11 @@ int main(int argc, char** argv) {
         if (options.music && music_index < 0) {
             auto app = std::make_unique<pc::PortableApp>();
             std::string error;
-            if (!app->Load("build/pc-apps/netease-music/netease-music.pc.json", error)) {
-                std::fprintf(stderr, "Build the Guest first: bash tools/pc.sh guest guest/apps/netease-music (%s)\n",
-                             error.c_str());
+            if (!app->Load(options.rv32 ? "build/pc-rv32-apps/netease-music/netease-music.pc.json"
+                                        : "build/pc-apps/netease-music/netease-music.pc.json",
+                           error)) {
+                std::fprintf(stderr, "Build the Guest first: bash tools/pc.sh guest guest/apps/netease-music%s (%s)\n",
+                             options.rv32 ? " --backend rv32" : "", error.c_str());
                 return 1;
             }
             music_index = apps.size();

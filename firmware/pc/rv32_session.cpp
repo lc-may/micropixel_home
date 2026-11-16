@@ -20,6 +20,8 @@
 #include <filesystem>
 #include <optional>
 
+#include "backend_limits.hpp"
+#include "rv32/host_memory.hpp"
 #include "rv32/protocol.h"
 #include "session.hpp"
 #include "work/background_executor.hpp"
@@ -91,14 +93,18 @@ struct Machine {
                                               "-display", "none",         "-monitor",
                                               "none",     "-chardev",     channel.c_str(),
                                               "-serial",  "chardev:rpc",  nullptr};
-        const int status =
-            posix_spawnp(&pid, emulator, nullptr, nullptr, const_cast<char**>(arguments.data()), environ);
+        posix_spawn_file_actions_t actions;
+        if (posix_spawn_file_actions_init(&actions)) return false;
+        int status = posix_spawn_file_actions_addclosefrom_np(&actions, 3);
+        if (!status)
+            status = posix_spawnp(&pid, emulator, &actions, nullptr, const_cast<char**>(arguments.data()), environ);
+        posix_spawn_file_actions_destroy(&actions);
         if (status) {
             pid = -1;
             std::fprintf(stderr, "QEMU spawn: %s\n", std::strerror(status));
             return false;
         }
-        const auto deadline = Clock::now() + std::chrono::seconds(5);
+        const auto deadline = Clock::now() + std::chrono::milliseconds(kRv32StartTimeoutMs);
         while (!stop && Clock::now() < deadline) {
             socket = ::socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
             if (socket < 0) return false;
@@ -133,27 +139,7 @@ struct Machine {
         return size == 0;
     }
 };
-struct Memory {
-    uint8_t* ram{};
-    uint32_t base{}, size{};
-    bool Set(const mp_rv_frame& frame) {
-        base = frame.memory_base;
-        size = frame.memory_size;
-        return base >= MP_RV_RAM_BASE && base < MP_RV_BOOT_ADDRESS && size > 0 && size <= MP_RV_MEMORY_LIMIT &&
-               size <= MP_RV_BOOT_ADDRESS - base;
-    }
-    uint8_t* Address(uint32_t physical, uint32_t length) const {
-        if (physical < base || physical - base > size || length > size - (physical - base)) return nullptr;
-        return ram + physical - MP_RV_RAM_BASE;
-    }
-    static bool Resolve(void* context, uint32_t offset, uint32_t length, uint8_t** output) {
-        auto& memory = *static_cast<Memory*>(context);
-        if (!output || !length || offset >= memory.size || length > memory.size - offset) return false;
-        *output = memory.ram + memory.base - MP_RV_RAM_BASE + offset;
-        return true;
-    }
-};
-int64_t Dispatch(runtime::GuestContext& context, Memory& memory, const mp_rv_frame& frame) {
+int64_t Dispatch(runtime::GuestContext& context, Rv32Memory& memory, const mp_rv_frame& frame) {
     const auto* a = frame.args;
     if (frame.kind == MP_RV_ABI) return MICROPIXEL_ABI_VERSION;
     if (frame.kind == MP_RV_CLOCK) return context.AppTimeNow();
@@ -217,19 +203,21 @@ void Session::RunRv32() {
     {
         std::lock_guard lock(mutex_);
         child_pid_ = machine.pid;
+        std::fprintf(stderr, "RV32 machine started: app=%s owner=%llu:%u:%u pid=%d ram_bytes=%u\n", app_.app_id.c_str(),
+                     static_cast<unsigned long long>(owner_.boot), owner_.slot, owner_.epoch, machine.pid,
+                     MP_RV_RAM_SIZE);
     }
     work::BackgroundExecutor background;
     auto arguments = launch_arguments_;
     arguments.size = sizeof(arguments);
-    Memory memory{machine.ram};
+    Rv32Memory memory{{machine.ram, MP_RV_RAM_SIZE}};
     auto owned_context = std::make_unique<runtime::GuestContext>(app_.package, devices_, background, "en", arguments,
                                                                  this, component_flags_);
     auto& context = *owned_context;
-    context.BindGuestMemory({.context = &memory, .resolve = Memory::Resolve, .stable_base = false});
+    context.BindGuestMemory({.context = &memory, .resolve = Rv32Memory::Resolve, .stable_base = false});
     {
         std::lock_guard lock(mutex_);
         context_ = &context;
-        ready_.store(true, std::memory_order_release);
         control_wake_.notify_all();
         if (stop_requested_) (void)context.RequestStop();
     }
@@ -246,11 +234,14 @@ void Session::RunRv32() {
                 if (frame.payload_size > text.size() ||
                     !machine.Transfer(text.data(), frame.payload_size, false, stop_requested_))
                     break;
-                std::fprintf(stderr, "[RV32] %.*s", static_cast<int>(frame.payload_size), text.data());
+                std::fprintf(stderr, "[RV32 %s owner=%llu:%u:%u] %.*s", app_.app_id.c_str(),
+                             static_cast<unsigned long long>(owner_.boot), owner_.slot, owner_.epoch,
+                             static_cast<int>(frame.payload_size), text.data());
                 continue;
             }
             if (frame.payload_size) break;
             if (frame.kind == MP_RV_DONE) {
+                if (!hello || frame.sequence || frame.result_hi || frame.result_lo > 255) break;
                 result_ = frame.result_lo <= 255 ? frame.result_lo : 1;
                 std::fprintf(stderr, "Guest completed: result=%d (RV32 AOT)\n", result_);
                 break;
@@ -265,6 +256,8 @@ void Session::RunRv32() {
                 break;
             } else {
                 result = Dispatch(context, memory, frame);
+                if (frame.kind == MP_RV_ABI && result == MICROPIXEL_ABI_VERSION)
+                    ready_.store(true, std::memory_order_release);
             }
             mp_rv_frame reply{};
             reply.magic = MP_RV_MAGIC;

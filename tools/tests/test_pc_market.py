@@ -149,8 +149,8 @@ def navigate_x11(env, output, arguments=(), driver=None, seconds=10, wait_second
                 event(5, 1, px, py)
                 time.sleep(0.15)
 
-            def wait_for(marker):
-                deadline = time.monotonic() + wait_seconds
+            def wait_for(marker, timeout=None):
+                deadline = time.monotonic() + (wait_seconds if timeout is None else timeout)
                 while marker not in log_path.read_text(errors="replace") and time.monotonic() < deadline:
                     time.sleep(0.05)
                 assert marker in log_path.read_text(errors="replace"), log_path.read_text(errors="replace")

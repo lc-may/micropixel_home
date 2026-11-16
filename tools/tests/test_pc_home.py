@@ -158,7 +158,7 @@ def main():
     thread.start()
     results = ROOT / "build/pc-home-tests"
     results.mkdir(parents=True, exist_ok=True)
-    extra = [str(ROOT / "build/pc-netease-release/netease-music.bundle.bin")] if "--rv32" in sys.argv else []
+    extra = [str(ROOT / "build/pc-rv32-apps/netease-music/netease-music.bundle.bin")] if "--rv32" in sys.argv else []
     try:
         with tempfile.TemporaryDirectory(prefix="pc-home-", dir=ROOT / "build") as directory:
             output = Path(directory)
@@ -252,8 +252,8 @@ def main():
                     wait_for("NETEASE_HOME avatar ready")
                     fresh("NETEASE_HOME recommendations: 30",lambda:click(128,680))
                     HomeHandler.home_mode="like-fail";HomeHandler.like_target=1001
-                    fresh("收藏状态未确认",lambda:click(652,229))
-                    wait_for("NETEASE_LIKES loaded: 2")
+                    fresh("NETEASE_LIKES loaded: 2",lambda:click(652,229))
+                    assert "收藏状态未确认" in log_path.read_text()
                     assert 1001 in HomeHandler.liked,"failed unlike changed server state"
                     HomeHandler.home_mode="normal"
                     fresh("NETEASE_LIKE confirmed: liked=0",lambda:click(652,229))

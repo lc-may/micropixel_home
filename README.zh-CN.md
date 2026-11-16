@@ -25,7 +25,8 @@ PC Home 默认四个原生 Wasm 槽，天气、时钟与音乐共存；`--single
 Activity/Service、资源归属、Widget、消息、Job、闹钟与焦点使用同一套 SDK，见
 [组件契约](docs/design/app-components.zh-CN.md)、[D4](docs/development/app-manager-d4.zh-CN.md)、
 [D5](docs/development/app-manager-d5.zh-CN.md)、[D6](docs/development/app-manager-d6.zh-CN.md)和
-[D7](docs/development/app-manager-d7.zh-CN.md)。MCU 与 RV32 多实例尚未启用。
+[D7](docs/development/app-manager-d7.zh-CN.md)。RV32 多实例与混合后端已接入，见
+[D8](docs/development/app-manager-d8.zh-CN.md)；MCU 多实例留在 D9。
 新增 HTTP 与 URL 音频适配器目前用于 PC，MCU 需要补齐对应平台适配。
 
 ## 在 PC 上运行
@@ -39,6 +40,8 @@ bash tools/pc.sh deps
 bash tools/pc.sh configure
 bash tools/pc.sh build
 bash tools/pc.sh run --home
+# RV32 多实例，自动构建 runner 和三个新 SDK AOT 包。
+bash tools/pc.sh run --home --rv32
 
 # 单独打开官方市场或音乐登录界面。
 bash tools/pc.sh run --market

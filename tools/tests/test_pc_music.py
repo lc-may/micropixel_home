@@ -113,7 +113,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 def main():
     Handler.audio, Handler.short_audio = mp3(8), mp3(3)
-    rv32_bundle = ROOT / "build/pc-netease-release/netease-music.bundle.bin"
+    rv32_bundle = ROOT / "build/pc-rv32-apps/netease-music/netease-music.bundle.bin"
     rv32_args = [str(rv32_bundle)] if "--rv32" in sys.argv else []
     if rv32_args:
         assert rv32_bundle.is_file(), "Build the netease-music release RV32 Bundle first"

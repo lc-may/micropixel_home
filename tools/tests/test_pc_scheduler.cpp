@@ -94,7 +94,7 @@ int main(int argc, char** argv) {
                 Until(sessions, [&] { return sessions.WidgetResult(ticket).complete; });
                 return sessions.WidgetResult(ticket).result;
             };
-            assert(refresh(1) != 0);
+            assert(refresh(1) == -5);  // The Guest handled the HTTP error, rather than a message timeout.
             assert(snapshot() && weather.data.value == temperature && weather.data.updated_utc == updated &&
                    (weather.data.flags & MICROPIXEL_WIDGET_ERROR));
             auto started = std::chrono::steady_clock::now();
@@ -103,7 +103,12 @@ int main(int argc, char** argv) {
             assert(snapshot() && weather.data.value == temperature);
             assert(sessions.Snapshot().foreground == 1 && sessions.Snapshot().apps[1].instance == peer);
             assert(sessions.Activate(0));
-            Until(sessions, [&] { return sessions.Snapshot().foreground == 0; });
+            Until(
+                sessions,
+                [&] {
+                    return sessions.Snapshot().foreground == 0 && sessions.Find(0)->ComponentInfo().activity_state == 2;
+                },
+                apps[0]->rv32 ? 30 : 8);
             assert(sessions.Snapshot().apps[0].instance == first);
             sessions.ShowHome();
             Until(sessions, [&] { return sessions.Find(0)->ComponentInfo().activity_state == 3; });

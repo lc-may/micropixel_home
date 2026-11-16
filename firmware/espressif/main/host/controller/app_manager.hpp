@@ -15,6 +15,13 @@ struct AppPolicy final {
     bool activity{true};
     bool messages{};
     bool available{true};
+    uint32_t start_timeout_ms{10000};
+    uint64_t memory_bytes{};
+    uint32_t subprocesses{};
+};
+struct AppLimits final {
+    uint64_t memory_bytes{UINT64_MAX};
+    uint32_t subprocesses{4};
 };
 struct AppSnapshot final {
     AppState state{AppState::kStopped};
@@ -29,6 +36,8 @@ struct ManagerSnapshot final {
     int32_t foreground{-1};
     int32_t pending{-1};
     uint64_t revision{};
+    uint64_t reserved_bytes{};
+    uint32_t subprocesses{};
 };
 
 // Single writer: UI/controller consumes ingress and polls runner mailboxes.
@@ -37,7 +46,7 @@ class AppManager final {
    public:
     static constexpr uint32_t kMaxApps = 64;
     static constexpr uint32_t kMaxInstances = 4;
-    AppManager(std::span<runtime::SessionRunner*> runners, uint64_t boot);
+    AppManager(std::span<runtime::SessionRunner*> runners, uint64_t boot, AppLimits limits = {});
     [[nodiscard]] bool Register(uint32_t app, AppPolicy policy);
     bool Deactivate(uint32_t app);
     [[nodiscard]] ManagerResult Activate(uint32_t app);
@@ -65,6 +74,7 @@ class AppManager final {
     };
     ManagerResult Enqueue(Command command);
     Slot* Find(uint32_t app);
+    bool Capacity(uint32_t app) const;
     void HideForeground();
     void Execute(const Command& command);
     std::array<Slot, kMaxInstances> slots_{};
@@ -73,5 +83,6 @@ class AppManager final {
     uint32_t head_{}, size_{}, slot_count_{};
     uint64_t boot_{}, intent_{}, now_ms_{};
     ManagerSnapshot snapshot_{};
+    AppLimits limits_{};
 };
 }  // namespace micropixel::host

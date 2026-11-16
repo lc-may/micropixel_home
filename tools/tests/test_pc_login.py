@@ -121,7 +121,7 @@ def main():
     images();server=http.server.ThreadingHTTPServer(("127.0.0.1",80 if "--default-port" in sys.argv else 0),Handler)
     thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
     results=ROOT/"build/pc-login-tests";results.mkdir(parents=True,exist_ok=True)
-    bundle=ROOT/"build/pc-netease-release/netease-music.bundle.bin"
+    bundle=ROOT/"build/pc-rv32-apps/netease-music/netease-music.bundle.bin"
     extra=[str(bundle)] if "--rv32" in sys.argv else []
     try:
         with tempfile.TemporaryDirectory(prefix="pc-login-",dir=ROOT/"build") as temporary:
@@ -129,6 +129,7 @@ def main():
             env=dict(os.environ,MICROPIXEL_PC_DATA_DIR=str(output/"data"))
             args=["--guest-arg","--test-origin","--guest-arg",origin]
             def run(name,*arguments,seconds=5):
+                if "--rv32" in sys.argv: seconds += 8  # Separate allowance for QEMU cold startup.
                 result=subprocess.run([str(BINARY),"--headless","--seconds",str(seconds),*map(str,arguments),*args],cwd=ROOT,env=env,capture_output=True,timeout=max(20,seconds+8))
                 log=result.stderr.decode(errors="replace");(results/f"{name}.log").write_text(log)
                 assert result.returncode==0,log

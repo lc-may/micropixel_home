@@ -25,7 +25,8 @@ PC Home defaults to four native Wasm slots with weather, clock and music; `--sin
 Activity/Service, ownership, widgets, messages, Jobs, alarms and focus use the same SDK. See the
 [component contract](docs/design/app-components.zh-CN.md), [D4](docs/development/app-manager-d4.zh-CN.md),
 [D5](docs/development/app-manager-d5.zh-CN.md), [D6](docs/development/app-manager-d6.zh-CN.md) and
-[D7 guide](docs/development/app-manager-d7.zh-CN.md). MCU and RV32 multi-instance support remain later deliveries.
+[D7 guide](docs/development/app-manager-d7.zh-CN.md). RV32 multi-instance and mixed backends are available;
+see [D8](docs/development/app-manager-d8.zh-CN.md). MCU multi-instance support remains D9.
 The new HTTP and URL audio adapters currently target PC; MCU support requires platform adapters.
 
 ## Run on a PC
@@ -39,6 +40,8 @@ bash tools/pc.sh deps
 bash tools/pc.sh configure
 bash tools/pc.sh build
 bash tools/pc.sh run --home
+# RV32 instances: builds the runner and three SDK AOT bundles.
+bash tools/pc.sh run --home --rv32
 
 # Open the official market or the music login screen.
 bash tools/pc.sh run --market

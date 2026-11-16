@@ -12,7 +12,7 @@ bash tools/pc.sh run --home
 
 run 会构建 `weather`、`clock-alarm` 和 `netease-music`，显示卡片、进入页面和后台播放共用
 同一套组件实现。Home 默认目录只包含这三个内置应用及已安装应用，不扫描所有 conformance fixture。
-官方旧 RV32 AOT 仍使用 `--single-app`；RV32 多实例与 MCU 组合分别留在 D8/D9。
+D7 验证的是原生后端；RV32 多实例已在 [D8](app-manager-d8.zh-CN.md) 接入，MCU 组合留在 D9。
 
 SDK 0.24.0 增加 Alarm 1.0（ID 28）、`Alarms` 和 `AudioFocusEvent`，七个 Core imports 不变。
 `AlarmPlan` 可登记单次 UTC 时间或固定时区下的每周重复时间，星期掩码从周一 bit 0 到周日 bit 6。

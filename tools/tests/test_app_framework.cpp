@@ -145,6 +145,40 @@ void TestDeadline() {
     assert(manager.Snapshot().apps[1].last_result == host::ManagerResult::kStartFailed);
     assert(manager.Activate(1) == host::ManagerResult::kBusy);
 }
+void TestAdmission() {
+    Runner a, b, c;
+    runtime::SessionRunner* runners[]{&a, &b, &c};
+    host::AppManager manager(runners, 20, {100, 1});
+    assert(!manager.Register(0, {.start_timeout_ms = 0}));
+    assert(manager.Register(0, {.background = true, .messages = true, .memory_bytes = 60, .subprocesses = 1}));
+    assert(manager.Register(1, {.memory_bytes = 60}));
+    assert(manager.Register(2, {.start_timeout_ms = 30000, .memory_bytes = 40, .subprocesses = 1}));
+    // Queued intents must also be admitted again at execution time.
+    assert(manager.EnsureWork(0) == host::ManagerResult::kAccepted);
+    assert(manager.Activate(1) == host::ManagerResult::kAccepted);
+    manager.Process(0);
+    assert(a.starts == 1 && b.starts == 0);
+    assert(manager.Snapshot().apps[1].last_result == host::ManagerResult::kNoCapacity);
+    assert(manager.Snapshot().reserved_bytes == 60 && manager.Snapshot().subprocesses == 1);
+    assert(manager.Activate(1) == host::ManagerResult::kNoCapacity);
+    assert(manager.EnsureWork(2) == host::ManagerResult::kInvalidApp);
+    assert(manager.Activate(2) == host::ManagerResult::kNoCapacity);
+    assert(manager.Stop(0) == host::ManagerResult::kAccepted);
+    manager.Process(1);
+    assert(manager.Snapshot().reserved_bytes == 60);
+    assert(manager.Activate(2) == host::ManagerResult::kNoCapacity);
+    a.state.exited = true;
+    manager.Process(2);
+    assert(!manager.Snapshot().reserved_bytes && !manager.Snapshot().subprocesses);
+    a.auto_ready = false;
+    assert(manager.Activate(2) == host::ManagerResult::kAccepted);
+    manager.Process(100);
+    manager.Process(10100);
+    assert(!a.stopped && manager.Snapshot().apps[2].state == host::AppState::kStarting);
+    manager.Process(30100);
+    assert(a.stopped && manager.Snapshot().apps[2].last_result == host::ManagerResult::kStartFailed);
+    assert(manager.Snapshot().reserved_bytes == 40);  // Held until the child and bridge have drained.
+}
 void TestBackgroundLease() {
     Runner runner;
     runtime::SessionRunner* runners[]{&runner};
@@ -156,9 +190,12 @@ void TestBackgroundLease() {
     assert(manager.ShowHome() == host::ManagerResult::kAccepted);
     manager.Process();
     assert(runner.state.suspended);
+    // A runner may still report running while the suspend request is in flight.
+    runner.state.suspended = false;
+    auto resumes = runner.resumes;
     runner.state.background_eligible = true;
     manager.Process();
-    assert(!runner.state.suspended);
+    assert(!runner.state.suspended && runner.resumes == resumes + 1);
     assert(manager.Snapshot().foreground == -1 && runner.starts == 1);
 }
 void TestComponents() {
@@ -178,12 +215,17 @@ void TestComponents() {
         assert(!model.Ack(bad));
         return event.token;
     };
+    assert(!model.CanSuspend());
     const auto activity = next(MICROPIXEL_COMPONENT_CREATE);
     const auto service = next(MICROPIXEL_COMPONENT_START);
+    assert(model.CanSuspend());
     model.visible = true;
+    assert(!model.CanSuspend());
     assert(next(MICROPIXEL_COMPONENT_RESUME) == activity);
     model.visible = false;
+    assert(!model.CanSuspend());
     assert(next(MICROPIXEL_COMPONENT_STOP) == activity);
+    assert(model.CanSuspend());
     assert(model.service.token == service && model.service.state == 2);
     model.want_activity = false;
     assert(next(MICROPIXEL_COMPONENT_DESTROY) == activity);
@@ -223,6 +265,7 @@ int main() {
     TestOwner();
     TestManager();
     TestDeadline();
+    TestAdmission();
     TestBackgroundLease();
     TestComponents();
     std::puts(

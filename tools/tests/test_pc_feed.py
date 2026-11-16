@@ -20,7 +20,7 @@ def main():
     HomeHandler.avatar=picture.getvalue();HomeHandler.audio=mp3(8)
     server=http.server.ThreadingHTTPServer(("127.0.0.1",0),HomeHandler)
     thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
-    extra=[str(ROOT/"build/pc-netease-release/netease-music.bundle.bin")] if "--rv32" in sys.argv else []
+    extra=[str(ROOT/"build/pc-rv32-apps/netease-music/netease-music.bundle.bin")] if "--rv32" in sys.argv else []
     results=ROOT/"build/pc-feed-tests";results.mkdir(exist_ok=True)
     try:
         with tempfile.TemporaryDirectory(prefix="pc-feed-",dir=ROOT/"build") as directory:
@@ -53,7 +53,7 @@ def main():
                 HomeHandler.recommendation_wait=HomeHandler.recommendation_fail=0
                 def refresh(click,event,wait_for,log_path,process,escape):
                     swipe,wait,bottom=helpers(click,event,log_path)
-                    wait_for("NETEASE_HOME avatar ready")
+                    wait_for("NETEASE_HOME avatar ready", 30 if extra else 4)
                     wait("added=30 total=30",lambda:click(128,680))
                     # The API returns 30 songs; only two are new. Keep 28 old rows.
                     wait("added=2 total=30",lambda:click(572,38))
@@ -87,7 +87,7 @@ def main():
             HomeHandler.recommendation_started.clear();HomeHandler.release_recommendation.clear()
             def append(click,event,wait_for,log_path,process,escape):
                 swipe,wait,bottom=helpers(click,event,log_path)
-                wait_for("NETEASE_HOME avatar ready")
+                wait_for("NETEASE_HOME avatar ready", 30 if extra else 4)
                 HomeHandler.playlist_page=1
                 bottom(lambda:"added=3 total=23" in log_path.read_text())
                 wait("NETEASE_HOME recommendations: 30",lambda:click(128,680))
@@ -117,7 +117,7 @@ def main():
             HomeHandler.recommendation_batches=[list(range(1001,1031)),list(range(1031,1061)),list(range(1031,1061))]
             def retry(click,event,wait_for,log_path,process,escape):
                 swipe,wait,bottom=helpers(click,event,log_path)
-                wait_for("NETEASE_HOME avatar ready")
+                wait_for("NETEASE_HOME avatar ready", 30 if extra else 4)
                 wait("NETEASE_HOME recommendations: 30",lambda:click(128,680))
                 bottom(lambda:HomeHandler.recommendation_requests>=2)
                 wait_for("fixture retry")

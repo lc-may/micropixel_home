@@ -72,11 +72,21 @@ def reply():
   data+=part
  return struct.unpack('<20I',data)
 mode=os.environ['RV32_FAKE_MODE']
-sock.sendall(frame(1,1,version=2 if mode=='version' else 1))
+if mode=='early-done':sock.sendall(frame(10,0));time.sleep(.2);sys.exit()
+hello=frame(1,1,version=2 if mode=='version' else 1)
+if mode=='fragmented':
+ for part in (hello[:1],hello[1:23],hello[23:]):sock.sendall(part);time.sleep(.01)
+else:sock.sendall(hello)
 if mode=='version':time.sleep(1);sys.exit()
 assert reply()[16]==0
 if mode=='truncated':sock.sendall(frame(7,2)[:17]);sys.exit()
 if mode=='trace':sock.sendall(frame(2,0,payload=513));sys.exit()
+if mode=='sequence':sock.sendall(frame(3,3));sys.exit()
+if mode=='duplicate-hello':sock.sendall(frame(1,2));sys.exit()
+if mode=='bad-done':sock.sendall(frame(10,1));sys.exit()
+if mode=='memory':
+ sock.sendall(frame(7,2,0x84000000,65536,[1,65536,0x84000000,80]));assert reply()[16]>=0x80000000
+ sock.sendall(frame(10,0));sys.exit()
 sock.sendall(frame(7,2,0x81000000,65536,[1,65536,0x8100fffe,80]))
 assert reply()[16]>=0x80000000
 sock.sendall(frame(9,3,0x81000000,65536,[1,1,0x81000000,0xffffffff]))
@@ -102,6 +112,30 @@ def main():
     with tempfile.TemporaryDirectory(prefix="rv32-tests-", dir=ROOT / "build") as directory:
         output = Path(directory)
         env = dict(os.environ, MICROPIXEL_PC_DATA_DIR=str(output / "storage"))
+        if "--multi-home" in sys.argv:
+            from pc_test_backend import app_path
+            from test_pc_components import descriptor
+            import re
+            # Sort order is explicit; the Bundle keeps its original schema-1 identity.
+            old = output / "a-official.bundle.bin"
+            old.write_bytes(data)
+            peer = descriptor(app_path("components-demo", "rv32"), output / "b-peer.pc.json", "micropixel.components-demo")
+            def multi_home(click, event, wait_for, log_path, process, escape):
+                click(480, 180);wait_for("COMP service started")
+                event.key(0xffbe);time.sleep(.15)
+                click(120, 180);wait_for("first frame up")
+                text=log_path.read_text();started=re.search(r"app=com.lckfb.jump owner=([^ ]+) pid=(\d+)",text);assert started,text
+                event.key(0xffbe);wait_for("Guest services suspended at a WaitEvent safe point")
+                time.sleep(.2);click(120, 180);wait_for("APP_SHELL foreground: com.lckfb.jump reused=1")
+                text=log_path.read_text();assert text.count("RV32 bridge connected: com.lckfb.jump")==1,text
+                assert "APP_SHELL stopped: micropixel.components-demo" not in text
+                assert "HOME_WIDGET snapshot: app=0" not in text,"Legacy Guest acquired a fabricated widget"
+                assert Path(f"/proc/{started.group(2)}").exists()
+            navigate_x11(env, output, ["--home", "--multi-app", old, peer], multi_home, seconds=12, wait_seconds=30)
+            log=(output/"navigation.log").read_text();(cache/"legacy-home.log").write_text(log)
+            assert "Guest failed:" not in log,log
+            print("PASS pinned official LegacyActivity: RV32 peer, Home suspend, same-process return and no fabricated widgets")
+            return
         if "--interactive" in sys.argv:
             pcm = output / "audio.pcm"
             env.update(SDL_AUDIODRIVER="disk", SDL_DISKAUDIOFILE=str(pcm))
@@ -111,7 +145,7 @@ def main():
                     deadline = time.monotonic() + 4
                     while log_path.read_text(errors="replace").count("first frame up") <= index and time.monotonic() < deadline:
                         time.sleep(0.05)
-                    assert log_path.read_text(errors="replace").count("first frame up") == index + 1
+                    assert log_path.read_text(errors="replace").count("first frame up") == index + 1, log_path.read_text()
                     click(360, 230)
                     event(6, 0, 360, 500)
                     event(4, 1, 360, 500)
@@ -119,9 +153,13 @@ def main():
                     event(5, 1, 360, 500)
                     time.sleep(0.3)
                     escape()
-                    time.sleep(0.3)
+                    deadline = time.monotonic() + 30
+                    stopped = "APP_SHELL stopped: com.lckfb.jump"
+                    while log_path.read_text().count(stopped) <= index and time.monotonic() < deadline:
+                        time.sleep(.03)
+                    assert log_path.read_text().count(stopped) == index + 1, log_path.read_text()
                     if index < 2:
-                        click(120, 240)
+                        click(120, 180)
             navigate_x11(env, output, ["--autostart", bundle], drive, seconds=12)
             log = (output / "navigation.log").read_text(errors="replace")
             assert log.count("RV32 bridge connected") == 3, log
@@ -175,10 +213,10 @@ def main():
         fake = output / "fake-qemu"
         fake.write_text(FAKE_QEMU)
         fake.chmod(0o700)
-        for mode in ("pointers", "version", "truncated", "trace"):
+        for mode in ("pointers", "fragmented", "memory", "version", "truncated", "trace", "sequence", "duplicate-hello", "early-done", "bad-done"):
             log = run("--headless", "--autostart", "--exit-on-app-complete", "--seconds", 3, bundle,
                       env=dict(env, MICROPIXEL_QEMU_RV32=str(fake), RV32_FAKE_MODE=mode),
-                      expected=0 if mode == "pointers" else 1)
+                      expected=0 if mode in ("pointers", "fragmented", "memory") else 1)
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Store)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()

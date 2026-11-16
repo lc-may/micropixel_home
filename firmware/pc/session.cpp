@@ -10,11 +10,12 @@
 #include "work/background_executor.hpp"
 
 namespace micropixel::pc {
-Session::Session(PortableApp& app, device::DeviceServices& devices)
+Session::Session(PortableApp& app, device::DeviceServices& devices, runtime::InstanceKey owner)
     : app_(app),
       devices_(devices),
       launch_arguments_(app.launch_arguments),
-      component_flags_(app.requirements.component_flags) {}
+      component_flags_(app.requirements.component_flags),
+      owner_(owner) {}
 Session::~Session() { Stop(); }
 void Session::Start() {
     controller_ = std::thread([this] { Control(); });
@@ -69,7 +70,9 @@ void Session::Control() {
                 }
             } else if (want_suspended_.load() != suspended_.load()) {
                 if (want_suspended_.load()) {
-                    if (context_->Suspend(pdMS_TO_TICKS(100))) suspended_.store(true);
+                    // Lifecycle callbacks must finish before pausing the RPC/event loop.
+                    if (context_->components().CanSuspend() && context_->Suspend(pdMS_TO_TICKS(100)))
+                        suspended_.store(true);
                 } else if (context_->Resume())
                     suspended_.store(false);
             }

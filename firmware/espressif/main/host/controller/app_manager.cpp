@@ -4,11 +4,14 @@
 #include <algorithm>
 
 namespace micropixel::host {
-AppManager::AppManager(std::span<runtime::SessionRunner*> runners, uint64_t boot) : boot_(boot) {
+AppManager::AppManager(std::span<runtime::SessionRunner*> runners, uint64_t boot, AppLimits limits)
+    : boot_(boot), limits_(limits) {
     slot_count_ = std::min<uint32_t>(runners.size(), slots_.size());
     for (uint32_t i = 0; i < slot_count_; ++i) slots_[i].runner = runners[i];
 }
 bool AppManager::Register(uint32_t app, AppPolicy policy) {
+    if (!policy.start_timeout_ms || policy.start_timeout_ms > 60000 || policy.subprocesses > kMaxInstances)
+        return false;
     if (app >= kMaxApps || snapshot_.apps[app].state != AppState::kStopped) return false;
     if (app > snapshot_.count) return false;
     snapshot_.count = std::max(snapshot_.count, app + 1);
@@ -31,9 +34,7 @@ ManagerResult AppManager::Activate(uint32_t app) {
     if (size_ == commands_.size()) return ManagerResult::kBusy;
     // A full table must not destroy the old foreground to make room.
     if (!Find(app)) {
-        bool free = false;
-        for (uint32_t i = 0; i < slot_count_; ++i) free |= slots_[i].app < 0;
-        if (!free) return ManagerResult::kNoCapacity;
+        if (!Capacity(app)) return ManagerResult::kNoCapacity;
     }
     return Enqueue({Kind::kActivate, app, ++intent_, false});
 }
@@ -47,9 +48,7 @@ ManagerResult AppManager::EnsureWork(uint32_t app, bool user) {
     if (snapshot_.apps[app].user_stopped && !user) return ManagerResult::kBusy;
     if (snapshot_.apps[app].state == AppState::kStopping) return ManagerResult::kBusy;
     if (!Find(app)) {
-        bool free = false;
-        for (uint32_t i = 0; i < slot_count_; ++i) free |= slots_[i].app < 0;
-        if (!free) return ManagerResult::kNoCapacity;
+        if (!Capacity(app)) return ManagerResult::kNoCapacity;
     }
     return Enqueue({Kind::kWork, app, 0, user});
 }
@@ -64,6 +63,23 @@ AppManager::Slot* AppManager::Find(uint32_t app) {
     for (uint32_t i = 0; i < slot_count_; ++i)
         if (slots_[i].app == static_cast<int32_t>(app)) return &slots_[i];
     return nullptr;
+}
+bool AppManager::Capacity(uint32_t app) const {
+    auto memory = limits_.memory_bytes;
+    auto processes = limits_.subprocesses;
+    bool free = false;
+    for (uint32_t i = 0; i < slot_count_; ++i) {
+        const auto& slot = slots_[i];
+        if (slot.app < 0) {
+            free = true;
+            continue;
+        }
+        const auto& cost = policies_[slot.app];
+        if (cost.memory_bytes > memory || cost.subprocesses > processes) return false;
+        memory -= cost.memory_bytes;
+        processes -= cost.subprocesses;
+    }
+    return free && policies_[app].memory_bytes <= memory && policies_[app].subprocesses <= processes;
 }
 void AppManager::HideForeground() {
     if (snapshot_.foreground < 0) return;
@@ -102,6 +118,10 @@ void AppManager::Execute(const Command& command) {
         return;
     }
     if (!slot) {
+        if (!Capacity(command.app)) {
+            app.last_result = ManagerResult::kNoCapacity;
+            return;
+        }
         for (uint32_t i = 0; i < slot_count_; ++i) {
             if (slots_[i].app >= 0) continue;
             slot = &slots_[i];
@@ -117,7 +137,7 @@ void AppManager::Execute(const Command& command) {
             slot->background_start = background;
             app.state = AppState::kStarting;
             app.result = 0;
-            slot->deadline_ms = now_ms_ + 10000;
+            slot->deadline_ms = now_ms_ + policies_[command.app].start_timeout_ms;
             break;
         }
     }
@@ -182,8 +202,12 @@ void AppManager::Process(uint64_t now_ms) {
         if (observation.ready && snapshot_.foreground != slot.app && snapshot_.pending != slot.app) {
             const bool background = (policies_[slot.app].background && observation.background_eligible) ||
                                     (policies_[slot.app].messages && observation.work_pending);
-            if (!background && !observation.suspended) slot.runner->RequestSuspend();
-            if (background && observation.suspended) slot.runner->RequestBackgroundResume();
+            // Publish desired state even while a runner is between safe points.
+            // An observed state can lag an in-flight suspend/resume request.
+            if (!background)
+                slot.runner->RequestSuspend();
+            else
+                slot.runner->RequestBackgroundResume();
         }
         if (snapshot_.pending != slot.app || !observation.ready || !observation.frame_ready || observation.suspended)
             continue;
@@ -195,5 +219,13 @@ void AppManager::Process(uint64_t now_ms) {
         snapshot_.pending = -1;
         ++snapshot_.revision;
     }
+    snapshot_.reserved_bytes = 0;
+    snapshot_.subprocesses = 0;
+    for (uint32_t i = 0; i < slot_count_; ++i)
+        if (slots_[i].app >= 0) {
+            const auto& cost = policies_[slots_[i].app];
+            snapshot_.reserved_bytes += cost.memory_bytes;
+            snapshot_.subprocesses += cost.subprocesses;
+        }
 }
 }  // namespace micropixel::host

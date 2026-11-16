@@ -39,15 +39,17 @@ void Components::SetVisible(bool value, bool create) {
 }
 void Components::EnsureActivity() {
     portENTER_CRITICAL(&lock_);
-    if (model_.declared & MICROPIXEL_COMPONENT_FLAG_ACTIVITY) model_.want_activity = true;
+    const bool changed = (model_.declared & MICROPIXEL_COMPONENT_FLAG_ACTIVITY) && !model_.want_activity;
+    if (changed) model_.want_activity = true;
     portEXIT_CRITICAL(&lock_);
-    Wake();
+    if (changed) Wake();
 }
 void Components::EnsureService() {
     portENTER_CRITICAL(&lock_);
-    if (model_.declared & MICROPIXEL_COMPONENT_FLAG_SERVICE) model_.want_service = true;
+    const bool changed = (model_.declared & MICROPIXEL_COMPONENT_FLAG_SERVICE) && !model_.want_service;
+    if (changed) model_.want_service = true;
     portEXIT_CRITICAL(&lock_);
-    Wake();
+    if (changed) Wake();
 }
 bool Components::TakeEvent(micropixel_event_t& event) {
     micropixel_component_event_payload_t payload{};
@@ -64,6 +66,12 @@ bool Components::TakeEvent(micropixel_event_t& event) {
     event.timestamp_us = context_.timers_.Now();
     std::memcpy(event.payload, &payload, sizeof(payload));
     return true;
+}
+bool Components::CanSuspend() const {
+    portENTER_CRITICAL(&lock_);
+    const bool ready = model_.CanSuspend();
+    portEXIT_CRITICAL(&lock_);
+    return ready;
 }
 micropixel_component_info_t Components::Info() const {
     micropixel_component_info_t info{};

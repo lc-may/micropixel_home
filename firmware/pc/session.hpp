@@ -7,12 +7,13 @@
 
 #include "portable_app.hpp"
 #include "runtime/guest_context.hpp"
+#include "runtime/instance.hpp"
 #include "wasm_export.h"
 
 namespace micropixel::pc {
 class Session final : public runtime::GuestLogSink {
    public:
-    Session(PortableApp& app, device::DeviceServices& devices);
+    Session(PortableApp& app, device::DeviceServices& devices, runtime::InstanceKey owner);
     ~Session();
     void Start();
     void Stop();
@@ -34,6 +35,10 @@ class Session final : public runtime::GuestLogSink {
     }
     bool Done() const { return done_.load(std::memory_order_acquire); }
     int Result() const { return result_; }
+    int ChildPid() {
+        std::lock_guard lock(mutex_);
+        return child_pid_;
+    }
     micropixel_component_info_t ComponentInfo() const {
         return {sizeof(micropixel_component_info_t),
                 component_flags_,
@@ -71,6 +76,7 @@ class Session final : public runtime::GuestLogSink {
     std::atomic<uint32_t> activity_state_{};
     std::atomic<uint32_t> activity_token_{}, service_token_{}, service_state_{}, resource_count_{};
     const uint16_t component_flags_{};
+    const runtime::InstanceKey owner_;
     int result_{1};
 };
 class PcInput final : public device::Input {
