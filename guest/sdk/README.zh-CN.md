@@ -60,6 +60,9 @@ PC Guest 新增 `Activity`、`AppService`、`ComponentContext` 和 `Application:
 | Activity / Service、组件资源域 | `RunComponents`、`ComponentContext` | `components.hpp` |
 | 事件循环、Service view、`Result<T>` | `Application`、`app.xxx()` | `application.hpp`、`result.hpp` |
 | retained 2D UI、精灵、文字、布局 | `Scene`、`SpriteBatch`、`ui::FlexContainer`、`ui::TextButton` | `scene.hpp`、`ui/*.hpp` |
+| 标题栏、选项组、内容状态、主题 | `ui::AppBar`、`ui::SegmentedControl<N>`、`ui::ContentStateView`、`ui::Theme` | `ui/app_bar.hpp`、`ui/segmented_control.hpp`、`ui/content_state_view.hpp`、`ui/theme.hpp` |
+| 固定行高列表 / 网格、稳定身份与手势仲裁 | `ui::VirtualList<Row, N>` | `ui/virtual_list.hpp` |
+| 复合控件子树所有权 | `ui::ComponentRoot`、`ui::UiUpdate<Action>` | `ui/component.hpp` |
 | Host 光栅帧、INDEX8 纹理、调色板 | `HostSurface`、`RasterDrawList`、`RasterResources` | `graphics.hpp` |
 | 光线投射墙面、PS1 级多边形、Mode7 地面、球体 | `Raycaster`、`MeshRenderer`、`Mode7Plane`、`SphereView` | `raycast.hpp`、`mesh_renderer.hpp`、`mode7_plane.hpp`、`sphere_view.hpp` |
 | 纹理、字体、动态纹理 | `Resources::LoadTexture/LoadFont/CreateDynamicTexture` | `resources.hpp` |
@@ -422,6 +425,34 @@ P4/S31 可将连续、不透明、同字节序的 RGB565 Image 合批交给 DMA2
 Guest 不自行修改 Texture 字节序。
 
 ### 组合控件
+
+`micropixel.hpp` 已导出 AppBar、SegmentedControl、VirtualList 和 ContentStateView，
+它们在 Guest 组合 Scene 节点，不暴露 LVGL。详细边界见[组件抽象设计](../../docs/design/guest-ui-components.zh-CN.html)。
+
+| 组件 | 用法与限制 |
+|---|---|
+| `AppBar::Create(parent, properties, atlas?)` | 一个可选 leading、最多两个 trailing；文字或 Material 图标；标题/副标题限 128 字节；`SetBounds` 失败保留几何 |
+| `SegmentedControl<N>::Create(parent, bounds, labels, style)` | 有界选项，返回请求索引；调用方接受后 `SetSelected`；重复选择也返回动作；单项可禁用 |
+| `VirtualList<Row,N>::Create(parent, geometry, create_row)` | 固定行高，`columns` 可大于 1；容量须覆盖可见行及一行余量，否则返回错误；池只在创建时按 N 分配 |
+| `ContentStateView::Create(parent, bounds, theme, font, centered, detail_offset)` | `Set({phase, has_content, message, detail})` 返回 Result；文本各限 256 字节；有内容时隐藏提示层；重试由页面提供 |
+
+新复合组件 move-only，`ComponentRoot` 析构清理整个子树；`Destroy` 可重复调用。
+父 Scene 必须覆盖组件的有效使用寿命。Activity 在 `OnStop` 调用 `CancelInput`，在 `OnDestroy` 先释放组件再释放 Scene。
+创建器返回自身校验/资源失败；委托的旧基础控件和行工厂仍可能在分配失败时 panic。
+
+列表先 `SetItems(count, generation, reset_offset)`，再 `BindRows(key, bind, refresh=false)`。
+替换数据推进 generation；追加保留 generation 和偏移，但数量变化仍取消当前手势。
+key 必须唯一且稳定；绑定时诊断可见重复 key。bind 只更新已有 Row，不创建节点。
+默认仅在 index/key/generation 改变时重绑；同一项的显示数据变化时显式传 `refresh=true`。
+Row 提供 `SetVisible`、`Reset`，工厂返回 Row；bind 接收 `(Row&, index, Rect)`，
+`OnTouch(event, key, bind, touch)` 的 touch 适配返回 `RowUpdate{changed, clicked, action_clicked}`。
+动作携带 `key/generation/index/region`，App 应在执行前校验当前数据身份；拖动到边界也不会变成点击。
+`SetBounds` / `ScrollTo` 后调用 `BindRows`；`at_end` 只报告几何状态，分页、去重与重试由 App 处理。
+
+真实示例：[城市网格](../apps/weather/city_picker.hpp)、[音乐列表](../apps/netease-music/music_view.hpp)、
+[闹钟页面](../apps/clock-alarm/clock_activity.hpp)。`UiUpdate` 区分 `handled`、`changed` 和可选 action；
+页面先处理弹层，再处理公共组件，汇总变化后统一 Present。
+
 
 音乐等列表应用可用 `CreateIconButton`（选中/等待）、`CreateListItem`（双行/尾部独立操作）、
 `CreateScrollView`（拖动裁剪）和 `CreateSlider`（预览/松手提交）。这些控件组合已有 Scene/input，

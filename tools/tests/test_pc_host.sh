@@ -157,6 +157,12 @@ if [[ "${1:-}" == "--login" ]]; then
     python3 tools/pc.py guest/tests/conformance/auth_contract.cpp
     exec python3 tools/tests/test_pc_login.py "$@"
 fi
+if [[ "${1:-}" == "--ui-components" ]]; then
+    shift
+    bash tools/pc.sh build > build/pc-test-results/ui-components-host.build.log 2>&1
+    python3 tools/pc.py guest/tests/conformance/ui_components.cpp
+    exec python3 tools/tests/test_pc_ui_components.py "$@"
+fi
 if [[ "${1:-}" == "--widgets" ]]; then
     shift
     python3 tools/pc.py guest/tests/conformance/music_widgets.cpp

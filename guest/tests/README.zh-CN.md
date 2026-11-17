@@ -17,3 +17,15 @@ bash tools/build_guest_p4.sh
 执行用例。
 
 新增用例必须有明确断言并进入上述构建入口；仅用于一次测量的实验程序和原始数据不放在这里。
+
+公共 UI 组件的真实 Wasm/SDL 交互回归使用 PC 入口：
+
+```sh
+bash tools/tests/test_firmware_host.sh --pc --ui-components
+bash tools/tests/test_firmware_host.sh --pc --panel
+```
+
+`ui_components.cpp` 检查子树移动/析构/重复销毁、失败布局回收、文本长度、固定池容量、
+追加保留偏移、内容状态与绑定缓存，以及节点槽复用后的 Scene 文本压缩。`test_pc_ui_components.py` 在目标 X11 窗口注入触摸和按键，
+覆盖平移父容器、正文/尾部动作隔离、按住时更换数据、边界拖动取消点击、禁用控件与节点数量不增长。
+截图和日志保存在忽略的 `build/pc-ui-component-tests/`；测试使用独立数据目录，不需要真实账号。

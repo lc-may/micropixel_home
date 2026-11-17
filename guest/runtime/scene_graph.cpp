@@ -571,7 +571,7 @@ class SceneState final {
         // its first StoreText) owns no bytes.
         const size_t used = text_arena.size();
         const auto label = [used](const SceneNodeData& node) {
-            return node.occupied && node.kind == SceneNodeKind::kLabel &&
+            return node.occupied && node.kind == SceneNodeKind::kLabel && node.text_length != 0U &&
                    static_cast<size_t>(node.text_offset) + node.text_length < used;
         };
         uint32_t write = 0U;
@@ -1643,7 +1643,7 @@ void SpriteBatch::SetInstanceVisible(uint16_t instance_id, bool visible) {
 }
 
 Scene::Scene(CapabilityToken, const SceneDescriptor& descriptor)
-    : Container(nullptr, 0U, 0U), owned_state_(new (std::nothrow) SceneState) {
+    : Container(nullptr, 0U, 0U), owned_state_(new(std::nothrow) SceneState) {
     if (!owned_state_ || next_handle_identity == UINT32_MAX) return;
     const detail::DisplayTransform& display = detail::CurrentDisplayTransform();
     if (descriptor.logical_width == 0U || descriptor.logical_height == 0U ||

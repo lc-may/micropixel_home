@@ -9,7 +9,7 @@
 #include "sdk/micropixel.hpp"
 namespace clock_app {
 using namespace micropixel;
-enum Page : unsigned { Alarm, Calendar, Notes, Editor };
+enum Page : unsigned { Alarm, Calendar, Notes, Editor, AlarmEditor };
 struct Model {
     unsigned hour{8}, minute{}, page{Alarm}, month{1};
     int year{2026};

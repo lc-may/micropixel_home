@@ -17,8 +17,9 @@ class MusicView final {
    public:
     void CancelInput() {
         for (auto& button : buttons_) button.Reset();
-        for (auto& row : rows_) row.Reset();
-        scroll_.Cancel();
+        header_.CancelInput();
+        navigation_.CancelInput();
+        list_.CancelInput();
         seek_.Cancel();
         mini_body_.Reset();
         for (auto* button : {&mini_like_, &mini_play_, &mini_next_, &player_back_, &player_stop_, &previous_, &play_,
@@ -29,9 +30,21 @@ class MusicView final {
         using namespace micropixel;
         browser_ = scene.CreateContainer().value();
         (void)browser_.CreateShape({0, 0, 720, 720}, kBackground).value();
-        ui::panel::Card(browser_, {16, 10, 688, 56});
-        heading_clip_ = browser_.CreateContainer({.clip = {0, 0, 500, 48}, .translation = {24, 16}}).value();
-        heading_ = heading_clip_.CreateLabel({0, 4}, "我的音乐", kText, SystemFont::kLarge).value();
+        ui::Theme theme = ui::kPanelTheme;
+        theme.radius = 14;
+        const ui::AppBarAction header_actions[] = {{.text = symbols::kRefresh, .width = 48},
+                                                   {.text = "账户", .width = 80}};
+        header_ = ui::AppBar::Create(browser_, {.bounds = {16, 10, 688, 56},
+                                                .title = "我的音乐",
+                                                .theme = theme,
+                                                .leading = ui::AppBarAction{.text = symbols::kLeft, .width = 48},
+                                                .actions = header_actions,
+                                                .padding = 8,
+                                                .gap = 20,
+                                                .action_height = 40,
+                                                .title_line_height = 36,
+                                                .surface = true})
+                      .value();
         hint_ = browser_.CreateLabel({24, 68}, " ", kMuted, SystemFont::kSmall).value();
         auto button = [&](unsigned i, Rect bounds, const char* text, bool primary = false) {
             buttons_[i] = browser_.CreateTextButton({.bounds = bounds,
@@ -43,37 +56,39 @@ class MusicView final {
                                                                .corner_radius = 14},
                                                      .overflow = ui::TextOverflow::kClip});
         };
-        button(0, {616, 18, 80, 40}, "账户");
-        button(1, {548, 18, 48, 40}, symbols::kRefresh);
-        button(2, {24, 88, 536, 48}, "输入歌名或歌手");
-        button(3, {576, 88, 120, 48}, "搜索", true);
-        button(4, {24, 154, 672, 64}, "★ 我喜欢的音乐");
-        button(5, {24, 102, 672, 64}, "播放全部", true);
-        button(6, {24, 656, 208, 48}, "每日推荐");
-        button(7, {256, 656, 208, 48}, "我的音乐");
-        button(8, {488, 656, 208, 48}, "搜索");
-        button(9, {24, 18, 48, 40}, symbols::kLeft);
-        for (unsigned i = 0; i < 3; ++i)
-            tab_marks_[i] = browser_.CreateShape({108 + int(i) * 232, 708, 40, 3}, kAccent).value();
+        button(0, {24, 88, 536, 48}, "输入歌名或歌手");
+        button(1, {576, 88, 120, 48}, "搜索", true);
+        button(2, {24, 154, 672, 64}, "★ 我喜欢的音乐");
+        button(3, {24, 102, 672, 64}, "播放全部", true);
+        const char* navigation_labels[] = {"每日推荐", "我的音乐", "搜索"};
+        auto normal = theme.ButtonStyle();
+        auto selected = normal;
+        selected.text = kAccent;
+        navigation_ = ui::SegmentedControl<3>::Create(
+                          browser_, {24, 656, 672, 56}, navigation_labels,
+                          {.normal = normal, .selected = selected, .gap = 24, .underline = true, .mark = kAccent})
+                          .value();
         profile_ = browser_.CreateContainer({.clip = {0, 0, 672, 68}, .translation = {24, 78}}).value();
         (void)profile_.CreateRoundedRect({0, 0, 64, 64}, {.fill = ui::panel::Raised, .radius = 20}).value();
         profile_placeholder_ = profile_.CreateLabel({32, 17}, "云", kRed, SystemFont::kLarge, true).value();
         profile_name_ = profile_.CreateLabel({84, 2}, " ", kText, SystemFont::kLarge).value();
         profile_signature_ = profile_.CreateLabel({84, 44}, " ", kMuted, SystemFont::kSmall).value();
         section_ = browser_.CreateLabel({24, 232}, "我的歌单", kText, SystemFont::kMedium).value();
-        scroll_ = ui::ScrollView::CreateIn(browser_, {24, 268, 672, 280});
-        for (auto& row : rows_)
-            row = ui::ListItem::CreateIn(scroll_.content(), {0, 0, 664, 74},
-                                         {.action_icon = "☆",
-                                          .selected_action_icon = "★",
-                                          .background = kSurface,
-                                          .title = kText,
-                                          .subtitle = kMuted,
-                                          .action = kMuted,
-                                          .selected = kAccent,
-                                          .action_selected = kRed,
-                                          .divider = ui::panel::Line});
-        empty_ = browser_.CreateLabel({360, 340}, " ", kMuted, SystemFont::kMedium, true).value();
+        list_ = ui::VirtualList<ui::ListItem, 8>::Create(
+                    browser_, {.bounds = {24, 268, 672, 280}, .item_width = 664, .item_height = 74},
+                    [](Container& content, Rect bounds) {
+                        return content.CreateListItem(bounds, {.action_icon = "☆",
+                                                               .selected_action_icon = "★",
+                                                               .background = kSurface,
+                                                               .title = kText,
+                                                               .subtitle = kMuted,
+                                                               .action = kMuted,
+                                                               .selected = kAccent,
+                                                               .action_selected = kRed,
+                                                               .divider = ui::panel::Line});
+                    })
+                    .value();
+        empty_ = ui::ContentStateView::Create(browser_, {24, 340, 672, 100}).value();
         notice_ = browser_.CreateLabel({360, 552}, " ", kMuted, SystemFont::kSmall, true).value();
         (void)browser_.CreateRoundedRect({24, 584, 672, 58}, {.fill = kSurface, .radius = 16}).value();
         (void)browser_.CreateRoundedRect({32, 592, 42, 42}, {.fill = ui::panel::Raised, .radius = 12}).value();
@@ -180,6 +195,7 @@ class MusicView final {
     void Update(const Account& account, const Client& client, const MusicState& state, const Track& current,
                 const micropixel::MediaState& media, bool playback) {
         using namespace micropixel;
+        if (state_.screen != state.screen) CancelInput();
         state_ = state;
         playing_ = playback && media.phase == MediaPhase::kPlaying;
         const bool full = state.screen == MusicScreen::kPlayer;
@@ -193,63 +209,54 @@ class MusicView final {
                                  : searching  ? "搜索音乐"
                                  : collection ? state.collection.c_str()
                                               : "每日推荐";
-            heading_.SetText(Clip(heading, 54).c_str());
-            heading_clip_.SetTranslation({collection ? 88 : 24, 16});
-            heading_clip_.SetClip({0, 0, collection ? 440 : 500, 48});
+            header_.SetTitle(Clip(heading, 54).c_str()).value();
+            header_.SetLeadingVisible(collection);
             hint_.SetText(library      ? " "
                           : searching  ? "歌名、歌手，都可以搜"
                           : collection ? "滑动选曲，红星加入我喜欢的音乐"
                                        : "根据你的喜好，为今天选曲");
-            buttons_[0].SetText(account.verified() ? "账户" : "登录").value();
-            buttons_[9].SetVisible(collection);
-            buttons_[2].SetVisible(searching);
-            buttons_[3].SetVisible(searching);
-            buttons_[2].SetText(Clip(state.query.empty() ? "输入歌名或歌手" : state.query, 72).c_str()).value();
-            buttons_[4].SetVisible(library);
-            buttons_[4]
+            header_.SetActionText(1, account.verified() ? "账户" : "登录").value();
+            buttons_[0].SetVisible(searching);
+            buttons_[1].SetVisible(searching);
+            buttons_[0].SetText(Clip(state.query.empty() ? "输入歌名或歌手" : state.query, 72).c_str()).value();
+            buttons_[2].SetVisible(library);
+            buttons_[2]
                 .SetText(
                     ("★ 我喜欢的音乐 · " + (client.likes_ready ? Decimal(client.liked_ids.size()) : "待同步") + " 首")
                         .c_str())
                 .value();
-            buttons_[5].SetVisible(!library && !searching);
-            buttons_[5].SetText(account.verified() || collection ? "播放全部" : "登录后查看每日推荐").value();
+            buttons_[3].SetVisible(!library && !searching);
+            buttons_[3].SetText(account.verified() || collection ? "播放全部" : "登录后查看每日推荐").value();
             profile_.SetVisible(library);
             section_.SetVisible(library);
             profile_name_.SetText(Clip(account.verified() ? account.nickname : "登录网易云音乐", 54).c_str());
             profile_signature_.SetText(
                 Clip(account.signature.empty() ? "让音乐陪伴每一天" : account.signature, 96).c_str());
-            scroll_.SetBounds(library     ? Rect{24, 268, 672, 280}
-                              : searching ? Rect{24, 156, 672, 392}
-                                          : Rect{24, 192, 672, 356});
+            list_
+                .SetBounds(library     ? Rect{24, 268, 672, 280}
+                           : searching ? Rect{24, 156, 672, 392}
+                                       : Rect{24, 192, 672, 356})
+                .value();
             const auto count =
                 state.content == MusicContent::kPlaylists ? client.playlists.size() : client.tracks.size();
-            if (last_revision_ != state.revision) {
-                last_revision_ = state.revision;
-                scroll_.Cancel();
-                scroll_.ScrollTo(0);
-                ResetRows();
-            }
-            scroll_.SetContentHeight(int32_t(count * 74));
+            const bool replaced = last_revision_ != state.revision;
+            last_revision_ = state.revision;
+            list_.SetItems(uint32_t(count), state.revision, replaced).value();
             RenderRows(client, state, current.id);
-            empty_.SetVisible(count == 0);
-            empty_.SetText(state.loading                                                   ? "正在加载…"
-                           : state.failed                                                  ? "加载失败，点击右上角刷新"
-                           : !account.verified() && state.content != MusicContent::kSearch ? "登录后同步你的音乐"
-                                                                                           : "这里还没有音乐");
+            empty_
+                .Set({.phase = state.loading  ? ui::ContentPhase::kLoading
+                               : state.failed ? ui::ContentPhase::kFailed
+                                              : ui::ContentPhase::kReady,
+                      .has_content = count != 0,
+                      .message = state.loading  ? "正在加载…"
+                                 : state.failed ? "加载失败，点击右上角刷新"
+                                 : !account.verified() && state.content != MusicContent::kSearch ? "登录后同步你的音乐"
+                                                                                                 : "这里还没有音乐"})
+                .value();
             const auto& hint = state.load_hint.empty() ? state.notice : state.load_hint;
             notice_.SetText(Clip(hint.empty() ? " " : hint, 66).c_str());
             notice_.SetColor(state.failed ? kRed : kMuted);
-            for (unsigned i = 0; i < 3; ++i) {
-                bool selected = i == 0   ? state.screen == MusicScreen::kDiscover
-                                : i == 1 ? (library || collection)
-                                         : searching;
-                auto style = buttons_[6 + i].style();
-                if (style.text != (selected ? kAccent : kText)) {
-                    style.text = selected ? kAccent : kText;
-                    buttons_[6 + i].SetStyle(style).value();
-                }
-                tab_marks_[i].SetVisible(selected);
-            }
+            navigation_.SetSelected(library || collection ? 1 : searching ? 2 : 0);
         }
         mini_title_.SetText(Clip(!current.title.empty() ? current.title
                                  : current.id           ? "正在加载歌曲"
@@ -308,11 +315,26 @@ class MusicView final {
             if (seek.committed) result = {MusicActionKind::kSeek, 0, seek_.value()};
             return result;
         }
-        const std::array<MusicActionKind, 10> actions{MusicActionKind::kAccount,   MusicActionKind::kRefresh,
-                                                      MusicActionKind::kEditQuery, MusicActionKind::kSubmit,
-                                                      MusicActionKind::kLiked,     MusicActionKind::kPlayAll,
-                                                      MusicActionKind::kDiscover,  MusicActionKind::kLibrary,
-                                                      MusicActionKind::kSearch,    MusicActionKind::kBack};
+        auto header = header_.OnTouch(event);
+        changed |= header.changed;
+        if (header.action) {
+            result.kind = header.action->kind == ui::AppBarActionKind::kLeading ? MusicActionKind::kBack
+                          : header.action->index == 0                           ? MusicActionKind::kRefresh
+                                                                                : MusicActionKind::kAccount;
+            return result;
+        }
+        if (header.handled) return result;
+        auto navigation = navigation_.OnTouch(event);
+        changed |= navigation.changed;
+        if (navigation.action) {
+            const MusicActionKind destinations[] = {MusicActionKind::kDiscover, MusicActionKind::kLibrary,
+                                                    MusicActionKind::kSearch};
+            result.kind = destinations[*navigation.action];
+            return result;
+        }
+        if (navigation.handled) return result;
+        const std::array<MusicActionKind, 4> actions{MusicActionKind::kEditQuery, MusicActionKind::kSubmit,
+                                                     MusicActionKind::kLiked, MusicActionKind::kPlayAll};
         for (unsigned i = 0; i < buttons_.size(); ++i) {
             if (!buttons_[i].visible()) continue;
             auto update = buttons_[i].OnTouch(event);
@@ -324,78 +346,75 @@ class MusicView final {
         icon(mini_next_, MusicActionKind::kNext);
         auto body = mini_body_.OnTouch(event);
         if (body.clicked && current.id) result.kind = MusicActionKind::kOpenPlayer;
-        if (event.phase() == TouchPhase::kDown && scroll_.contains(event.position())) load_fired_ = false;
-        auto scrolling = scroll_.OnTouch(event);
-        changed |= scrolling.changed;
-        if (scrolling.dragging) {
-            ResetRows();
-            RenderRows(client, state_, current.id);
-            if (event.phase() == TouchPhase::kUp && scroll_.at_end() && state_.has_more && !state_.loading &&
-                !load_fired_) {
-                load_fired_ = true;
-                return {MusicActionKind::kLoadMore, 0, uint32_t(scroll_.offset())};
-            }
-            return result;
+        if (event.phase() == TouchPhase::kDown && list_.contains(event.position())) load_fired_ = false;
+        auto update = list_.OnTouch(
+            event, [&](uint32_t index) { return KeyAt(client, state_, index); },
+            [&](auto& row, uint32_t index, Rect bounds) { BindRow(row, client, state_, current.id, index, bounds); },
+            [](auto& row, const auto& touch) {
+                auto update = row.OnTouch(touch);
+                return ui::RowUpdate{update.redraw, update.clicked, update.action_clicked};
+            });
+        changed |= update.changed;
+        if (update.drag_ended && list_.at_end() && state_.has_more && !state_.loading && !load_fired_) {
+            load_fired_ = true;
+            return {MusicActionKind::kLoadMore, 0, uint32_t(list_.offset())};
         }
-        if (event.phase() == TouchPhase::kDown && !scroll_.contains(event.position())) return result;
-        for (unsigned i = 0; i < rows_.size(); ++i) {
-            auto update = rows_[i].OnTouch(event);
-            changed |= update.redraw;
-            if (update.clicked) result = {MusicActionKind::kRow, uint32_t(row_indices_[i]), 0};
-            if (update.action_clicked) result = {MusicActionKind::kFavorite, uint32_t(row_indices_[i]), 1};
+        if (update.action) {
+            // Validate identity against the live dataset before translating to the App's index API.
+            const auto& item = *update.action;
+            if (item.generation == state_.revision && KeyAt(client, state_, item.index) == item.key)
+                result = {item.region == ui::ItemRegion::kTrailing ? MusicActionKind::kFavorite : MusicActionKind::kRow,
+                          item.index, item.region == ui::ItemRegion::kTrailing ? 1U : 0U};
         }
         return result;
     }
 
    private:
-    void ResetRows() {
-        for (auto& row : rows_) row.Reset();
+    static uint64_t KeyAt(const Client& client, const MusicState& state, uint32_t index) {
+        return state.content == MusicContent::kPlaylists ? client.playlists[index].id : client.tracks[index].id;
+    }
+    void BindRow(micropixel::ui::ListItem& row, const Client& client, const MusicState& state, uint64_t current,
+                 uint32_t index, micropixel::Rect bounds) {
+        row.SetPosition({bounds.x, bounds.y});
+        row.SetEnabled(!state.loading || state.appending);
+        if (state.content == MusicContent::kPlaylists) {
+            const auto& list = client.playlists[index];
+            row.SetText(Clip(list.name, 112).c_str(),
+                        (Decimal(list.track_count) + " 首 · " + (list.created ? "我创建的" : "我收藏的")).c_str(),
+                        micropixel::symbols::kList)
+                .value();
+            row.SetSelected(false);
+            row.SetAction(false, false, false);
+        } else {
+            const auto& track = client.tracks[index];
+            row.SetText(Clip(track.title, 112).c_str(), Clip(track.artists, 112).c_str(),
+                        track.id == current ? micropixel::symbols::kAudio : Decimal(index + 1).c_str())
+                .value();
+            row.SetSelected(track.id == current);
+            row.SetAction(true, client.Liked(track.id), (!state.favorite_pending && client.likes_ready),
+                          state.favorite_pending == track.id);
+        }
     }
     void RenderRows(const Client& client, const MusicState& state, uint64_t current) {
-        const bool lists = state.content == MusicContent::kPlaylists;
-        const auto count = lists ? client.playlists.size() : client.tracks.size();
-        const uint32_t first = uint32_t(scroll_.offset() / 74);
-        for (unsigned i = 0; i < rows_.size(); ++i) {
-            const auto index = first + i;
-            row_indices_[i] = index;
-            rows_[i].SetVisible(index < count);
-            if (index >= count) continue;
-            rows_[i].SetPosition({0, int32_t(index * 74)});
-            rows_[i].SetEnabled(!state.loading || state.appending);
-            if (lists) {
-                const auto& list = client.playlists[index];
-                rows_[i]
-                    .SetText(Clip(list.name, 112).c_str(),
-                             (Decimal(list.track_count) + " 首 · " + (list.created ? "我创建的" : "我收藏的")).c_str(),
-                             micropixel::symbols::kList)
-                    .value();
-                rows_[i].SetSelected(false);
-                rows_[i].SetAction(false, false, false);
-            } else {
-                const auto& track = client.tracks[index];
-                rows_[i]
-                    .SetText(Clip(track.title, 112).c_str(), Clip(track.artists, 112).c_str(),
-                             track.id == current ? micropixel::symbols::kAudio : Decimal(index + 1).c_str())
-                    .value();
-                rows_[i].SetSelected(track.id == current);
-                rows_[i].SetAction(true, client.Liked(track.id), (!state.favorite_pending && client.likes_ready),
-                                   state.favorite_pending == track.id);
-            }
-        }
+        list_.BindRows([&](uint32_t index) { return KeyAt(client, state, index); },
+                       [&](auto& row, uint32_t index, micropixel::Rect bounds) {
+                           BindRow(row, client, state, current, index, bounds);
+                       },
+                       true);
     }
     static constexpr micropixel::Color kBackground = micropixel::ui::panel::Background,
                                        kSurface = micropixel::ui::panel::Surface, kWhite = micropixel::ui::panel::Text,
                                        kText = micropixel::ui::panel::Text, kMuted = micropixel::ui::panel::Muted,
                                        kRed = micropixel::ui::panel::Red, kAccent = micropixel::ui::panel::Accent;
-    micropixel::ContainerNode browser_, player_, profile_, cover_placeholder_, heading_clip_;
-    micropixel::LabelNode heading_, hint_, profile_name_, profile_signature_, profile_placeholder_, section_, empty_,
-        notice_, mini_title_, mini_artist_, mini_placeholder_, player_title_, player_artist_, elapsed_, duration_,
+    micropixel::ContainerNode browser_, player_, profile_, cover_placeholder_;
+    micropixel::LabelNode hint_, profile_name_, profile_signature_, profile_placeholder_, section_, notice_,
+        mini_title_, mini_artist_, mini_placeholder_, player_title_, player_artist_, elapsed_, duration_,
         player_notice_;
-    std::array<micropixel::ui::TextButton, 10> buttons_;
-    std::array<micropixel::ShapeNode, 3> tab_marks_;
-    std::array<micropixel::ui::ListItem, 8> rows_;
-    std::array<uint32_t, 8> row_indices_{};
-    micropixel::ui::ScrollView scroll_;
+    std::array<micropixel::ui::TextButton, 4> buttons_;
+    micropixel::ui::AppBar header_;
+    micropixel::ui::SegmentedControl<3> navigation_;
+    micropixel::ui::VirtualList<micropixel::ui::ListItem, 8> list_;
+    micropixel::ui::ContentStateView empty_;
     micropixel::ui::Slider seek_;
     micropixel::ui::Button mini_body_;
     micropixel::ui::IconButton mini_like_, mini_play_, mini_next_, player_back_, player_stop_, previous_, play_, next_,

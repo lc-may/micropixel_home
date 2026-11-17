@@ -129,3 +129,7 @@ bash tools/tests/test_firmware_host.sh --pc --home --rv32
 隐藏页面不提交帧，销毁后再打开不会重登或重建播放队列。应用要求 Lifecycle 1.0 与 Network 1.3；
 页面和 Service 各有独立 HTTP 通道，二维码长轮询不会阻塞下一首。
 详见[D4 交付说明](../../../docs/development/app-manager-d4.zh-CN.md)。
+
+`music_view.hpp` 使用公共 AppBar、SegmentedControl、VirtualList 和 ContentStateView。
+列表在创建时固定分配 8 个 ListItem，以歌曲/歌单 ID 和数据代次校验动作；替换数据取消旧捕获，
+追加保留滚动位置。页面继续负责分页、收藏确认、播放器和队列，公共组件只返回交互动作。

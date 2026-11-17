@@ -1,0 +1,410 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="基于天气、新闻、时钟和音乐的重复 UI，设计 Guest SDK 复合组件、交互契约、虚拟列表、资源所有权及迁移边界。">
+  <title>MicroPixel Guest UI 组件抽象设计</title>
+  <style>
+    :root{color-scheme:light;--paper:#fafbf8;--surface:#fff;--ink:#233128;--muted:#5d6a60;--line:#dce3d9;--accent:#356247;--tint:#edf3eb;--code:#1e2b24;--code-ink:#e2ece2;--rail:264px}
+    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.85 "Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif}a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:4px}a:hover{color:#244731}button,input{font:inherit}button{cursor:pointer}button:active{transform:scale(.98)}:focus-visible{outline:3px solid #7f9e84;outline-offset:4px}::selection{background:#d2e4d0}code,pre,kbd{font-family:"Cascadia Code","Noto Sans Mono CJK SC",Consolas,monospace}p,ul,ol{margin:0 0 18px}li+li{margin-top:7px}strong{font-weight:650}p code,li code,td code,dd code{font-size:.88em;background:var(--tint);padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}h1,h2,h3,h4{line-height:1.4;font-weight:650;letter-spacing:-.025em}h1{font-size:clamp(30px,4.3vw,52px);margin:18px 0 22px}h2{font-size:28px;margin:0 0 24px}h3{font-size:21px;margin:34px 0 14px}h4{font-size:17px;margin:24px 0 10px}small,.small{font-size:13px;color:var(--muted)}.skip{position:fixed;top:-90px;left:20px;z-index:50;background:var(--surface);padding:10px}.skip:focus{top:10px}
+    .rail{position:fixed;inset:0 auto 0 0;width:var(--rail);background:#f0f3ed;border-right:1px solid var(--line);padding:30px 22px 24px;display:flex;flex-direction:column;z-index:20}.brand{display:flex;align-items:center;gap:12px;font-size:19px;font-weight:700;text-decoration:none;color:var(--ink)}.mark{display:grid;grid-template-columns:repeat(3,6px);gap:3px}.mark span{width:6px;height:6px;background:var(--accent)}.mark span:nth-child(3),.mark span:nth-child(7){opacity:.25}.rail-caption{margin:9px 0 25px 39px;font-size:12px;letter-spacing:.08em;color:var(--muted)}.search-label{font-size:12px;display:block;margin-bottom:5px;color:var(--muted)}#nav-search{width:100%;padding:9px 11px;border:1px solid #c9d4c5;border-radius:7px;background:#fafbf8;font-size:13px;color:var(--ink)}.nav-list{padding:0;margin:18px -8px;list-style:none;overflow:auto;flex:1}.nav-list li{margin:0}.nav-list a{display:flex;gap:12px;align-items:baseline;padding:7px 10px;font-size:13px;text-decoration:none;border-left:2px solid transparent;border-radius:0 5px 5px 0;color:#4a5a4f}.nav-list a:hover{background:#e5ece1}.nav-list a[aria-current="location"]{background:#dde8d9;border-color:var(--accent);color:#294c36;font-weight:650}.nav-no{font:11px/1.8 Consolas,monospace;opacity:.65}#nav-empty{margin:8px 0;font-size:13px;color:var(--muted)}.rail-footer{border-top:1px solid var(--line);padding-top:15px;font-size:11px;color:var(--muted)}
+    .page{margin-left:var(--rail)}.topbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 5%;background:#fafbf8f5;border-bottom:1px solid var(--line)}.breadcrumb{font-size:13px;color:var(--muted)}.actions{display:flex;gap:8px}.btn{border:1px solid #c9d4c5;border-radius:6px;background:var(--surface);color:var(--ink);padding:6px 12px;font-size:12px;transition:background .15s,transform .15s}.btn:hover{background:var(--tint)}.menu-toggle{display:none}main{max-width:1080px;padding:0 6% 70px;margin:auto;min-width:0}.hero{padding:64px 0 46px;border-bottom:1px solid var(--line)}.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--accent);font-weight:700}.lede{font-size:18px;color:var(--muted);max-width:740px}.meta{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:12px;color:var(--muted);margin-top:26px}.hero-links{display:flex;gap:22px;margin-top:24px;font-size:14px}.section{padding:50px 0;border-bottom:1px solid var(--line);min-width:0}.section-tag{font:12px/1.5 Consolas,monospace;letter-spacing:.08em;color:var(--accent);display:block;margin-bottom:10px}.intro{color:var(--muted)}.note{border-left:3px solid var(--accent);background:var(--tint);padding:17px 20px;margin:22px 0}.note p:last-child{margin-bottom:0}.note-title{display:block;margin-bottom:5px;font-weight:650}.table-wrap{width:100%;overflow-x:auto;margin:20px 0 24px;border:1px solid var(--line);border-radius:7px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;vertical-align:top;padding:12px 15px;border-bottom:1px solid var(--line);min-width:110px}thead{background:var(--tint)}th{font-weight:650}tr:last-child td{border-bottom:0}td:first-child{font-weight:550}td p:last-child{margin-bottom:0}.codebox{margin:18px 0 24px;border-radius:7px;overflow:hidden;background:var(--code);color:var(--code-ink);min-width:0}.code-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 15px;background:#293a2f;border-bottom:1px solid #ffffff14;color:#c2d2c3;font:12px/1.5 Consolas,"Noto Sans CJK SC",monospace}.copy{background:transparent;color:#dfebdd;border:1px solid #ffffff32;border-radius:4px;padding:3px 10px;font-size:11px}.copy:hover{background:#ffffff0d}pre{padding:19px 20px;margin:0;overflow:auto;font-size:12px;line-height:1.85;tab-size:4}.codebox.compact pre{max-height:650px}.file-note{font-size:13px;color:var(--muted);margin-top:-9px}.steps{list-style:none;counter-reset:step;padding:0;margin:28px 0}.steps>li{position:relative;padding-left:43px;margin:0 0 23px;counter-increment:step}.steps>li::before{content:counter(step,decimal-leading-zero);position:absolute;left:0;top:2px;font:12px/1.8 Consolas,monospace;color:var(--accent);border-bottom:1px solid #a1b69e;padding-bottom:3px}.steps>li>strong{display:block;margin-bottom:4px}.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:28px 0;gap:7px}.flow>div{border-top:2px solid #a6b99f;padding:12px 5px 0}.flow span{font:11px Consolas,monospace;color:var(--muted);display:block}.flow strong{display:block;font-size:14px;margin:6px 0}.flow small{font-size:11px}.split{display:grid;grid-template-columns:1fr 1fr;gap:25px}.split>div{min-width:0}.architecture{border:1px solid var(--line);border-radius:8px;padding:20px;margin:23px 0;background:var(--surface)}.arch-top{text-align:center;padding:8px;border-bottom:1px solid var(--line);font-size:14px}.arch-parts{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:15px 0}.arch-parts div{padding:12px;background:var(--tint);font-size:13px}.arch-parts strong{display:block}.arch-model{text-align:center;background:#e1ebdd;padding:10px;font-size:14px}.arch-bottom{text-align:center;font-size:12px;color:var(--muted);margin-top:12px}.life{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin:18px 0;font:13px/1.8 Consolas,monospace}.life span{border:1px solid var(--line);padding:6px 10px;background:var(--surface);border-radius:4px}.life b{color:var(--muted);font-weight:400}.checklist{list-style:none;padding:0}.checklist li{padding-left:24px;position:relative}.checklist li::before{content:"";width:10px;height:10px;position:absolute;left:0;top:10px;border:1px solid #8d9f88;border-radius:2px}details{border-bottom:1px solid var(--line);padding:16px 0}summary{cursor:pointer;font-weight:600}details[open] summary{margin-bottom:12px}details p:last-child{margin-bottom:0}.source-list{padding-left:20px}.source-list a{overflow-wrap:anywhere}.chapter-end{display:flex;justify-content:space-between;gap:15px;margin-top:26px;font-size:13px}.doc-footer{padding:30px 0 0;font-size:12px;color:var(--muted)}#status{position:fixed;bottom:22px;right:22px;padding:10px 16px;background:var(--ink);color:#fff;border-radius:6px;font-size:13px;z-index:30;max-width:calc(100vw - 44px)}#status:empty{display:none}
+    @media(min-width:1600px){main{max-width:1160px}}@media(max-width:1100px){:root{--rail:230px}.rail{padding:25px 16px}main{padding-inline:5%}.topbar{padding-inline:5%}.flow{grid-template-columns:repeat(3,minmax(0,1fr))}h2{font-size:25px}}
+    @media(max-width:800px){:root{--rail:264px}.rail{transform:translateX(-100%);transition:transform .2s}.rail.open{transform:translateX(0)}.page{margin-left:0}.menu-toggle{display:inline-block}.topbar{padding:12px 18px}.breadcrumb{font-size:12px}.hero{padding-top:38px}main{padding:0 22px 45px}.section{padding:36px 0}.split{grid-template-columns:1fr;gap:0}.flow{grid-template-columns:repeat(2,minmax(0,1fr))}.arch-parts{grid-template-columns:1fr}.lede{font-size:16px}.table-wrap{border-radius:4px}th,td{padding:10px 12px}pre{font-size:11px;padding:15px}.hero-links{flex-wrap:wrap;gap:12px 22px}.rail-footer{font-size:11px}.topbar .print-label{display:none}}
+    @media(max-width:800px){.rail:not(.open){visibility:hidden}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+    @media print{@page{size:A4;margin:18mm 16mm}html{scroll-behavior:auto}body{font-size:10.5pt;line-height:1.65;background:white;color:#202820}.rail,.topbar,.skip,.copy,#status,.hero-links{display:none!important}.page{margin:0}main{max-width:none;padding:0}.hero{padding:0 0 20px}h1{font-size:28pt}h2{font-size:18pt}h3{font-size:13pt}h1,h2,h3,h4{break-after:avoid}.section{padding:22px 0;break-before:auto}.note,.architecture,.flow,tr{break-inside:avoid}.codebox{background:#f3f5f1;color:#17241c;border:1px solid #d0d9cc;overflow:visible;break-inside:auto}.code-head{background:#e6ece1;color:#25382b}.codebox pre,.codebox.compact pre{white-space:pre-wrap;overflow:visible;max-height:none;font-size:8pt;line-height:1.55;overflow-wrap:anywhere}.table-wrap{overflow:visible}table{font-size:9pt}thead{display:table-header-group}th,td{padding:7px 9px}a{color:inherit;text-decoration:none}.meta{font-size:9pt}.source-list{font-size:9pt}.section-tag{font-size:9pt}.flow{grid-template-columns:repeat(5,minmax(0,1fr))}.flow strong{font-size:10pt}.flow small{font-size:8pt}.doc-footer{font-size:8pt}details{break-inside:avoid}.arch-parts{grid-template-columns:1fr 1fr}}
+
+    .decisions{padding-left:24px}.decisions li{padding-left:4px;margin-bottom:13px}
+    .layer-stack{display:grid;justify-items:stretch;gap:6px;margin:25px 0}.layer-stack>div{border:1px solid var(--line);background:var(--surface);padding:14px 19px;border-radius:6px}.layer-stack .layer-focus{border-color:#9db398;background:var(--tint)}.layer-stack span{font-size:11px;letter-spacing:.09em;color:var(--muted);display:block}.layer-stack strong{display:block;font-size:16px;margin:3px 0}.layer-stack small{font-size:12px}.layer-stack>b{justify-self:center;line-height:1;color:var(--accent);font-weight:400}
+    .binding-example{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:12px;align-items:center;margin:24px 0}.binding-example>div{border:1px solid var(--line);border-radius:6px;padding:15px;background:var(--surface);min-width:0}.binding-example span{font:11px/1.5 Consolas,monospace;color:var(--accent)}.binding-example strong,.binding-example small{display:block;margin-top:6px}.binding-example strong{font-size:14px}.binding-example small{font-size:11px}.binding-example>b{font-weight:400;color:var(--accent)}
+    @media(max-width:800px){.binding-example{grid-template-columns:1fr}.binding-example>b{justify-self:center;transform:rotate(90deg)}.layer-stack>div{padding:12px 14px}}
+    @media print{.layer-stack,.binding-example{break-inside:avoid}.layer-stack>div{padding:9px 12px}.binding-example{grid-template-columns:1fr auto 1fr auto 1fr;gap:6px}.binding-example>b{transform:none}.layer-stack strong{font-size:11pt}.layer-stack small,.binding-example small{font-size:8pt}}
+  </style>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+<aside class="rail" id="rail" aria-label="文档导航">
+  <a class="brand" href="#decisions"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span>MicroPixel</a>
+  <div class="rail-caption">GUEST UI 组件设计</div>
+  <label class="search-label" for="nav-search">查找章节</label>
+  <input id="nav-search" type="search" placeholder="列表、触摸、资源…" autocomplete="off" aria-controls="chapters">
+  <ol class="nav-list" id="chapters">
+    <li><a href="#decisions"><span class="nav-no">01</span>设计目标与核心决策</a></li>
+    <li><a href="#evidence"><span class="nav-no">02</span>重复代码与现状依据</a></li>
+    <li><a href="#architecture"><span class="nav-no">03</span>架构与抽象层次</a></li>
+    <li><a href="#contracts"><span class="nav-no">04</span>公共组件接口契约</a></li>
+    <li><a href="#input"><span class="nav-no">05</span>触摸路由与手势仲裁</a></li>
+    <li><a href="#virtual-list"><span class="nav-no">06</span>虚拟列表与数据身份</a></li>
+    <li><a href="#components"><span class="nav-no">07</span>首批复合组件设计</a></li>
+    <li><a href="#theme"><span class="nav-no">08</span>主题、布局与文本</a></li>
+    <li><a href="#lifetime"><span class="nav-no">09</span>资源所有权与生命周期</a></li>
+    <li><a href="#migration"><span class="nav-no">10</span>迁移兼容与演进顺序</a></li>
+    <li><a href="#invariants"><span class="nav-no">11</span>不变量与设计取舍</a></li>
+    <li><a href="#references"><span class="nav-no">12</span>相关源码与文档</a></li>
+  </ol>
+  <p id="nav-empty" role="status" hidden>没有匹配章节，试试更短的关键词。</p>
+  <div class="rail-footer">组件设计 0.2 · 单文件 HTML<br>基于当前仓库源码 · 2026-11-17</div>
+</aside>
+<div class="page">
+  <header class="topbar">
+    <div class="actions"><button type="button" class="btn menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="rail">目录</button><span class="breadcrumb">设计文档 / Guest UI</span></div>
+    <div class="actions"><a class="btn" href="../README.zh-CN.md">文档索引</a><button type="button" class="btn" id="print">打印<span class="print-label"> / 保存 PDF</span></button></div>
+  </header>
+  <main id="main">
+    <header class="hero">
+      <span class="eyebrow">MICROPIXEL / SDK UI DESIGN</span>
+      <h1>Guest UI 组件<br>抽象设计</h1>
+      <p class="lede">从天气、新闻、时钟和音乐应用的重复布局与交互中提取复合组件，让 App 描述内容和动作，让 SDK 负责可复用的 UI 行为。</p>
+      <div class="meta"><span>状态：首批组件已实现；扩展方向见各节</span><span>范围：Guest SDK UI</span><span>版本：0.2 · 2026-11-17</span></div>
+      <div class="hero-links"><a href="#decisions">先看设计决策 →</a><a href="#virtual-list">查看列表与手势设计 →</a><a href="../development/app-development.zh-CN.html">App 开发指南 →</a></div>
+    </header>
+
+    <section class="section" id="decisions" aria-labelledby="decisions-title" data-keywords="目标 范围 决策 边界">
+      <span class="section-tag">01 / DECISIONS</span><h2 id="decisions-title">设计目标与核心决策</h2>
+      <p>公共 UI 能力从真实应用的重复代码中提取。首批目标应用是天气、新闻、时钟闹钟和网易云音乐；优先减少页面头部、选项切换、可见行复用、触摸取消和内容状态展示的重复实现。</p>
+      <ol class="decisions">
+        <li><strong>在现有 Scene UI 之上组合。</strong>复用 SDK 的基础节点、控件、布局和事件，保持 Guest 与 LVGL 类型隔离。</li>
+        <li><strong>先有明确的重复行为，再形成公共 API。</strong>一个 App 内先抽局部组件；第二个具有不同业务的数据源验证边界后，再沉淀通用部分。</li>
+        <li><strong>优先补行为契约。</strong>布局、事件消费、触摸取消、数据身份和资源所有权，都属于组件抽象的一部分。</li>
+        <li><strong>App 保留业务决策。</strong>网络、Job、消息、存储、筛选规则、收藏确认和导航目的地由应用处理。</li>
+        <li><strong>首批采用 AppBar、SegmentedControl、VirtualList。</strong>同时统一现有按钮的状态行为；Theme、ListItem 和内容状态展示随真实迁移逐步完善。</li>
+        <li><strong>保持现有 ABI。</strong>首批组件仅组合 Guest Scene 和输入事件，不增加 Core import、Service ID 或 raw LVGL 跨界调用。</li>
+      </ol>
+      <div class="note"><span class="note-title">术语与实现状态</span><p>本文的 UI widget 指页面中的可复用控件，与 <code>app.widgets()</code> 发布到 Home 的 Widget 数据快照是不同概念。首批 AppBar、SegmentedControl、VirtualList、ContentStateView、Theme 和 ComponentRoot 已位于 <code>guest/sdk/ui/</code>，由天气、闹钟和音乐使用。新闻迁移、可变行高、骨架与组件内重试动作属于后续扩展。</p></div>
+      <p>本设计与已有<a href="guest-ui-widgets.zh-CN.md">音乐 UI 控件契约</a>配合使用。已有 Slider、IconButton、ListItem 和 ScrollView 的行为应在迁移中保留；页面视觉继续遵循<a href="panel-ui.zh-CN.md">家庭面板界面规范</a>。</p>
+    </section>
+
+    <section class="section" id="evidence" aria-labelledby="evidence-title" data-keywords="现状 重复 证据 天气 新闻 时钟 音乐">
+      <span class="section-tag">02 / EXISTING CODE</span><h2 id="evidence-title">当前实现与具体重复点</h2>
+      <p>当前 Guest SDK 已经具备复合 UI 的基础：<code>Button</code> 管理触摸交互，<code>TextButton</code> 组合背景、反馈和文字，<code>IconButton</code> 支持选中与等待，<code>ListItem</code> 提供正文和尾部操作，<code>ScrollView</code> 管理滚动及裁剪，Flex/Grid 负责布局计算。</p>
+      <div class="table-wrap"><table><thead><tr><th>重复行为</th><th>源码依据</th><th>提取方向</th></tr></thead><tbody>
+        <tr><td>页面标题与头部动作</td><td><a href="../../guest/apps/weather/main.cpp">WeatherActivity::OnCreate</a>、<a href="../../guest/apps/news/main.cpp">NewsActivity::OnCreate</a>、<a href="../../guest/apps/news/article_reader.hpp">ArticleReader</a>、<a href="../../guest/apps/weather/city_picker.hpp">CityPicker</a>、<a href="../../guest/apps/clock-alarm/main.cpp">ClockActivity</a> 都手工创建标题与返回、刷新或新增按钮。</td><td>AppBar</td></tr>
+        <tr><td>选项命中、当前索引与颜色切换</td><td>CityPicker 维护两项分类；NewsActivity 维护三组 <code>tab_hits_/tab_bg_/tab_text_</code>；<a href="../../guest/apps/netease-music/music_view.hpp">MusicView</a> 维护底部导航文字和标记。</td><td>SegmentedControl；底部导航按结构差异验证独立变体。</td></tr>
+        <tr><td>首项计算、行池复用与索引映射</td><td>城市选择原有三列行池；NewsActivity::Bind 的新闻卡片池；MusicView 原有歌曲池。天气和音乐现已接入 VirtualList。</td><td>VirtualList 的单列 / 固定列数布局，共享可见范围与绑定机制。</td></tr>
+        <tr><td>滚动时重置行交互并吞掉松手</td><td>CityPicker::OnTouch、NewsActivity::OnEvent、MusicView::Touch 均检查 dragging，再 Reset 行并提前返回。</td><td>列表统一完成滚动与点击仲裁。</td></tr>
+        <tr><td>普通、禁用、选中与处理中状态</td><td><a href="../../guest/sdk/ui/icon_button.hpp">IconButton</a> 已具备 selected/pending；<a href="../../guest/sdk/ui/material_icons.hpp">MaterialIconButton</a> 有独立的命中、显隐与透明度实现。</td><td>共享交互规则，保留字体图标与图集图标的绘制差异。</td></tr>
+        <tr><td>加载、空内容、失败与缓存提示</td><td>新闻列表、正文页和音乐分别控制提示文字、重试入口、骨架及内容可见性。</td><td>ContentStateView 首批统一文字展示；内联重试动作属于扩展方向。</td></tr>
+        <tr><td>手工清除页面输入状态</td><td><a href="../../guest/apps/clock-alarm/main.cpp">PageView::Reset</a>、MusicView::CancelInput、CityPicker::Cancel 分别遍历多组按钮。</td><td>每个复合组件提供统一 CancelInput，并向自己的子组件传播。</td></tr>
+        <tr><td>配色、圆角、字号与触摸尺寸</td><td><a href="../../guest/sdk/ui/panel.hpp">panel.hpp</a> 已集中部分配色和样式，应用仍重复书写几何常量。</td><td>整理 Theme 与语义尺寸，沿用现有视觉规范。</td></tr>
+      </tbody></table></div>
+      <p>新闻卡片与歌曲行虽然都可点击，但内容结构和动作不同；城市网格与新闻列表虽然都复用节点，但排列不同。公共层提取可见范围、身份绑定与交互机制，具体卡片继续由应用组合。</p>
+    </section>
+
+    <section class="section" id="architecture" aria-labelledby="architecture-title" data-keywords="架构 LVGL raw ABI 分层 业务">
+      <span class="section-tag">03 / ARCHITECTURE</span><h2 id="architecture-title">抽象层次与依赖方向</h2>
+      <div class="layer-stack" role="img" aria-label="App 业务组件依赖公共复合 UI 组件，复合 UI 组件组合基础控件与布局，通过 Scene Renderer 和 Graphics ABI 连接 Host 图形合成与 LVGL。">
+        <div><span>APP</span><strong>应用内业务视图</strong><small>新闻卡片 / 天气预报 / 提醒行 / 迷你播放器</small></div>
+        <b aria-hidden="true">↓</b>
+        <div class="layer-focus"><span>SDK · 本设计重点</span><strong>公共复合组件</strong><small>AppBar / SegmentedControl / VirtualList / ContentStateView</small></div>
+        <b aria-hidden="true">↓</b>
+        <div><span>SDK · 现有能力</span><strong>基础控件与布局</strong><small>Button / TextButton / IconButton / ListItem / ScrollView / Flex / Grid</small></div>
+        <b aria-hidden="true">↓</b>
+        <div><span>RUNTIME</span><strong>Scene / Renderer → Graphics ABI</strong><small>节点、坐标、场景增量与输入事件</small></div>
+        <b aria-hidden="true">↓</b>
+        <div><span>HOST</span><strong>图形合成与 LVGL 显示适配</strong><small>App Surface、平台资源与系统 UI</small></div>
+      </div>
+      <h3>3.1 Guest UI 的边界</h3>
+      <p>公共组件位于 <code>guest/sdk/ui/</code>，依赖 SDK 公共节点和输入事件。组件头文件不包含 LVGL、ESP-IDF 或板级类型；不把 <code>lv_obj_t*</code>、LVGL style、Host 指针或 C++ 对象布局送过 ABI。</p>
+      <p>Runtime 继续负责 SDK 到 wire 的转换。Host 继续管理资源隔离、图形合成和生命周期校验。当前 <a href="../../guest/runtime/scene_graph.cpp">Scene Runtime</a> 会编码与提交场景，<a href="../../firmware/espressif/main/platform/lvgl/guest_graphics_engine.cpp">GuestGraphicsEngine</a> 使用 App Surface 合成；Scene 节点并不要求逐个映射成 LVGL 原生 widget。</p>
+      <h3>3.2 Host raw LVGL 的复用范围</h3>
+      <p>PC Home、应用市场、系统弹窗等 Host UI 的 raw LVGL 调用可以在 Host UI 目录内提取构造与样式 helper。它们遵循 Host 的线程、内存和系统交互约束；与 Guest 组件共享视觉含义和资源规范，不共享可变对象或运行时指针。</p>
+      <h3>3.3 组合方式</h3>
+      <p>组件通过持有根 Container 和成员控件形成子树，采用值类型、显式方法和类型明确的动作。首批不要求引入通用 Widget 虚基类、全局控件注册中心或新的响应式渲染运行时。已有 <code>content()</code> 等子容器入口可作为局部自定义扩展点。</p>
+      <div class="note"><span class="note-title">与 App 生命周期的关系</span><p>Activity 负责页面组件的创建、事件转交和销毁；Service 通过 Model 提供数据。公共 UI 组件不持有 Activity/Service 指针，不自动启动网络、Job 或应用导航。</p></div>
+    </section>
+
+    <section class="section" id="contracts" aria-labelledby="contracts-title" data-keywords="接口 契约 API handled changed action Update 属性">
+      <span class="section-tag">04 / COMMON CONTRACT</span><h2 id="contracts-title">公共组件接口契约</h2>
+      <p>首先统一语义，再逐步统一接口形状。现有 ButtonUpdate、ScrollUpdate、ListItemUpdate 可以由适配层转换；迁移期间保留原有入口，不要求一次替换所有 SDK 控件。</p>
+      <div class="table-wrap"><table><thead><tr><th>能力</th><th>组件契约</th></tr></thead><tbody>
+        <tr><td>创建</td><td>接收父 Container、局部 bounds 和必要样式。新复合组件使用 <code>Result&lt;T&gt;</code> 返回自身的参数、布局或资源失败，RAII 清理已建子树。委托的既有 TextButton、ScrollView、MaterialIconButton 与行工厂仍遵循既有分配失败即 panic 的策略；第一版不承诺所有底层分配失败均可恢复。</td></tr>
+        <tr><td>布局</td><td>AppBar 和 VirtualList 的 <code>SetBounds</code> 更新布局与命中区；失败保留原布局。SegmentedControl 的选项几何在创建时固定。父容器的平移和裁剪由 Scene 统一处理。</td></tr>
+        <tr><td>数据</td><td>明确属性是否复制、借用和受何种长度限制。长期保存的文本使用组件自有存储，或要求调用方保证完整寿命。</td></tr>
+        <tr><td>可见与禁用</td><td>隐藏不参与输入；禁用不发出动作。隐藏、禁用、数据身份变化和页面失焦都取消未完成手势。</td></tr>
+        <tr><td>事件结果</td><td>区分 <code>handled</code>、<code>changed</code> 和组件自己的 typed action；无动作时用显式空值，不使用业务 ID 的特殊数值代替。</td></tr>
+        <tr><td>清理</td><td><code>CancelInput</code> 仅清除输入；<code>Destroy</code> 结束组件子树，重复调用安全。析构 best-effort，不使用失败的 value() 导致清理阶段 panic。</td></tr>
+        <tr><td>提交</td><td>组件修改 Guest 节点，不自行 Present。页面汇总 changes 后在当前事件末尾提交；提交失败遵循已有 Scene 重试与旧画面保留契约。</td></tr>
+      </tbody></table></div>
+      <div class="codebox"><div class="code-head"><span>C++ · component.hpp</span><button class="copy" type="button">复制</button></div><pre><code>template &lt;class Action&gt;
+struct UiUpdate {
+    bool handled{};                  // 本手势或事件已被该组件接管
+    bool changed{};                  // 本次调用改变了可见 UI
+    std::optional&lt;Action&gt; action;    // 请求 App 执行业务动作
+};</code></pre></div>
+      <h3>4.1 changed 与 handled 的区别</h3>
+      <p>一次点击可以在没有按下视觉变化时发出 action；一次滚动可以 changed=true 而没有业务 action；一次边界拖动即使偏移未改变，仍然 handled=true。上层不能只看 changed 决定是否继续把触摸交给后面的组件。</p>
+      <h3>4.2 外部控制的业务状态</h3>
+      <p>收藏、播放、筛选与导航是否成功由 App 决定。组件可以表现 pressed、pending 或 selected，但网络确认前不自动提交收藏业务状态。SegmentedControl 的点击返回选择请求；应用接受后调用 SetSelected，保持与已有 IconButton 的状态契约一致。</p>
+      <h3>4.3 更新合并</h3>
+      <p>属性不变时避免重复文字测量、重新绑定和节点创建。组件级 changed 用于页面调度；Scene 原有的净变化合并继续负责实际提交。两层语义不互相替代，也不引入组件自己的 Timer。</p>
+    </section>
+
+    <section class="section" id="input" aria-labelledby="input-title" data-keywords="触摸 事件 输入 手势 拖动 点击 取消 capture">
+      <span class="section-tag">05 / INPUT</span><h2 id="input-title">触摸路由与手势仲裁</h2>
+      <p>复合组件需要提供完整的一次手势行为。命中某个矩形只是起点，还要定义后续 Move、Up、Cancel、多触点和父容器滚动怎样处理。</p>
+      <ol class="steps">
+        <li><strong>从最上层可见交互开始</strong>页面的弹层先处理输入；同级组件按明确的交互优先级分发。已接管手势的 owner 持续接收该 touch ID 的后续事件。</li>
+        <li><strong>Down 建立候选捕获</strong>保存 touch ID、坐标、行数据身份及命中区域。列表可以同时记录潜在的行点击和潜在滚动，但对外只有一个列表 owner。</li>
+        <li><strong>超过滚动阈值时交给滚动</strong>继承现有 ScrollView 的阈值语义，向候选行取消按下状态。手势进入拖动后不会因为手指回到起点而重新成为点击。</li>
+        <li><strong>Up 根据 owner 收束</strong>滚动手势消费松手，禁止穿透到行；点击候选只有在身份、代次和命中仍有效时才发出一次动作。</li>
+        <li><strong>Cancel 与外部变化统一处理</strong>页面隐藏、禁用、数据更换或根节点销毁都取消捕获；后续迟到的 Up 不再产生动作。</li>
+      </ol>
+      <div class="life" aria-label="列表触摸状态"><span>Idle</span><b>→ Down</b><span>PendingTap</span><b>→ Move 超阈值</b><span>Dragging</span><b>→ Up / Cancel</b><span>Idle，无点击</span></div>
+      <p>PendingTap 也可以在有效 Up 时返回一次点击并回到 Idle；任何状态的 Cancel 都不产生动作。边界处没有实际滚动位移，仍应遵循已进入 Dragging 的手势归属。</p>
+      <h3>5.1 正文与尾部动作</h3>
+      <p>保留 ListItem 现有的独立命中区：歌曲正文点击打开或播放，尾部按钮点击收藏；尾部动作不冒泡成正文动作。父容器因滚动接管手势时，两类子区域都取消。</p>
+      <h3>5.2 坐标与多触点</h3>
+      <p>对外接收 Scene 逻辑坐标的 TouchEvent，每一层通过自己的容器变换到局部坐标。上层不重复应用屏幕缩放。组件单次手势只跟踪一个 touch ID；其他触点不能接替已有捕获，也不能结束原手势。</p>
+      <h3>5.3 输入重置范围</h3>
+      <p>App 只调用最外层组件的 CancelInput。组件内部负责向自己组合的按钮、滑块和列表传播；不需要把所有控件登记到跨 App 的全局对象树。系统 Home、Back 手势和音频焦点仍由既有 Host 与页面约定处理。</p>
+    </section>
+
+    <section class="section" id="virtual-list" aria-labelledby="virtual-list-title" data-keywords="列表 虚拟 滚动 复用 身份 key generation 网格">
+      <span class="section-tag">06 / VIRTUAL LIST</span><h2 id="virtual-list-title">VirtualList：复用机制与稳定数据身份</h2>
+      <p>VirtualList 是首批行为抽象的重点。它组合 ScrollView 和一个预先确定容量的可见项池；App 提供数据数量、稳定 key、绑定逻辑和动作处理。行可以是现有 ListItem，也可以是 App 自己的 NewsCard。</p>
+      <div class="table-wrap"><table><thead><tr><th>列表负责</th><th>App / 行组件负责</th></tr></thead><tbody>
+        <tr><td>可见范围、偏移、边界和裁剪</td><td>业务数据、排序、筛选结果与稳定 key</td></tr>
+        <tr><td>slot 与数据项的绑定、隐藏和重绑</td><td>把某项内容写入给定行组件</td></tr>
+        <tr><td>滚动与点击仲裁、绑定变化时取消捕获</td><td>解释正文和尾部动作，执行请求或导航</td></tr>
+        <tr><td>返回 key、数据集代次和动作区域</td><td>检查动作是否仍适用，更新业务状态</td></tr>
+        <tr><td>报告接近末尾的几何状态</td><td>是否加载更多、怎样请求、如何去重和重试</td></tr>
+      </tbody></table></div>
+      <h3>6.1 第一版处理固定行高</h3>
+      <p>新闻卡片和歌曲行已有固定纵向步长，适合作为首批消费者。设行高为 h、间距为 g、总数为 n，则步长 s=h+g；非空内容高度为 n×h+(n−1)×g，空列表高度为 0。首个候选可见行由 floor(offset/s) 得到，再结合 viewport、边界与 overscan 得出绑定范围。</p>
+      <p>计算使用足够宽的中间整数，检查零尺寸、溢出、数据规模与 Scene 坐标上限。可见池包含边缘部分可见行；池及身份数组只在创建时一次分配到堆，由 unique_ptr 持有，避免大容量返回值占满 Guest 的 16 KiB 栈；容量由 viewport、步长与 overscan 推导并在创建或布局调整时检查。容量不足返回明确错误，不能静默留下可见空洞。</p>
+      <p>滚动主要更新 content 平移；只有绑定身份或显示数据版本变化时才重绑行。池大小与可见工作集有关，节点数不随总数据量线性增长；绘制与拖动不创建新控件。</p>
+      <h3>6.2 key、数据集代次与绑定代次</h3>
+      <p><strong>slot 是可复用的 UI 位置，key 才是业务身份。</strong>新闻可以提供 article.key，音乐提供 track.id；城市提供稳定目录身份。key 在同一逻辑数据集中唯一，不能简单使用滚动后的 slot 编号。重复 key 应在绑定边界被拒绝或诊断。</p>
+      <p>数据集 generation 区分来源切换、账号切换、替换与筛选结果重建。第一版在每个 slot 保存 index、key 和 generation；任何重绑都立即取消该 slot 的捕获。Down 保存 touch ID 与 <code>{slot, key, generation}</code>，Up 再验证身份与区域。即使一个 slot 先后从 A 变为 B 又回到 A，原手势已取消，也不会恢复。</p>
+      <div class="binding-example" role="img" aria-label="按下绑定新闻 A 的 slot 1 后，该 slot 被复用为新闻 B；旧松手因绑定代次变化而取消，不打开 B。">
+        <div><span>DOWN</span><strong>slot 1 → 新闻 A</strong><small>保存 key=A，binding=7</small></div><b aria-hidden="true">→</b><div><span>REBIND</span><strong>slot 1 → 新闻 B</strong><small>取消原捕获，binding=8</small></div><b aria-hidden="true">→</b><div><span>UP</span><strong>不发出点击</strong><small>旧绑定已失效，不能打开 B</small></div>
+      </div>
+      <div class="codebox"><div class="code-head"><span>C++ · virtual_list.hpp</span><button class="copy" type="button">复制</button></div><pre><code>enum class ItemRegion { kBody, kTrailing };
+
+struct ItemAction {
+    uint64_t key{};
+    uint32_t generation{}, index{};
+    ItemRegion region{};
+};
+
+// 用于分发业务动作的是 key + generation。
+// 行 index 可供诊断或绑定，不能作为延迟动作的唯一身份。</code></pre></div>
+      <h3>6.3 数据更换与追加</h3>
+      <p>替换数据集显式更新 generation，取消所有手势，并按页面策略回顶或恢复稳定 key 的锚点。第一版允许回顶；恢复锚点属于明确的后续能力，不默认承诺。向当前数据集追加时保留偏移与现有 key，不把它误判为完全替换。</p>
+      <p>仅改变未命中项的展示数据不必取消全列表，但命中项删除、身份变化、布局变化或可操作状态变化必须取消对应捕获。若实现阶段无法可靠区分，第一版采用更保守的数据变更取消策略。</p>
+      <h3>6.4 城市网格与长文</h3>
+      <p>同一 VirtualList 已通过 ListGeometry 的 columns、column_gap 和 row_gap 表达固定列数网格。天气使用三列 TextButton、18 个池槽；音乐使用单列 ListItem、8 个池槽。两者共享身份校验与手势仲裁。</p>
+      <p>新闻正文当前有逐行测量和分批排版。第一版 VirtualList 不承诺支持任意高度内容或文本排版；未来若需要可变行高，应单独定义高度缓存、可见范围查找与滚动锚点契约。</p>
+    </section>
+
+    <section class="section" id="components" aria-labelledby="components-title" data-keywords="AppBar SegmentedControl ListItem ContentStateView Card 组件">
+      <span class="section-tag">07 / COMPOSITE COMPONENTS</span><h2 id="components-title">其他公共组件的职责</h2>
+      <h3>7.1 AppBar</h3>
+      <p>组合标题、可选副标题、可选 leading 操作和一组有界 trailing 操作。通过父 bounds、内边距、间隔和触摸尺寸计算布局；为操作先预留空间，再确定标题最大宽度。支持无 leading 的天气主页面，以及有返回按钮的城市选择、正文等页面。</p>
+      <p>输出 AppBarEvent，其 kind 为 kLeading、kTitle 或 kAction；尾部动作带 index，由调用方映射到业务。最多支持一个 leading 和两个 trailing 动作。AppBar 不自行导航，不知道“刷新天气”“添加闹钟”或“关闭新闻正文”的业务含义。标题、副标题与文字动作限 128 UTF-8 字节，由 Scene 复制；超长更新返回错误。标题区域先扣除动作和副标题宽度，再进行裁剪，避免遮挡操作。</p>
+      <h3>7.2 SegmentedControl</h3>
+      <p>组合一组可选项，统一命中区域、当前索引、禁用项、选中样式和取消行为。第一版用于天气城市分类与音乐底部导航，使用 normal / selected 样式和可选下划线标记。</p>
+      <p>选中态由 App 设置。第一版重复点击已选项仍返回索引；是否刷新或保持当前页面由 App 解释。列表筛选后是否回顶由 App 调用列表接口完成。</p>
+      <h3>7.3 ListItem 与内容槽</h3>
+      <p>第一版复用现有 ListItem 的 leading、双行正文和独立 trailing 动作，不改变其内容槽接口。可选附件和提醒行的进一步统一需有真实消费者再扩展。</p>
+      <p>新闻两行大标题、排名徽章、热度与骨架的组合继续由 NewsCard 表达；天气每日预报的温度范围条继续留在应用内，可进一步组织为 DailyForecastRow。公共 Card 可提供背景和内容容器，但不把所有业务卡片塞进一个包含大量布尔开关的类型。</p>
+      <h3>7.4 ContentStateView</h3>
+      <p>第一版输入为 ContentState {phase, has_content, message, detail}。无内容时显示等待、空或错误文字；has_content=true 时隐藏提示层，保留 App 已有内容。message / detail 各限 256 UTF-8 字节，Scene 复制文本，非法更新保留原展示。</p>
+      <p>Empty 由业务完成后无内容决定，不能在第一次请求尚未结束时误显示。重试入口目前复用 AppBar 刷新动作，缓存更新提示由 App 自己的状态栏提供。骨架、内联重试按钮和 RetryRequested 是后续方向；HTTP、Job、重试次数、退避和缓存有效性始终由 App 管理。来源署名与业务统计仍由页面提供。</p>
+      <h3>7.5 应用内部组件</h3>
+      <div class="table-wrap"><table><thead><tr><th>应用</th><th>先留在应用内的组件</th><th>未来可提取的共性</th></tr></thead><tbody>
+        <tr><td>天气</td><td>HourlyForecastCell、DailyForecastRow、天气指标组</td><td>有第二个消费者后再提取指标排版或范围条。</td></tr>
+        <tr><td>新闻</td><td>NewsCard、ArticleReader</td><td>标题测量、文本行展示、来源与状态区域。</td></tr>
+        <tr><td>时钟</td><td>ReminderRow、日历日期格、闹钟编辑页</td><td>列表项附件、选中项、表单操作组。</td></tr>
+        <tr><td>音乐</td><td>MiniPlayer、完整播放器、登录视图</td><td>可复用的图文布局和动作组；不携带音乐服务模型。</td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section class="section" id="theme" aria-labelledby="theme-title" data-keywords="Theme 主题 布局 字体 文本 wrap overflow tokens">
+      <span class="section-tag">08 / THEME &amp; LAYOUT</span><h2 id="theme-title">主题、布局与文本策略</h2>
+      <h3>8.1 从现有 panel 定义整理 Theme</h3>
+      <p>以 panel.hpp 和家庭面板视觉规范为起点，整理颜色角色、文字角色、内边距、组件间距、圆角和最小触摸尺寸。现有 720×720 设计的 24 边距、84 触摸尺寸是默认 profile 的参数，不写死在公共组件算法里。</p>
+      <p>第一版使用明确传入的样式快照，保持创建和更新的成本可见。panel 的既有常量可作为默认主题兼容入口；运行时全局主题广播、复杂层叠样式和自动资源重建留待实际需求出现后定义。</p>
+      <h3>8.2 布局与坐标</h3>
+      <p>组件接收局部 Rect，组合现有 Flex/Grid 计算。公共组件不调用 ConfigureDisplay，不持有全屏分辨率假设；Activity 在合适的一次性初始化位置配置逻辑画布，页面依据 RendererInfo 与 safe area 分配组件区域。</p>
+      <p>布局失败、文本超出可分配区域或触摸目标冲突时，返回清晰错误或采用已声明的降级。新增 bounds 时同时更新绘制和命中区域；视觉按钮可以小于触摸目标，但相邻动作不能因隐式扩张而产生重叠。</p>
+      <h3>8.3 文本测量与溢出</h3>
+      <p>复用 Label、text_overflow.hpp 和 wrap_text.hpp 的测量、UTF-8 与折行能力。字符或字节截断用于存储边界，像素测量用于显示边界；两者分别定义。字体角色由 Host 提供，不能假定所有平台有相同字宽。</p>
+      <p>标题、列表正文和状态文字分别声明最大存储长度、行数和溢出策略。文本、字体、可用宽度或显式排版版本变化时重新测量；内容未变的滚动不重复排版。应用特有的标题清洗与网络内容校验仍留在 App。</p>
+    </section>
+
+    <section class="section" id="lifetime" aria-labelledby="lifetime-title" data-keywords="资源 生命周期 所有权 RAII move Destroy Scene Activity token">
+      <span class="section-tag">09 / OWNERSHIP</span><h2 id="lifetime-title">资源所有权与生命周期</h2>
+      <p>Scene 持有节点状态，复合组件持有自己根子树的清理责任和输入状态。根节点句柄不是独立的 Host 对象指针；组件不延长 Scene、图集或 Application 的有效寿命。</p>
+      <div class="table-wrap"><table><thead><tr><th>对象或操作</th><th>生命周期要求</th></tr></thead><tbody>
+        <tr><td>组件与根子树</td><td>新复合组件不可复制、可移动。Destroy 先取消手势，再释放自己的根子树并清空句柄；重复 Destroy 不产生额外操作。</td></tr>
+        <tr><td>移动语义</td><td>移动后仅目标对象保留清理责任，源对象为空。移动赋值先清理目标旧子树；不能只复制 ContainerNode 后让两个析构路径都认为自己拥有子树。</td></tr>
+        <tr><td>父容器与 Scene</td><td>页面优先先销毁组件再销毁 Scene。父子树已清理时，组件的后续清理必须识别无效句柄，不对失效节点调用视觉 setter。</td></tr>
+        <tr><td>共享图集</td><td>默认由 Activity 级资源对象持有，多个组件借用；组件结束不主动释放他人的图集。资源身份与使用寿命遵循现有 SDK 契约。</td></tr>
+        <tr><td>组件资源域</td><td>在 Activity 回调中创建的 UI 资源保持 Activity 域归属。把句柄 move 到另一个对象不会改变原来的资源域。</td></tr>
+        <tr><td>文本、数据与回调</td><td>绑定回调不保存临时数据 view。组件保存自己的有界显示值或借用具有明确寿命的数据源；不隐式捕获已结束的 Activity、请求或栈对象。</td></tr>
+      </tbody></table></div>
+      <h3>9.1 Activity 集成</h3>
+      <p>OnCreate 创建组件和首帧；OnEvent 转交输入、处理 typed action、更新 Model 并合并提交；OnStop 调用 CancelInput；OnResume 同步当前 Model 并按需绘制；OnDestroy 结束页面组件与页面资源。Activity 重建后重新绑定，旧节点和手势状态不复用。</p>
+      <h3>9.2 有界资源成本</h3>
+      <p>组件创建、显式布局调整或更换容量时可以申请必要存储，并处理失败。常规事件、绘制和滚动复用节点与工作区；不依赖频繁创建/销毁控件实现选中效果，不为每个列表项目建立常驻节点。</p>
+      <p>容量由使用者和组件参数明确约束，不能把 PC 可用内存当成 MCU 预算。模板可用于编译期容量和行类型，但应控制实例化规模；无需求时不增加 type-erasure、隐式堆分配或跨层共享所有权。</p>
+    </section>
+
+    <section class="section" id="migration" aria-labelledby="migration-title" data-keywords="迁移 兼容 演进 顺序 第一批 第二批 ABI 文件">
+      <span class="section-tag">10 / EVOLUTION</span><h2 id="migration-title">兼容策略与演进顺序</h2>
+      <p>保留现有 Scene、基础控件与调用方式。新增组件先在局部页面接入，应用行为和公共契约稳定后再迁移其他页面。每个阶段以明确的消费者为依据，避免先构造一个尚无真实调用者的完整框架。</p>
+      <div class="table-wrap"><table><thead><tr><th>应用</th><th>公共组件与页面边界</th></tr></thead><tbody>
+        <tr><td>天气</td><td>weather_activity.hpp 管理预报；city_picker.hpp 使用 AppBar、SegmentedControl&lt;2&gt; 和 VirtualList&lt;TextButton,18&gt;。weather_model.hpp / weather_service.hpp 独立维护缓存、Job 与 Widget。</td></tr>
+        <tr><td>闹钟</td><td>clock_activity.hpp 使用 AppBar；clock_page.hpp 持有本页 ComponentRoot 与 ContentStateView。planner.hpp / clock_service.hpp 负责持久计划与导航消息。</td></tr>
+        <tr><td>音乐</td><td>music_view.hpp 使用 AppBar、SegmentedControl&lt;3&gt;、VirtualList&lt;ListItem,8&gt; 和 ContentStateView。账号、协议、播放队列和 PlaybackService 继续由业务层持有。</td></tr>
+        <tr><td>后续方向</td><td>新闻接入同一组件；先评估固定卡片，再考虑可变行高、稳定锚点、更多内容槽和内联重试。</td></tr>
+      </tbody></table></div>
+      <h3>10.1 SDK 文件</h3>
+      <div class="codebox"><div class="code-head"><span>已实现目录 · guest/sdk/ui/</span><button class="copy" type="button">复制</button></div><pre><code>component.hpp            # UiUpdate 与 move-only 子树所有权
+app_bar.hpp              # 标题、副标题与有界动作
+segmented_control.hpp    # 外部控制的选项组
+virtual_list.hpp         # 单列 / 固定列数网格、稳定 key 与手势
+content_state_view.hpp   # 加载、空、失败文字与缓存保留
+theme.hpp               # 主题角色，与 panel 兼容</code></pre></div>
+      <p>完整用法见 <a href="../../guest/sdk/README.zh-CN.md">SDK 组合控件</a>和上述真实消费者。组件不新增 Host ABI。行创建器、key、bind 和触摸适配均为 C++ 模板回调，不把闭包传入 ABI。</p>
+      <h3>10.2 协议和平台兼容</h3>
+      <p>首批能力在 Guest 内实现，保持 Graphics ABI、Core import 和 Bundle 外壳。若新组件遇到现有节点无法表达的实际能力，先记录具体调用场景和成本，再单独设计服务扩展；不直接把 raw LVGL 调用穿过边界。</p>
+      <p>组件库与 App 的 Activity/Service 模式相互独立：可组合到 Run() 前台应用，也可组合到当前 PC 的 RunComponents() 应用。MCU 组合根的组件生命周期支持仍以现有平台契约为准，新增 UI 组合不会自动改变该支持范围。</p>
+      <p>运行、回归与性能测量程序沿用<a href="../development/panel-ui.zh-CN.md">面板运行与验证</a>、<a href="../development/graphics-performance.zh-CN.md">图形性能指南</a>和<a href="../../guest/tests/README.zh-CN.md">Guest conformance 说明</a>。具体执行记录与交付验收保留在开发记录中。</p>
+    </section>
+
+    <section class="section" id="invariants" aria-labelledby="invariants-title" data-keywords="约束 不变量 风险 成本 待定">
+      <span class="section-tag">11 / INVARIANTS</span><h2 id="invariants-title">必须保持的不变量与设计取舍</h2>
+      <ol>
+        <li>同一有效手势最多产生一个业务动作；滚动结束与取消不产生行点击。</li>
+        <li>尾部动作不同时触发正文；隐藏层、禁用控件和已销毁组件不接收新动作。</li>
+        <li>slot 复用后，旧手势不能作用于新绑定的数据项；业务动作包含稳定身份。</li>
+        <li>组件移动后只有一份清理责任；销毁和重复清理不对失效节点进行修改。</li>
+        <li>组件绘制遵循父容器局部坐标、裁剪和逻辑画布，命中区域与布局同步更新。</li>
+        <li>未变化属性不触发无意义的重绑、测量和节点创建；页面汇总场景提交。</li>
+        <li>列表常驻节点取决于可见池；数据增长不直接等价于 UI 节点增长。</li>
+        <li>UI 组件不持有网络或业务调度权限，选中与 pending 的最终业务含义由 App 决定。</li>
+      </ol>
+      <div class="table-wrap"><table><thead><tr><th>风险或取舍</th><th>设计处理</th></tr></thead><tbody>
+        <tr><td>组件 API 因不同页面不断增加开关</td><td>只提取共同机制；内容通过行类型或子容器组合；差异明显时保持独立组件。</td></tr>
+        <tr><td>统一结果类型破坏已有调用者</td><td>先提供适配，保留已有控件契约；新增类型在复合组件层使用。</td></tr>
+        <tr><td>模板带来 Wasm 体积增长</td><td>把非行类型相关的范围计算和状态机共享，限制模板仅覆盖必要的容量与绑定部分。</td></tr>
+        <tr><td>通用布局偏离现有视觉</td><td>默认主题复现既有页面规范，先迁移结构与行为，再单独评估视觉变化。</td></tr>
+        <tr><td>更新数据时用户仍在交互</td><td>使用 key、数据集代次与绑定代次；第一版允许保守取消，不冒险派发旧动作。</td></tr>
+      </tbody></table></div>
+      <p>保留为后续决策的能力包括：可变行高与滚动锚点、嵌套滚动、统一键盘焦点导航、运行时全局主题切换，以及可跨不同图标渲染方式的更高层 ActionButton。它们需要实际消费者证明边界与成本。</p>
+    </section>
+
+    <section class="section" id="references" aria-labelledby="references-title" data-keywords="源码 文档 来源 参考">
+      <span class="section-tag">12 / REFERENCES</span><h2 id="references-title">相关源码与设计入口</h2>
+      <div class="table-wrap"><table><thead><tr><th>范围</th><th>入口</th><th>阅读目的</th></tr></thead><tbody>
+        <tr><td>基础交互</td><td><a href="../../guest/sdk/ui/button.hpp">button.hpp</a>、<a href="../../guest/sdk/ui/text_button.hpp">text_button.hpp</a>、<a href="../../guest/sdk/ui/icon_button.hpp">icon_button.hpp</a></td><td>点击捕获、视觉反馈、选中与 pending。</td></tr>
+        <tr><td>列表与滚动</td><td><a href="../../guest/sdk/ui/scroll_view.hpp">scroll_view.hpp</a>、<a href="../../guest/sdk/ui/list_item.hpp">list_item.hpp</a></td><td>复用既有几何、拖动与独立尾部操作。</td></tr>
+        <tr><td>布局与文本</td><td><a href="../../guest/sdk/ui/layout.hpp">layout.hpp</a>、<a href="../../guest/sdk/ui/label.hpp">label.hpp</a>、<a href="../../guest/sdk/ui/wrap_text.hpp">wrap_text.hpp</a></td><td>约束布局、测量、UTF-8 与折行。</td></tr>
+        <tr><td>面板与图标</td><td><a href="../../guest/sdk/ui/panel.hpp">panel.hpp</a>、<a href="../../guest/sdk/ui/material_icons.hpp">material_icons.hpp</a></td><td>现有主题和图集按钮；整理已有共性。</td></tr>
+        <tr><td>组件资源</td><td><a href="../../guest/sdk/components.hpp">components.hpp</a>、<a href="app-components.zh-CN.md">App 组件契约</a></td><td>Activity 域、资源代次与销毁边界。</td></tr>
+        <tr><td>场景与 Host</td><td><a href="../../guest/runtime/scene_graph.cpp">scene_graph.cpp</a>、<a href="../../firmware/espressif/main/platform/lvgl/guest_graphics_engine.cpp">guest_graphics_engine.cpp</a></td><td>已有节点生命周期、场景提交和 Host 合成边界。</td></tr>
+        <tr><td>现有行为覆盖</td><td><a href="../../guest/tests/conformance/music_widgets.cpp">music_widgets.cpp</a>、<a href="../../tools/tests/test_pc_widgets.py">test_pc_widgets.py</a></td><td>保留滑块取消、滚动不误点、尾部动作和 pending 契约；执行使用项目测试 wrapper。</td></tr>
+      </tbody></table></div>
+      <p>设计范围内的源码证据以当前检出版本为准。本文只记录拟定结构、接口语义和演进边界；实际 API 名称与文件组织随第二个消费者接入时收敛，并同步更新 SDK 能力目录与 App 开发指南。</p>
+      <div class="chapter-end"><a href="#decisions">回到设计决策 ↑</a><a href="../README.zh-CN.md">文档索引 →</a></div>
+    </section>
+    <footer class="doc-footer">MicroPixel Guest UI 组件抽象设计 · 设计 0.2 · 2026-11-17<br>独立 HTML，可离线阅读、复制示意代码与打印。源码链接依赖仓库相对路径。</footer>
+  </main>
+</div>
+<div id="status" role="status" aria-live="polite"></div>
+<script>
+(() => {
+  'use strict';
+  const rail = document.getElementById('rail');
+  const menu = document.getElementById('menu-toggle');
+  const status = document.getElementById('status');
+  const links = Array.from(document.querySelectorAll('.nav-list a'));
+  let statusTimer;
+  function announce(message) {
+    status.textContent = message;
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => { status.textContent = ''; }, 3500);
+  }
+  function closeMenu() { rail.classList.remove('open'); menu.setAttribute('aria-expanded', 'false'); }
+  menu.addEventListener('click', () => {
+    const open = rail.classList.toggle('open');
+    menu.setAttribute('aria-expanded', String(open));
+    if (open) document.getElementById('nav-search').focus();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && rail.classList.contains('open')) { closeMenu(); menu.focus(); }
+  });
+  document.addEventListener('click', event => {
+    if (rail.classList.contains('open') && !rail.contains(event.target) && !menu.contains(event.target)) closeMenu();
+  });
+  links.forEach(link => link.addEventListener('click', closeMenu));
+  const search = document.getElementById('nav-search');
+  search.addEventListener('input', () => {
+    const query = search.value.trim().toLocaleLowerCase();
+    let count = 0;
+    links.forEach(link => {
+      const section = document.querySelector(link.getAttribute('href'));
+      const match = !query || (link.textContent + ' ' + section.querySelector('h2').textContent + ' ' + (section.dataset.keywords || '')).toLocaleLowerCase().includes(query);
+      link.parentElement.hidden = !match;
+      if (match) count++;
+    });
+    document.getElementById('nav-empty').hidden = count !== 0;
+  });
+  document.querySelectorAll('.copy').forEach(button => {
+    button.addEventListener('click', async () => {
+      const code = button.closest('.codebox').querySelector('code');
+      try {
+        if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(code.textContent);
+        else {
+          const area = document.createElement('textarea');
+          area.value = code.textContent;
+          area.style.cssText = 'position:fixed;left:-9999px;top:0';
+          document.body.appendChild(area);
+          area.select();
+          const copied = document.execCommand('copy');
+          area.remove();
+          if (!copied) throw new Error('Clipboard is unavailable');
+        }
+        button.textContent = '已复制';
+        announce('代码已复制');
+        setTimeout(() => { button.textContent = '复制'; }, 1800);
+      } catch (_) {
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        announce('已选中代码，请按 Ctrl+C 或 Command+C 复制');
+      }
+    });
+  });
+  document.getElementById('print').addEventListener('click', () => window.print());
+  const sections = Array.from(document.querySelectorAll('main section[id]'));
+  let scheduled = false;
+  function updateActiveChapter() {
+    scheduled = false;
+    let active = sections[0];
+    for (const section of sections) {
+      if (section.getBoundingClientRect().top <= 130) active = section;
+    }
+    if (scrollY + innerHeight >= document.documentElement.scrollHeight - 2) active = sections[sections.length - 1];
+    links.forEach(link => {
+      if (link.hash === '#' + active.id) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+  }
+  function scheduleActiveChapter() {
+    if (!scheduled) { scheduled = true; requestAnimationFrame(updateActiveChapter); }
+  }
+  window.addEventListener('scroll', scheduleActiveChapter, {passive: true});
+  window.addEventListener('resize', scheduleActiveChapter);
+  scheduleActiveChapter();
+})();
+</script>
+</body>
+</html>

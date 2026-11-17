@@ -124,6 +124,9 @@ already covers the need; apps must not re-implement these locally.
 | Opt-in UTF-8 text input | `Input::EnableText/ReadText` | `input.hpp` |
 | Event loop, service views, `Result<T>` | `Application`, `app.xxx()` | `application.hpp`, `result.hpp` |
 | Retained 2D UI, sprites, labels, layout | `Scene`, `SpriteBatch`, `ui::FlexContainer`, `ui::TextButton` | `scene.hpp`, `ui/*.hpp` |
+| Headers, selection groups, content status and themes | `ui::AppBar`, `ui::SegmentedControl<N>`, `ui::ContentStateView`, `ui::Theme` | `ui/app_bar.hpp`, `ui/segmented_control.hpp`, `ui/content_state_view.hpp`, `ui/theme.hpp` |
+| Fixed-height virtual lists/grids and gesture arbitration | `ui::VirtualList<Row,N>` | `ui/virtual_list.hpp` |
+| Move-only composite subtree ownership | `ui::ComponentRoot`, `ui::UiUpdate<Action>` | `ui/component.hpp` |
 | Host-rasterized frames, INDEX8 textures, palettes | `HostSurface`, `RasterDrawList`, `RasterResources` | `graphics.hpp` |
 | Raycast walls, PS1-style polygons, Mode7 ground, globe | `Raycaster`, `MeshRenderer`, `Mode7Plane`, `SphereView` | `raycast.hpp`, `mesh_renderer.hpp`, `mode7_plane.hpp`, `sphere_view.hpp` |
 | Textures, fonts, dynamic textures | `Resources::LoadTexture/LoadFont/CreateDynamicTexture` | `resources.hpp` |
@@ -160,6 +163,27 @@ The [Guest UI widget guide](../../docs/design/guest-ui-widgets.zh-CN.md) documen
 bounded text, confirmed selection, and the music player's fixed row pool. These widgets use existing Scene/input
 services and require no new Host ABI. Follow `SliderUpdate::committed` when issuing a seek;
 reset row interactions when `ScrollUpdate::dragging` is true, including the release event.
+
+`micropixel.hpp` exports the new composite widgets. AppBar supports one optional leading action and at most two
+trailing actions, with 128-byte titles/subtitles. SegmentedControl returns the requested index; the app calls
+`SetSelected`, including its own policy for reselects. ContentStateView accepts phase/content/message/detail,
+limits each message to 256 bytes and hides itself while cached content exists. Retry remains an app action.
+
+`VirtualList<Row,N>::Create(parent, geometry, create_row)` allocates a fixed N-slot pool once on the heap.
+Geometry supports one or multiple columns. Insufficient visible capacity and overflowing content heights return errors.
+Call `SetItems(count, generation, reset_offset)`, then `BindRows(key, bind, refresh)`; advance generation for dataset
+replacement, retain it for append. Any count/generation change cancels capture; append preserves the offset.
+The key callback must return unique stable IDs. The binder updates existing nodes and receives `(Row&, index, Rect)`;
+Row provides `SetVisible` and `Reset`. Pass a touch adapter returning `RowUpdate` to `OnTouch`.
+Unchanged identities skip binding unless `refresh=true`. Actions carry key, generation, index and body/trailing region.
+Rebind and dragging cancel taps, including dragging at the scroll boundary. Pagination stays in the app.
+
+Composite widgets are move-only and own subtree cleanup through ComponentRoot; Destroy is idempotent.
+Keep the Scene alive while using them, cancel input on Activity stop, and destroy widgets before the Scene.
+Their factories return their own validation/resource errors; delegated legacy primitive factories still panic on allocation failure.
+See the [Chinese API guide](README.zh-CN.md#组合控件), [design](../../docs/design/guest-ui-components.zh-CN.html),
+[weather grid](../apps/weather/city_picker.hpp), [clock](../apps/clock-alarm/clock_activity.hpp) and
+[music list](../apps/netease-music/music_view.hpp).
 
 ## Game helpers
 

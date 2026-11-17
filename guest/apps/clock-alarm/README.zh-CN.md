@@ -23,3 +23,8 @@ bash tools/pc.sh run --home
 `OpenPage` 可选消息用 U32 指定页面：0=闹钟，1=日历，2=事项。
 Home 的闹钟卡片直接进入闹钟页，“日历与事项”卡片进入月历页。
 界面及验证见[面板指南](../../../docs/development/panel-ui.zh-CN.md)。
+
+`main.cpp` 只组装应用；`planner.hpp` 维护模型，`clock_service.hpp` 处理 Home 数据和页面消息，
+`clock_activity.hpp` 管理生命周期与公共 AppBar，`clock_page.hpp` 管理当前页面子树。
+页面通过 SDK ComponentRoot 释放节点，空事项提示使用 ContentStateView；停止页面时取消输入与文本编辑。
+显示配置在 main 中只执行一次，页面重建只重建 Scene 与控件。

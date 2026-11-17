@@ -1,21 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 #include <array>
+#include <string_view>
 
-#include "sdk/micropixel.hpp"
+#include "sdk/fixed_string.hpp"
+#include "sdk/ui/button.hpp"
+#include "sdk/ui/theme.hpp"
 namespace micropixel::ui::panel {
-inline constexpr Color Background = Color::Rgb(16, 18, 20), Surface = Color::Rgb(27, 31, 35),
-                       Raised = Color::Rgb(36, 42, 47), Text = Color::Rgb(245, 247, 248),
-                       Muted = Color::Rgb(140, 151, 158), Accent = Color::Rgb(232, 161, 92),
+inline constexpr Color Background = kPanelTheme.background, Surface = kPanelTheme.surface, Raised = kPanelTheme.raised,
+                       Text = kPanelTheme.text, Muted = kPanelTheme.muted, Accent = kPanelTheme.accent,
                        Blue = Color::Rgb(127, 182, 217), Red = Color::Rgb(230, 80, 96), Line = Color::Rgb(43, 50, 56),
-                       OnAccent = Color::Rgb(26, 19, 5), Disabled = Color::Rgb(108, 117, 123);
-inline TextButtonStyle Style(bool selected = false) {
-    return {.background = selected ? Accent : Surface,
-            .text = selected ? OnAccent : Text,
-            .feedback = Muted,
-            .font = SystemFont::kMedium,
-            .corner_radius = 24};
-}
+                       OnAccent = kPanelTheme.on_accent, Disabled = kPanelTheme.disabled;
+inline TextButtonStyle Style(bool selected = false) { return kPanelTheme.ButtonStyle(selected); }
 // Visual switch and an independent 84 px touch target.
 class Switch {
    public:

@@ -30,9 +30,26 @@ bash tools/pc.sh run --home --screenshot build/home-panel.png
 
 ```sh
 bash tools/tests/test_firmware_host.sh --app-framework
+bash tools/tests/test_firmware_host.sh --pc --ui-components
 bash tools/tests/test_firmware_host.sh --pc --panel
 bash tools/tests/test_firmware_host.sh --pc --panel --rv32
 ```
+
+Guest 公共组件首版的回归入口与覆盖如下。本轮这些 PC 测试均通过，使用本地 fixture 和独立数据目录。
+
+| 命令（接在 `bash tools/tests/test_firmware_host.sh` 后） | 覆盖 |
+|---|---|
+| `--pc --ui-components` | 组件移动/清理、失败布局回收、文本压缩、稳定 key、按住重绑取消、边界拖动、禁用与固定节点池 |
+| `--pc --panel` | 三个 App 的实际页面、城市与天气缓存、事项持久化、音乐交互及后台 PCM |
+| `--pc --widgets` | 原有 Slider、ScrollView、ListItem 的手势与 pending 状态兼容 |
+| `--pc --music` | SDK/wire 边界、搜索与播放状态、协议编解码和非静音 MP3 |
+| `--pc --feed --refresh` | 推荐刷新保留内容、切页、部分追加与去重 |
+| `--pc --playback-service` | 长轮询、后台自动下一首、页面销毁后重建与账号/队列保留 |
+
+三个应用的 checked RV32 release Bundle 输出在 `build/guest-ui-release/<app>/`，
+均通过 PC/QEMU RV32 的创建页面与正常退出检查。该检查覆盖启动，不代表 RV32 全量交互回归或 MCU 真机验证。
+组件契约见[独立 HTML 设计](../design/guest-ui-components.zh-CN.html)，API 与调用要求见
+[SDK](../../guest/sdk/README.zh-CN.md#组合控件)。
 
 `--panel` 构建 Host 和所选后端的三个应用，使用独立临时数据库、本地 HTTP 音乐/天气/授权 fixture，
 在真实 SDL/X11 窗口执行交互，检查实际截图与 SDL 输出的非静音 PCM。无需真实音乐账号。

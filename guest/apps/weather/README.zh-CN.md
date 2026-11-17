@@ -15,3 +15,8 @@
 运行：`bash tools/pc.sh run --multi-app --autostart build/pc-apps/weather/weather.pc.json`。
 实现及测试见 [D6](../../../docs/development/app-manager-d6.zh-CN.md)。
 新版界面见[面板指南](../../../docs/development/panel-ui.zh-CN.md)。
+
+`main.cpp` 只组装应用；`weather_model.hpp` 保存共享状态，`weather_service.hpp` 处理请求、Job 和 Widget，
+`weather_activity.hpp` 管理预报页面。`city_picker.hpp` 使用 SDK 的 AppBar、SegmentedControl 和
+三列 VirtualList，18 个按钮覆盖可见工作集；切换省份推进数据代次并取消旧手势，滚动不创建新按钮。
+公共组件与扩展边界见[组件设计](../../../docs/design/guest-ui-components.zh-CN.html)。

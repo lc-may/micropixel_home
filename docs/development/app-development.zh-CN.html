@@ -1,0 +1,755 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从创建项目到构建运行，详细介绍 MicroPixel App 的 SDK、Activity、AppService、组件资源域、界面、异步 HTTP、Job、Widget 与发布流程。">
+  <title>MicroPixel App 开发指南</title>
+  <style>
+    :root{color-scheme:light;--paper:#fafbf8;--surface:#fff;--ink:#233128;--muted:#5d6a60;--line:#dce3d9;--accent:#356247;--tint:#edf3eb;--code:#1e2b24;--code-ink:#e2ece2;--rail:264px}
+    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.85 "Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif}a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:4px}a:hover{color:#244731}button,input{font:inherit}button{cursor:pointer}button:active{transform:scale(.98)}:focus-visible{outline:3px solid #7f9e84;outline-offset:4px}::selection{background:#d2e4d0}code,pre,kbd{font-family:"Cascadia Code","Noto Sans Mono CJK SC",Consolas,monospace}p,ul,ol{margin:0 0 18px}li+li{margin-top:7px}strong{font-weight:650}p code,li code,td code,dd code{font-size:.88em;background:var(--tint);padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}h1,h2,h3,h4{line-height:1.4;font-weight:650;letter-spacing:-.025em}h1{font-size:clamp(30px,4.3vw,52px);margin:18px 0 22px}h2{font-size:28px;margin:0 0 24px}h3{font-size:21px;margin:34px 0 14px}h4{font-size:17px;margin:24px 0 10px}small,.small{font-size:13px;color:var(--muted)}.skip{position:fixed;top:-90px;left:20px;z-index:50;background:var(--surface);padding:10px}.skip:focus{top:10px}
+    .rail{position:fixed;inset:0 auto 0 0;width:var(--rail);background:#f0f3ed;border-right:1px solid var(--line);padding:30px 22px 24px;display:flex;flex-direction:column;z-index:20}.brand{display:flex;align-items:center;gap:12px;font-size:19px;font-weight:700;text-decoration:none;color:var(--ink)}.mark{display:grid;grid-template-columns:repeat(3,6px);gap:3px}.mark span{width:6px;height:6px;background:var(--accent)}.mark span:nth-child(3),.mark span:nth-child(7){opacity:.25}.rail-caption{margin:9px 0 25px 39px;font-size:12px;letter-spacing:.08em;color:var(--muted)}.search-label{font-size:12px;display:block;margin-bottom:5px;color:var(--muted)}#nav-search{width:100%;padding:9px 11px;border:1px solid #c9d4c5;border-radius:7px;background:#fafbf8;font-size:13px;color:var(--ink)}.nav-list{padding:0;margin:18px -8px;list-style:none;overflow:auto;flex:1}.nav-list li{margin:0}.nav-list a{display:flex;gap:12px;align-items:baseline;padding:7px 10px;font-size:13px;text-decoration:none;border-left:2px solid transparent;border-radius:0 5px 5px 0;color:#4a5a4f}.nav-list a:hover{background:#e5ece1}.nav-list a[aria-current="location"]{background:#dde8d9;border-color:var(--accent);color:#294c36;font-weight:650}.nav-no{font:11px/1.8 Consolas,monospace;opacity:.65}#nav-empty{margin:8px 0;font-size:13px;color:var(--muted)}.rail-footer{border-top:1px solid var(--line);padding-top:15px;font-size:11px;color:var(--muted)}
+    .page{margin-left:var(--rail)}.topbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 5%;background:#fafbf8f5;border-bottom:1px solid var(--line)}.breadcrumb{font-size:13px;color:var(--muted)}.actions{display:flex;gap:8px}.btn{border:1px solid #c9d4c5;border-radius:6px;background:var(--surface);color:var(--ink);padding:6px 12px;font-size:12px;transition:background .15s,transform .15s}.btn:hover{background:var(--tint)}.menu-toggle{display:none}main{max-width:1080px;padding:0 6% 70px;margin:auto;min-width:0}.hero{padding:64px 0 46px;border-bottom:1px solid var(--line)}.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--accent);font-weight:700}.lede{font-size:18px;color:var(--muted);max-width:740px}.meta{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:12px;color:var(--muted);margin-top:26px}.hero-links{display:flex;gap:22px;margin-top:24px;font-size:14px}.section{padding:50px 0;border-bottom:1px solid var(--line);min-width:0}.section-tag{font:12px/1.5 Consolas,monospace;letter-spacing:.08em;color:var(--accent);display:block;margin-bottom:10px}.intro{color:var(--muted)}.note{border-left:3px solid var(--accent);background:var(--tint);padding:17px 20px;margin:22px 0}.note p:last-child{margin-bottom:0}.note-title{display:block;margin-bottom:5px;font-weight:650}.table-wrap{width:100%;overflow-x:auto;margin:20px 0 24px;border:1px solid var(--line);border-radius:7px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;vertical-align:top;padding:12px 15px;border-bottom:1px solid var(--line);min-width:110px}thead{background:var(--tint)}th{font-weight:650}tr:last-child td{border-bottom:0}td:first-child{font-weight:550}td p:last-child{margin-bottom:0}.codebox{margin:18px 0 24px;border-radius:7px;overflow:hidden;background:var(--code);color:var(--code-ink);min-width:0}.code-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 15px;background:#293a2f;border-bottom:1px solid #ffffff14;color:#c2d2c3;font:12px/1.5 Consolas,"Noto Sans CJK SC",monospace}.copy{background:transparent;color:#dfebdd;border:1px solid #ffffff32;border-radius:4px;padding:3px 10px;font-size:11px}.copy:hover{background:#ffffff0d}pre{padding:19px 20px;margin:0;overflow:auto;font-size:12px;line-height:1.85;tab-size:4}.codebox.compact pre{max-height:650px}.file-note{font-size:13px;color:var(--muted);margin-top:-9px}.steps{list-style:none;counter-reset:step;padding:0;margin:28px 0}.steps>li{position:relative;padding-left:43px;margin:0 0 23px;counter-increment:step}.steps>li::before{content:counter(step,decimal-leading-zero);position:absolute;left:0;top:2px;font:12px/1.8 Consolas,monospace;color:var(--accent);border-bottom:1px solid #a1b69e;padding-bottom:3px}.steps>li>strong{display:block;margin-bottom:4px}.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:28px 0;gap:7px}.flow>div{border-top:2px solid #a6b99f;padding:12px 5px 0}.flow span{font:11px Consolas,monospace;color:var(--muted);display:block}.flow strong{display:block;font-size:14px;margin:6px 0}.flow small{font-size:11px}.split{display:grid;grid-template-columns:1fr 1fr;gap:25px}.split>div{min-width:0}.architecture{border:1px solid var(--line);border-radius:8px;padding:20px;margin:23px 0;background:var(--surface)}.arch-top{text-align:center;padding:8px;border-bottom:1px solid var(--line);font-size:14px}.arch-parts{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:15px 0}.arch-parts div{padding:12px;background:var(--tint);font-size:13px}.arch-parts strong{display:block}.arch-model{text-align:center;background:#e1ebdd;padding:10px;font-size:14px}.arch-bottom{text-align:center;font-size:12px;color:var(--muted);margin-top:12px}.life{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin:18px 0;font:13px/1.8 Consolas,monospace}.life span{border:1px solid var(--line);padding:6px 10px;background:var(--surface);border-radius:4px}.life b{color:var(--muted);font-weight:400}.checklist{list-style:none;padding:0}.checklist li{padding-left:24px;position:relative}.checklist li::before{content:"";width:10px;height:10px;position:absolute;left:0;top:10px;border:1px solid #8d9f88;border-radius:2px}details{border-bottom:1px solid var(--line);padding:16px 0}summary{cursor:pointer;font-weight:600}details[open] summary{margin-bottom:12px}details p:last-child{margin-bottom:0}.source-list{padding-left:20px}.source-list a{overflow-wrap:anywhere}.chapter-end{display:flex;justify-content:space-between;gap:15px;margin-top:26px;font-size:13px}.doc-footer{padding:30px 0 0;font-size:12px;color:var(--muted)}#status{position:fixed;bottom:22px;right:22px;padding:10px 16px;background:var(--ink);color:#fff;border-radius:6px;font-size:13px;z-index:30;max-width:calc(100vw - 44px)}#status:empty{display:none}
+    @media(min-width:1600px){main{max-width:1160px}}@media(max-width:1100px){:root{--rail:230px}.rail{padding:25px 16px}main{padding-inline:5%}.topbar{padding-inline:5%}.flow{grid-template-columns:repeat(3,minmax(0,1fr))}h2{font-size:25px}}
+    @media(max-width:800px){:root{--rail:264px}.rail{transform:translateX(-100%);transition:transform .2s}.rail.open{transform:translateX(0)}.page{margin-left:0}.menu-toggle{display:inline-block}.topbar{padding:12px 18px}.breadcrumb{font-size:12px}.hero{padding-top:38px}main{padding:0 22px 45px}.section{padding:36px 0}.split{grid-template-columns:1fr;gap:0}.flow{grid-template-columns:repeat(2,minmax(0,1fr))}.arch-parts{grid-template-columns:1fr}.lede{font-size:16px}.table-wrap{border-radius:4px}th,td{padding:10px 12px}pre{font-size:11px;padding:15px}.hero-links{flex-wrap:wrap;gap:12px 22px}.rail-footer{font-size:11px}.topbar .print-label{display:none}}
+    @media(max-width:800px){.rail:not(.open){visibility:hidden}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+    @media print{@page{size:A4;margin:18mm 16mm}html{scroll-behavior:auto}body{font-size:10.5pt;line-height:1.65;background:white;color:#202820}.rail,.topbar,.skip,.copy,#status,.hero-links{display:none!important}.page{margin:0}main{max-width:none;padding:0}.hero{padding:0 0 20px}h1{font-size:28pt}h2{font-size:18pt}h3{font-size:13pt}h1,h2,h3,h4{break-after:avoid}.section{padding:22px 0;break-before:auto}.note,.architecture,.flow,tr{break-inside:avoid}.codebox{background:#f3f5f1;color:#17241c;border:1px solid #d0d9cc;overflow:visible;break-inside:auto}.code-head{background:#e6ece1;color:#25382b}.codebox pre,.codebox.compact pre{white-space:pre-wrap;overflow:visible;max-height:none;font-size:8pt;line-height:1.55;overflow-wrap:anywhere}.table-wrap{overflow:visible}table{font-size:9pt}thead{display:table-header-group}th,td{padding:7px 9px}a{color:inherit;text-decoration:none}.meta{font-size:9pt}.source-list{font-size:9pt}.section-tag{font-size:9pt}.flow{grid-template-columns:repeat(5,minmax(0,1fr))}.flow strong{font-size:10pt}.flow small{font-size:8pt}.doc-footer{font-size:8pt}details{break-inside:avoid}.arch-parts{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+<aside class="rail" id="rail" aria-label="文档导航">
+  <a class="brand" href="#overview"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span>MicroPixel</a>
+  <div class="rail-caption">APP 开发指南</div>
+  <label class="search-label" for="nav-search">查找章节</label>
+  <input id="nav-search" type="search" placeholder="组件、网络、构建…" autocomplete="off" aria-controls="chapters">
+  <ol class="nav-list" id="chapters">
+    <li><a href="#overview"><span class="nav-no">01</span>开发模型与适用范围</a></li>
+    <li><a href="#setup"><span class="nav-no">02</span>环境与项目创建</a></li>
+    <li><a href="#manifest"><span class="nav-no">03</span>编写应用清单</a></li>
+    <li><a href="#components"><span class="nav-no">04</span>组件、状态与生命周期</a></li>
+    <li><a href="#context"><span class="nav-no">05</span>ComponentContext 与资源</a></li>
+    <li><a href="#example"><span class="nav-no">06</span>完整示例：计数器</a></li>
+    <li><a href="#ui"><span class="nav-no">07</span>界面、布局与输入</a></li>
+    <li><a href="#async"><span class="nav-no">08</span>事件、定时器与 HTTP</a></li>
+    <li><a href="#background"><span class="nav-no">09</span>Job、Widget 与消息</a></li>
+    <li><a href="#storage"><span class="nav-no">10</span>存储、资源与音频</a></li>
+    <li><a href="#weather"><span class="nav-no">11</span>天气 App 实战拆解</a></li>
+    <li><a href="#build"><span class="nav-no">12</span>构建、运行与调试</a></li>
+    <li><a href="#mcu"><span class="nav-no">13</span>MCU 与兼容模式</a></li>
+    <li><a href="#release"><span class="nav-no">14</span>测试与发布</a></li>
+    <li><a href="#troubleshooting"><span class="nav-no">15</span>常见问题</a></li>
+    <li><a href="#references"><span class="nav-no">16</span>源码与阅读路线</a></li>
+  </ol>
+  <p id="nav-empty" role="status" hidden>没有匹配章节，试试更短的关键词。</p>
+  <div class="rail-footer">单文件 HTML · 可离线阅读<br>按当前仓库代码编写 · 2026-11-17</div>
+</aside>
+<div class="page">
+  <header class="topbar">
+    <div class="actions"><button type="button" class="btn menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="rail">目录</button><span class="breadcrumb">开发文档 / Guest App</span></div>
+    <div class="actions"><a class="btn" href="../README.zh-CN.md">文档索引</a><button type="button" class="btn" id="print">打印<span class="print-label"> / 保存 PDF</span></button></div>
+  </header>
+  <main id="main">
+    <div class="hero">
+      <span class="eyebrow">MICROPIXEL / DEVELOPER GUIDE</span>
+      <h1>MicroPixel App<br>开发指南</h1>
+      <p class="lede">从第一个页面，到有独立业务生命周期的应用。以当前 PC 端 SDK 为主线，说明项目结构、组件设计、界面更新、异步网络、后台调度和构建发布。</p>
+      <div class="meta"><span>读者：具备基础 C++ 经验的 App 开发者</span><span>示例：Activity + AppService 计数器</span><span>案例：天气 App</span></div>
+      <div class="hero-links"><a href="#example">直接看完整示例 →</a><a href="#setup">从创建项目开始 →</a></div>
+    </div>
+
+    <section class="section" id="overview" aria-labelledby="overview-title">
+      <span class="section-tag">01 / START HERE</span><h2 id="overview-title">先理解 App 如何运行</h2>
+      <p>MicroPixel App 是使用<strong>受限 C++23</strong> 编写的 Guest 程序，编译为 Wasm 或目标架构的 AOT。Host 负责显示、输入、音频、设备能力和应用生命周期；App 通过 <code>guest/sdk/</code> 下的公共接口访问这些能力。普通 App 开发不需要修改固件、Host 或 ABI。</p>
+      <div class="flow" aria-label="应用开发流程">
+        <div><span>STEP 01</span><strong>创建项目</strong><small>app.json + C++ 源码</small></div>
+        <div><span>STEP 02</span><strong>声明能力</strong><small>显示、输入、服务、组件</small></div>
+        <div><span>STEP 03</span><strong>实现业务</strong><small>Model + 界面 + 事件</small></div>
+        <div><span>STEP 04</span><strong>构建运行</strong><small>PC 验证 / 目标设备实测</small></div>
+        <div><span>STEP 05</span><strong>测试发布</strong><small>版本、Bundle、商店资料</small></div>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>对象</th><th>负责什么</th><th>如何使用</th></tr></thead><tbody>
+        <tr><td>Application</td><td>一个 Guest 的能力入口和事件循环</td><td><code>app.renderer()</code>、<code>app.network()</code>、<code>RunComponents()</code></td></tr>
+        <tr><td>Activity</td><td>界面、输入和页面资源</td><td>在生命周期回调中创建、更新和释放页面</td></tr>
+        <tr><td>AppService</td><td>可独立于页面存在的业务工作</td><td>网络请求、媒体、Job、Widget 发布等</td></tr>
+        <tr><td>Model</td><td>App 自己定义的共享业务状态</td><td>组件通过引用读取、修改，状态变化后触发界面更新</td></tr>
+        <tr><td>ComponentContext</td><td>当前组件的应用访问、身份和生命周期请求</td><td><code>context.app()</code>、<code>StartService()</code>、<code>Exit()</code></td></tr>
+      </tbody></table></div>
+      <div class="note"><span class="note-title">先选择目标和编程模式</span><p><strong>当前 PC：</strong>新应用可采用 <code>RunComponents()</code>；简单前台应用也可继续使用 <code>Run(handler)</code>。<strong>当前 MCU：</strong>组合根尚未接入 Activity/Service，使用 <code>Run(handler)</code>。PC 上通过的组件应用不能据此认定已支持 MCU。详见<a href="#mcu">第 13 章</a>。</p></div>
+      <p>一个组件应用最多有一个 Activity 和一个 AppService。它们共享同一份 Guest 内存和一个<strong>串行事件循环</strong>。Service 没有额外 Guest 线程；业务回调也不会在执行中被另一个事件回调打断。</p>
+      <p class="small">本指南以当前检出的源码为准。旧设计文档可能包含阶段性限制；涉及平台支持或 API 时，优先核对 SDK 头文件、当前 App 和可执行测试。</p>
+    </section>
+
+    <section class="section" id="setup" aria-labelledby="setup-title">
+      <span class="section-tag">02 / PROJECT</span><h2 id="setup-title">准备环境并创建项目</h2>
+      <h3>2.1 确定工作目录与工具链</h3>
+      <p>本页所有 <code>python3 tools/…</code> 和 <code>bash tools/…</code> 命令，均在仓库的 <strong><code>micropixel/</code> 根目录</strong>执行，即同时包含 <code>guest/</code>、<code>firmware/</code>、<code>tools/</code> 的目录。已安装独立 SDK 时，使用 <code>micropixel</code> 替代 <code>python3 tools/micropixel</code>。</p>
+      <div class="table-wrap"><table><thead><tr><th>目标</th><th>所需工具</th><th>产物与运行方式</th></tr></thead><tbody>
+        <tr><td>PC 原生 Wasm</td><td>Python 3、匹配的 WASI SDK；已构建的 PC Host</td><td>Wasm + <code>*.pc.json</code>，通过 PC Host 运行；这条路径无需 WAMRC</td></tr>
+        <tr><td>PC RV32 AOT</td><td>WASI SDK、固定 fork 的 WAMRC、QEMU 与 RV32 runner</td><td>RISC-V Bundle，通过 PC Host 的 RV32 后端运行</td></tr>
+        <tr><td>MCU 真机</td><td>WASI SDK、目标架构的固定 WAMRC、USB 连接依赖</td><td>Wasm → AOT v6 → Bundle → 安装运行</td></tr>
+      </tbody></table></div>
+      <p>WAMRC 必须来自项目锁定的 MicroPixel WAMR fork，生成 AOT v6。版本号相同的上游工具不能替代。普通 App 开发无需安装 ESP-IDF；修改 Host 固件时才进入固件构建流程。</p>
+      <div class="codebox"><div class="code-head"><span>Shell · 工具链配置示例</span><button class="copy" type="button">复制</button></div><pre><code>export WASI_SDK_PATH=/path/to/wasi-sdk
+# 仅 AOT / 真机路径需要；替换为实际可执行文件。
+export WAMRC=/path/to/micropixel-wamrc
+python3 tools/micropixel --version</code></pre></div>
+      <p>PC Host 已经构建完成时直接复用。首次搭建 PC 环境，按 <a href="../../firmware/pc/README.zh-CN.md">PC README</a> 执行 <code>deps → configure → build</code>；后续只改 App 时无需重建 Host。</p>
+      <h3>2.2 生成项目</h3>
+      <div class="codebox"><div class="code-head"><span>Shell · 在 micropixel/ 根目录执行</span><button class="copy" type="button">复制</button></div><pre><code>python3 tools/micropixel init guest/apps/counter \
+  --app-id com.example.counter --title "Counter"</code></pre></div>
+      <div class="codebox"><div class="code-head"><span>项目结构</span><button class="copy" type="button">复制</button></div><pre><code>guest/apps/counter/
+├── app.json
+└── src/
+    └── main.cpp</code></pre></div>
+      <p><code>init</code> 创建的 Hello World 已能绘制页面并进入 <code>Application::Run()</code>。本指南后面的组件示例需要替换 <code>app.json</code> 和 <code>src/main.cpp</code>。已有清单时 <code>init</code> 拒绝覆盖；已有源码、没有清单时，可用 <code>init .</code> 扫描。</p>
+      <h3>2.3 项目变大后如何拆文件</h3>
+      <p>初期可把 Model 和组件放在一个 <code>main.cpp</code> 中。网络协议、解析或页面逻辑变复杂后，再拆为 <code>model.hpp</code>、<code>app_activity.hpp/.cpp</code>、<code>app_service.hpp/.cpp</code>、<code>client.hpp/.cpp</code>。每新增一个 <code>.cpp</code>，把它加入清单的 <code>sources</code>；头文件按正常 <code>#include</code> 使用。</p>
+      <p>App 只依赖 <code>sdk/</code> 的公共 API。先查 <a href="../../guest/sdk/README.zh-CN.md">SDK 能力目录</a>，复用已有数学、字符串、JSON、手柄、布局、日历和音效工具。</p>
+    </section>
+
+    <section class="section" id="manifest" aria-labelledby="manifest-title">
+      <span class="section-tag">03 / MANIFEST</span><h2 id="manifest-title">把应用需求写进 app.json</h2>
+      <p>清单既是构建输入，也是 Host 判断是否能接纳应用的依据。下面是第 6 章计数器使用的完整清单，保存为 <code>guest/apps/counter/app.json</code>。</p>
+      <div class="codebox"><div class="code-head"><span>app.json · 完整文件</span><button class="copy" type="button">复制</button></div><pre><code id="counter-manifest">{
+  &quot;schema_version&quot;: 1,
+  &quot;app_id&quot;: &quot;com.example.counter&quot;,
+  &quot;version&quot;: &quot;0.1.0&quot;,
+  &quot;threading&quot;: &quot;none&quot;,
+  &quot;title&quot;: &quot;Counter&quot;,
+  &quot;sources&quot;: [&quot;src/main.cpp&quot;],
+  &quot;requirements&quot;: {
+    &quot;schema_version&quot;: 2,
+    &quot;display&quot;: {
+      &quot;layouts&quot;: [&quot;square&quot;],
+      &quot;min_width&quot;: 720,
+      &quot;min_height&quot;: 720
+    },
+    &quot;required&quot;: [&quot;input.touch&quot;],
+    &quot;optional&quot;: [],
+    &quot;any_of&quot;: [],
+    &quot;services&quot;: {
+      &quot;lifecycle&quot;: 65536,
+      &quot;graphics&quot;: 65536,
+      &quot;input&quot;: 65536,
+      &quot;timer&quot;: 65536,
+      &quot;storage&quot;: 65536
+    },
+    &quot;components&quot;: {
+      &quot;activity&quot;: true,
+      &quot;service&quot;: true,
+      &quot;background&quot;: [],
+      &quot;widgets&quot;: 0
+    }
+  }
+}</code></pre></div>
+      <div class="table-wrap"><table><thead><tr><th>字段</th><th>编写规则</th></tr></thead><tbody>
+        <tr><td><code>schema_version</code></td><td>顶层清单格式当前为 <code>1</code>；组件声明使用内层 <code>requirements.schema_version: 2</code>，两个版本号含义不同。</td></tr>
+        <tr><td><code>app_id</code></td><td>稳定的应用身份，升级后保持不变。构建名称取 App ID 最后一段：<code>com.example.counter</code> 的名称为 <code>counter</code>。</td></tr>
+        <tr><td><code>title / version</code></td><td>大厅显示名称与应用版本。版本使用规范 <code>major.minor.patch</code>，如 <code>0.1.0</code>；不使用前导零、预发布或构建后缀。</td></tr>
+        <tr><td><code>sources / threading</code></td><td>相对项目目录列出所有 C++ 编译单元；当前标准 Guest 使用 <code>"none"</code>。不再使用旧的单数 <code>source</code>。</td></tr>
+        <tr><td><code>display</code></td><td>如实声明支持的布局和最小逻辑尺寸；示例只验证 720×720 方屏。勾选其他布局前，需要实际实现和验证适配。</td></tr>
+        <tr><td><code>required / optional / any_of</code></td><td>必需能力、可降级能力、每组至少一种的替代能力。示例必须触摸；不要把未实现降级的功能放入 optional。</td></tr>
+        <tr><td><code>services</code></td><td>最低服务版本，用 <code>(major &lt;&lt; 16) | minor</code> 编码：1.0 为 65536，1.1 为 65537，1.2 为 65538。</td></tr>
+        <tr><td><code>components</code></td><td>Activity / Service 至少一种；与传给 <code>RunComponents()</code> 的指针一致。使用组件时必须要求 Lifecycle 1.0。</td></tr>
+        <tr><td><code>background / widgets</code></td><td>后台类型只能为 <code>media</code>、<code>task</code>，且要求 Service；widgets 当前声明 0–2 个，也要求 Service 与 Widget 服务。</td></tr>
+      </tbody></table></div>
+      <p>计数器的 <code>background: []</code> 表示没有申请后台工作类型。它用 Service 展示业务拆分，返回 Home 后允许整个实例挂起；定时器不会变成持续后台计时器。</p>
+      <p>使用中文系统字体时添加 <code>"system_font": "zh-CN"</code>，并确认目标 Host 的字体支持。网络、媒体、消息、Job 等服务版本按实际调用的 API 声明，可对照对应 SDK 头文件注释和现有应用清单。</p>
+    </section>
+
+    <section class="section" id="components" aria-labelledby="components-title">
+      <span class="section-tag">04 / COMPONENTS</span><h2 id="components-title">分清状态、页面与业务的生命周期</h2>
+      <div class="architecture" role="img" aria-label="Application 提供同一个事件循环；Activity 和 AppService 都引用共享 Model，通过 SDK 访问 Host 服务。">
+        <div class="arch-top"><strong>Application</strong> · 唯一事件循环 RunComponents()</div>
+        <div class="arch-parts"><div><strong>Activity</strong>页面、输入、Scene、页面 Timer</div><div><strong>AppService</strong>请求、媒体、Job、消息、业务 Timer</div></div>
+        <div class="arch-model"><strong>共享 Model</strong> · 业务数据 / 设置 / 缓存 / revision</div>
+        <div class="arch-bottom">组件通过公共 SDK 调用 Host；不直接访问驱动或 AppManager</div>
+      </div>
+      <h3>4.1 Model 的寿命由你持有它的位置决定</h3>
+      <p>在 <code>main()</code> 中创建 Model，把引用传给两个组件，并让它存活到 <code>RunComponents()</code> 返回。页面资源销毁后，Model 仍然存在。Service 只依赖 Model、业务对象和必要的应用能力，避免保存 Activity 或控件指针。</p>
+      <p>页面需要知道数据变化时，可以在 Model 中维护递增的 <code>revision</code>。业务更新后递增；Activity 在自己的定时器或其他更新入口比较版本，仅在变化时重绘。这里是同一串行循环内的普通引用访问，无需引入线程同步。</p>
+      <h3>4.2 Activity 回调应该做什么</h3>
+      <div class="life" aria-label="Activity 的基本生命周期"><span>OnCreate</span><b>→</b><span>OnResume</span><b>→</b><span>OnStop</span><b>→</b><span>OnResume / OnDestroy</span></div>
+      <div class="table-wrap"><table><thead><tr><th>回调</th><th>建议职责</th><th>容易混淆的点</th></tr></thead><tbody>
+        <tr><td><code>OnCreate</code></td><td>创建 Scene、控件、纹理、页面定时器，显示首帧</td><td>同一个组件对象可能再次收到此回调；重建本次页面所需资源。</td></tr>
+        <tr><td><code>OnResume</code></td><td>同步最新 Model、恢复输入状态、按需重绘</td><td>从 Home 回来可能只恢复已有页面，通常不会重新执行 main。</td></tr>
+        <tr><td><code>OnEvent</code></td><td>处理当前组件的输入、Timer 和其他业务事件</td><td>按来源判断事件；不能认为任何 Timer 都是自己的 Timer。</td></tr>
+        <tr><td><code>OnStop</code></td><td>取消按下状态、拖拽、输入焦点等前台交互</td><td>Activity 停止/隐藏保留页面资源；不同于整个 App 退出。</td></tr>
+        <tr><td><code>OnDestroy</code></td><td>释放 Scene、页面 Timer、纹理等 RAII 对象，清空节点引用</td><td>生命周期销毁不等于 C++ 对象析构；对象仍由 main 持有。</td></tr>
+      </tbody></table></div>
+      <h3>4.3 Service 的启动、停止与后台资格</h3>
+      <p><code>OnStart</code> 创建业务资源、恢复必要状态或注册工作计划；<code>OnEvent</code> 推进请求和任务；<code>OnStop</code> 取消请求、释放 Timer/媒体，并做有界的状态保存。停止后再次启动，仍可能使用同一个 C++ 对象，所以每个代次都应重新初始化临时句柄和工作票据。</p>
+      <p><code>RunComponents(&activity, &service)</code> 默认请求启动 Service；第三个参数为 <code>false</code> 时，初始不主动启动，之后可通过 <code>context.StartService()</code> 请求。<code>RunComponents(&activity)</code> 可用于只有页面的应用；清单也要把 service 设为 false。</p>
+      <div class="note"><span class="note-title">三个不同的操作</span><p><code>DestroyActivity()</code> 销毁页面资源域，AppModel 和 Service 可继续存在；<code>StopService()</code> 结束当前 Service 代次；<code>Exit()</code> 请求结束整个 App。组件生命周期请求由 Host 和 Runtime 推进，并非在调用表达式中同步执行所有回调。</p></div>
+      <p>用户显式打开应用才创建或恢复 Activity。Host 的后台 Job 冷启动可能只启动 Service；业务初始化应放在 Model 或 Service 的合适位置，不能依赖 Activity 已经执行过 <code>OnCreate</code>。</p>
+    </section>
+
+    <section class="section" id="context" aria-labelledby="context-title">
+      <span class="section-tag">05 / OWNERSHIP</span><h2 id="context-title">ComponentContext 与资源归属</h2>
+      <p><code>ComponentContext</code> 定义于 <a href="../../guest/sdk/components.hpp">guest/sdk/components.hpp</a>。它让回调访问同一个 Application，并携带当前组件的 token。token 表示实例内的组件身份与代次；不能把它当作跨 App 的全局地址。</p>
+      <div class="table-wrap"><table><thead><tr><th>接口</th><th>作用</th></tr></thead><tbody>
+        <tr><td><code>app()</code></td><td>取得 <code>const Application&amp;</code>，调用 renderer、network、storage、timers 等能力。</td></tr>
+        <tr><td><code>token()</code></td><td>查询本次组件代次身份，可用于日志诊断。</td></tr>
+        <tr><td><code>StartService() / StopService()</code></td><td>请求启动或停止 Service。</td></tr>
+        <tr><td><code>CreateActivity() / DestroyActivity()</code></td><td>请求创建或销毁 Activity；不重启整个 Guest main。</td></tr>
+        <tr><td><code>Exit() / Status()</code></td><td>请求结束 App；查询组件状态、token 与资源记录数量。</td></tr>
+        <tr><td><code>WithScope(function)</code></td><td>在函数执行期间显式选择这个 Context 的资源域，结束后恢复原域。</td></tr>
+      </tbody></table></div>
+      <h3>5.1 资源在创建时绑定组件域</h3>
+      <p>Runtime 调用组件回调前，自动选中当前组件域。Activity 回调中创建的 Timer、纹理等属于 Activity；Service 回调中创建的请求、Timer 等属于 Service。绑定看的是<strong>创建时所在的域</strong>，而非对象最终放在哪个 C++ 成员变量里。</p>
+      <p>因此，把 Activity 回调中打开的 HTTP 请求 move 到 Service 成员中，并不能把它变为 Service 资源。需要在 Service 回调里创建，或在保存且仍有效的 Service Context 上通过 <code>WithScope</code> 显式执行。主事件循环外、未选中组件域时创建的共享资源归 App 域，应明确其整个 App 的寿命。</p>
+      <h3>5.2 Context 与保存的引用</h3>
+      <p>不要保存回调参数 <code>ComponentContext&amp;</code> 的地址：该 Context 是分发回调时的临时对象。确需保存时，按值保存 Context；其中的 Application 引用必须继续有效，而且原组件代次不能已经结束。日常应用优先在当前回调内使用它。</p>
+      <p>保存 <code>&amp;context.app()</code> 指向的是 main 中的 Application，天气 Service 就这样做。但保存 Application 指针不等于保存资源域：之后从另一个组件调用共享 helper 时，创建资源仍遵循当前域。</p>
+      <h3>5.3 RAII 对象与 Host 回收</h3>
+      <p>Timer、Texture、HttpRequest 等通常为 move-only 资源代理。用成员对象或 <code>std::optional&lt;T&gt;</code> 持有，在 <code>OnDestroy</code> / <code>OnStop</code> 中主动释放。Host 的组件域回收用于兜底，不替代应用清理 C++ 状态。</p>
+      <div class="codebox"><div class="code-head"><span>C++ · 组件成员示意</span><button class="copy" type="button">复制</button></div><pre><code>std::optional&lt;Timer&gt; timer_;
+std::optional&lt;Scene&gt; scene_;
+
+void OnDestroy(ComponentContext&amp;) override {
+    timer_.reset();
+    scene_.reset();
+}</code></pre></div>
+      <p>Scene 销毁后，其 Label/Sprite 节点引用失效；重新创建页面时重新赋值。Service view（例如 <code>auto renderer = app.renderer()</code>）只是轻量能力入口，保存它不会自动延长其创建资源的寿命。</p>
+    </section>
+
+    <section class="section" id="example" aria-labelledby="example-title">
+      <span class="section-tag">06 / COMPLETE EXAMPLE</span><h2 id="example-title">写一个完整的 Activity + Service App</h2>
+      <p>这个计数器使用两份职责清晰的组件：Service 每秒更新共享 Model；Activity 读取 Model，显示数值并处理 Reset 按钮。退出整个 App 时保存，下一次启动读取。<strong>它没有后台常驻或时钟语义</strong>：返回 Home 后允许挂起。</p>
+      <ol class="steps">
+        <li><strong>准备清单</strong>使用<a href="#manifest">第 3 章完整 app.json</a>，App ID 为 <code>com.example.counter</code>。</li>
+        <li><strong>替换源码</strong>把下面代码整体保存为 <code>guest/apps/counter/src/main.cpp</code>。</li>
+        <li><strong>编译运行</strong>执行本章末尾两条命令，打开页面后观察数值增长并点击 Reset。</li>
+      </ol>
+      <div class="codebox compact"><div class="code-head"><span>src/main.cpp · 完整文件，可整体复制</span><button class="copy" type="button">复制</button></div><pre><code id="counter-source">// SPDX-License-Identifier: Apache-2.0
+#include &lt;optional&gt;
+
+#include &quot;sdk/micropixel.hpp&quot;
+
+namespace {
+using namespace micropixel;
+using namespace micropixel::literals;
+
+struct Model {
+    uint32_t count{}, revision{};
+};
+
+class CounterService final : public AppService {
+   public:
+    explicit CounterService(Model&amp; model) : model_(model) {}
+
+    void OnStart(ComponentContext&amp; context) override {
+        timer_.emplace(context.app().timers().Every(1_s).value());
+        context.app().log().Info(&quot;COUNTER service started&quot;);
+    }
+
+    void OnEvent(ComponentContext&amp; context, const Event&amp; event) override {
+        if (!timer_) return;
+        const auto* tick = event.TimerFrom(*timer_);
+        if (!tick) return;
+        model_.count += 1U + tick-&gt;missed_count();
+        ++model_.revision;
+        FixedString&lt;64&gt; text;
+        text.Append(&quot;COUNTER value=&quot;);
+        text.AppendUint(model_.count);
+        context.app().log().Info(text.c_str());
+    }
+
+    void OnStop(ComponentContext&amp; context) override {
+        timer_.reset();
+        auto saved = context.app().storage().SetU32(&quot;counter&quot;, model_.count);
+        if (!saved) context.app().log().Info(&quot;COUNTER save failed&quot;);
+    }
+
+   private:
+    Model&amp; model_;
+    std::optional&lt;Timer&gt; timer_;
+};
+
+class CounterActivity final : public Activity {
+   public:
+    explicit CounterActivity(Model&amp; model) : model_(model) {}
+
+    void OnCreate(ComponentContext&amp; context) override {
+        const auto&amp; app = context.app();
+        scene_.emplace(app.renderer().CreateScene(Color::Rgb(244, 246, 242)).value());
+        (void)scene_-&gt;CreateLabel({48, 48}, &quot;My first MicroPixel App&quot;, Color::Black()).value();
+        value_ = scene_-&gt;CreateLabel({48, 160}, &quot;0&quot;, Color::Black(), SystemFont::kTitle).value();
+        (void)scene_-&gt;CreateShape({48, 280, 260, 88}, Color::Rgb(208, 224, 209)).value();
+        (void)scene_-&gt;CreateLabel({80, 306}, &quot;Reset&quot;, Color::Black()).value();
+        (void)scene_-&gt;CreateLabel({48, 410}, &quot;Home / F1: return to Home&quot;, Color::Black()).value();
+        reset_.SetBounds({48, 280, 260, 88});
+        timer_.emplace(app.timers().Every(100_ms).value());
+        Draw(app);
+        app.log().Info(&quot;COUNTER activity created&quot;);
+    }
+
+    void OnResume(ComponentContext&amp; context) override {
+        reset_.Reset();
+        Draw(context.app());
+    }
+
+    void OnEvent(ComponentContext&amp; context, const Event&amp; event) override {
+        if (const auto* touch = event.touch()) {
+            if (reset_.OnTouch(*touch).clicked) {
+                model_.count = 0;
+                ++model_.revision;
+                Draw(context.app());
+            }
+        }
+        if (timer_ &amp;&amp; event.TimerFrom(*timer_) &amp;&amp; seen_ != model_.revision) Draw(context.app());
+    }
+
+    void OnStop(ComponentContext&amp;) override { reset_.Reset(); }
+
+    void OnDestroy(ComponentContext&amp;) override {
+        timer_.reset();
+        value_ = LabelNode{};
+        scene_.reset();
+    }
+
+   private:
+    void Draw(const Application&amp; app) {
+        if (!scene_) return;
+        FixedString&lt;32&gt; text;
+        text.AppendUint(model_.count);
+        value_.SetText(text.c_str());
+        app.renderer().Present(*scene_).value();
+        seen_ = model_.revision;
+    }
+
+    Model&amp; model_;
+    std::optional&lt;Scene&gt; scene_;
+    std::optional&lt;Timer&gt; timer_;
+    LabelNode value_;
+    ui::Button reset_;
+    uint32_t seen_{};
+};
+}  // namespace
+
+int main() {
+    Application app;
+    app.renderer()
+        .ConfigureDisplay({.logical_size = {720, 720}, .scale_mode = DisplayScaleMode::kAspectFit})
+        .value();
+    Model model;
+    model.count = app.storage().GetU32Or(&quot;counter&quot;, 0);
+    CounterActivity activity(model);
+    CounterService service(model);
+    app.RunComponents(&amp;activity, &amp;service);
+    return 0;
+}</code></pre></div>
+      <div class="codebox"><div class="code-head"><span>Shell · 原生 PC 运行</span><button class="copy" type="button">复制</button></div><pre><code>bash tools/pc.sh guest guest/apps/counter
+bash tools/pc.sh run --autostart build/pc-apps/counter/counter.pc.json</code></pre></div>
+      <h3>代码中的六个设计点</h3>
+      <ol>
+        <li><strong>main 只负责组装。</strong>创建 Application、一次性配置逻辑画布、恢复 Model、创建组件，然后进入唯一事件循环。</li>
+        <li><strong>Model 在组件之外。</strong>销毁页面资源不会丢失数值；真正结束 Guest 后，内存 Model 才随进程生命周期结束。</li>
+        <li><strong>两份 Timer 各有归属。</strong>Service 的 1 秒 Timer 更新业务，Activity 的 100 毫秒 Timer 检查 revision。事件通过各自句柄匹配。</li>
+        <li><strong>重绘先改节点，再 Present。</strong><code>LabelNode::SetText()</code> 修改 Guest 场景，<code>Present()</code> 提交到 Host。</li>
+        <li><strong>隐藏与销毁分开。</strong><code>OnStop</code> 清除触摸状态；<code>OnDestroy</code> 释放 Scene 与页面 Timer。重建页面重新绑定节点。</li>
+        <li><strong>保存不是每帧操作。</strong>示例在 Service 停止时写入一个整数。异常终止或突然断电可能丢失未保存值；重要状态应在用户确认等业务边界及时提交。</li>
+      </ol>
+      <p><code>missed_count()</code> 用于补回同一周期 Timer 合并的通知。真实运动、动画和模拟应使用 <code>tick-&gt;delta()</code> 推进；跨挂起、断电或后台的真实时间需求应使用 Host wall time / Job / Alarm。</p>
+      <div class="note"><span class="note-title">把示例改成只有页面的 App</span><p>删除 CounterService，把更新逻辑放入 Activity 自己的 Timer；入口改成 <code>app.RunComponents(&amp;activity)</code>；清单中 <code>components.service</code> 改为 false。只在业务确实需要独立生命周期时引入 Service。</p></div>
+    </section>
+
+    <section class="section" id="ui" aria-labelledby="ui-title">
+      <span class="section-tag">07 / UI &amp; INPUT</span><h2 id="ui-title">创建界面、适配布局并处理输入</h2>
+      <h3>7.1 先选图形更新模型</h3>
+      <div class="table-wrap"><table><thead><tr><th>场景</th><th>推荐接口</th><th>工作方式</th></tr></thead><tbody>
+        <tr><td>页面、按钮、文字、精灵</td><td><code>Scene</code> + <code>ui::*</code></td><td>保留节点，修改属性后 Present；适合大多数工具类 App。</td></tr>
+        <tr><td>整帧光栅、射线投射、批量绘制</td><td><code>HostSurface</code> + <code>RasterDrawList</code></td><td>向 Host 缓冲区提交绘制列表。</td></tr>
+        <tr><td>必须直接逐像素生成的画面</td><td><code>GuestSurface</code></td><td>Guest 写线性内存像素；成本和平台支持需单独确认。</td></tr>
+      </tbody></table></div>
+      <p>Scene 的节点工厂返回 <code>Result&lt;Node&gt;</code>。创建 Label、Shape、Sprite 后把需更新的节点句柄保存在 Activity；静态节点无需反复创建。容器形成局部坐标与子树边界，跨容器操作时按 SDK 的坐标转换约定处理。</p>
+      <div class="note"><span class="note-title">重复页面结构使用公共组件</span><p>SDK 已提供 AppBar（标题与动作）、SegmentedControl（选项组）、VirtualList（固定行高列表和网格）、ContentStateView（加载、空与错误提示）和 Theme。它们在 Guest 组合 Scene，避免各 App 重写行池、触摸仲裁和标题布局。详见<a href="../design/guest-ui-components.zh-CN.html">组件设计</a>与<a href="../../guest/sdk/README.zh-CN.md#组合控件">接口契约</a>。Activity 停止时 CancelInput，销毁时先释放组件再释放 Scene；页面汇总 changed 后 Present。</p></div>
+      <h3>7.2 配置逻辑画布的时机</h3>
+      <p>在读取布局信息、创建场景、加载纹理或使用触摸转换前，调用一次 <code>ConfigureDisplay()</code>。配置会冻结；不能把它当成每次恢复页面都能重新设置的操作。计数器把它放在 main 中，Activity 的每次 <code>OnCreate</code> 只重建 Scene。</p>
+      <div class="table-wrap"><table><thead><tr><th>缩放模式</th><th>含义</th><th>适合</th></tr></thead><tbody>
+        <tr><td><code>kNative</code></td><td>默认模式，逻辑坐标等于屏幕像素，logical_size 留空</td><td>按实际 RendererInfo 自适应布局</td></tr>
+        <tr><td><code>kAspectFit</code></td><td>完整显示设计画布，必要时留边</td><td>固定设计尺寸、希望内容完整可见</td></tr>
+        <tr><td><code>kAspectFill</code></td><td>等比铺满，可能裁切</td><td>允许边缘裁切的视觉内容</td></tr>
+        <tr><td><code>kExpand</code></td><td>容纳设计尺寸并扩展逻辑画布</td><td>利用不同宽高比增加可用区域</td></tr>
+      </tbody></table></div>
+      <p>输入的 Touch 坐标与逻辑画布匹配，通常不用自己乘屏幕缩放比例。留边区域的触摸可能在画布外，应正常做矩形命中检查。系统字体使用语义字号，物理字号由 Host 决定，不保证与设计画布等比例放大；关键排版应测量文本并检查安全区域。</p>
+      <h3>7.3 文字、按钮与列表</h3>
+      <p>优先使用 SDK 的 <code>ui::TextButton</code>、<code>FlexContainer</code>、<code>GridContainer</code>、<code>ScrollView</code> 等控件。完全自定义外观时，<code>ui::Button</code> 只维护触摸状态，由 App 自行绘制。不要只检查一次抬起坐标：还要正确处理按下捕获、移出、Cancel 和组件失焦。</p>
+      <p>长文本用 <code>sdk/ui/wrap_text.hpp</code> 的有界 UTF-8 折行工具，传入文本测量回调；数字格式化可用 <code>FixedString</code>。面板应用可以显式包含 <code>sdk/ui/panel.hpp</code>、<code>numerals.hpp</code>、<code>material_icons.hpp</code> 等现有工具。</p>
+      <h3>7.4 游戏输入与系统交互</h3>
+      <p>游戏使用 <code>app.gamepad()</code> 配置需要的逻辑控件，逐帧读取状态；Runtime 统一处理触摸、按键和支持的模拟轴。不要再次手动向同一 pad 转发事件。菜单需要接收触摸时按契约禁用手柄。Home、系统手势、设备主音量和系统浮层由 Host 负责。</p>
+    </section>
+
+    <section class="section" id="async" aria-labelledby="async-title" data-keywords="网络 请求 异步 JSON timeout HTTP 定时器">
+      <span class="section-tag">08 / ASYNC WORK</span><h2 id="async-title">用事件推进定时器和网络请求</h2>
+      <h3>8.1 让每次回调及时返回</h3>
+      <p>业务按“开始工作 → 返回事件循环 → 后续事件检查进度 → 完成或取消”的顺序推进。不要在回调里用忙循环等网络完成，也不要使用线程、mutex、POSIX socket 或系统 sleep。Guest 是受限运行环境，常用 STL 容器可用，但不是完整 WASI/POSIX。</p>
+      <p><code>Timers::Every()</code> 和 <code>After()</code> 返回 RAII Timer。通过 <code>event.TimerFrom(timer)</code> 匹配来源；周期事件可能合并，动画使用 <code>delta()</code>，遗漏次数通过 <code>missed_count()</code> 观察。Timer 取消释放句柄，后续需要调度时重新创建。</p>
+      <h3>8.2 HTTP 客户端的最小状态机</h3>
+      <p><code>app.network().Exchange()</code> 支持显式处理 HTTP 状态与跳转。Network 1.2 的 <code>receive_timeout_ms</code> 为接收空闲超时，不是整个业务 Job 的总预算。请求启动、查询、读取都可能失败，要分别处理。</p>
+      <div class="life"><span>Idle</span><b>→</b><span>Pending</span><b>→</b><span>Complete / Failed</span><b>→</b><span>Close</span></div>
+      <p>下面的客户端可作为 Service 成员；<code>Start</code> 在 Service 域调用，Service Timer 驱动 <code>Poll</code>。示例要求 Network 1.2（清单中 <code>network: 65538</code>）。它只处理 HTTP 200，不自动跟随重定向。</p>
+      <div class="codebox compact"><div class="code-head"><span>C++ · 有界 HTTP 客户端</span><button class="copy" type="button">复制</button></div><pre><code id="http-client">// SPDX-License-Identifier: Apache-2.0
+#pragma once
+#include &lt;string&gt;
+#include &lt;utility&gt;
+#include &quot;sdk/micropixel.hpp&quot;
+
+class TextClient final {
+   public:
+    bool Start(const micropixel::Application&amp; app, std::string_view url) {
+        Cancel();
+        auto opened = app.network().Exchange(
+            micropixel::HttpMethod::kGet, url, {}, {}, kLimit,
+            {.receive_timeout_ms = 10000});
+        if (!opened) return false;
+        request_ = std::move(*opened);
+        return true;
+    }
+
+    // 0: pending; 1: success; -1: failed.
+    int Poll(std::string&amp; output) {
+        if (!request_.valid()) return -1;
+        auto state = request_.State();
+        if (!state) return -1;
+        if (state-&gt;phase == micropixel::HttpPhase::kPending) return 0;
+        if (state-&gt;phase != micropixel::HttpPhase::kComplete ||
+            !state-&gt;body_length || state-&gt;body_length &gt; kLimit) return -1;
+        auto metadata = request_.Metadata();
+        if (!metadata || metadata-&gt;status_code != 200) return -1;
+        std::string next(state-&gt;body_length, &#x27;\0&#x27;);
+        auto read = request_.Read(0, {
+            reinterpret_cast&lt;uint8_t*&gt;(next.data()), next.size()});
+        if (!read || *read != next.size()) return -1;
+        output = std::move(next);
+        return 1;
+    }
+
+    void Cancel() { request_.Close(); }
+
+   private:
+    static constexpr uint32_t kLimit = 16384;
+    micropixel::HttpRequest request_;
+};</code></pre></div>
+      <p>在 Service <code>OnEvent</code> 的 Timer 分支调用 <code>client.Poll(body)</code>：返回 0 等待下一个事件，返回 1 后解析并提交 Model，返回 -1 显示失败并保留旧缓存。无论成功或失败，完成路径调用 <code>Cancel()</code> 释放请求；Service <code>OnStop</code> 同样取消。</p>
+      <h3>8.3 先验证，再提交结果</h3>
+      <p>使用 <code>sdk/json.hpp</code> 的 <code>Json</code>，按业务设置 token 上限。校验 HTTP 状态、响应大小、JSON 结构、字段类型、数值范围和请求所对应的业务身份。先解析到临时结果，全部验证通过后才替换 Model 的最后成功值。</p>
+      <p><code>Json</code> 持有输入文本的 view，解析与字段读取期间原字符串必须保持有效。请求期间用户切换城市、账户或查询条件时，使用快照或 revision 检查，防止旧请求完成后覆盖新页面数据。天气 App 就在提交前比较请求城市与当前城市。</p>
+      <h3>8.4 Result 与错误边界</h3>
+      <p>可恢复错误检查 <code>Result</code> 后进入回退逻辑；只有确实无法继续的初始化失败才直接 <code>.value()</code> 或 <code>Assert/Panic</code>。读取错误状态的 <code>value()</code> 会 trap；禁止用 try/catch 处理，Guest 没有异常支持。析构与清理只做 best-effort，不能依赖它们执行长操作。</p>
+    </section>
+
+    <section class="section" id="background" aria-labelledby="background-title" data-keywords="后台 调度 任务 Job Jobs Widget Messages 消息 闹钟">
+      <span class="section-tag">09 / HOST SCHEDULING</span><h2 id="background-title">后台工作、Widget 与消息</h2>
+      <p>Service 让业务与页面生命周期分离；<strong>后台执行资格由 Host 决定</strong>。默认 PC Home 根据前台状态、媒体、活动 Job 和待处理消息等安排运行或挂起。声明 <code>background: ["task"]</code> 不代表任意 Timer 永久运行。</p>
+      <h3>9.1 用 Job 表达有限后台工作</h3>
+      <p>周期刷新、定期拉取数据应注册 Host Job 计划。Host 可以恢复挂起实例，或启动只有 Service 的新实例；这不会自动把应用切到前台。Guest Timer 随挂起冻结，Host Job 的时限继续推进。</p>
+      <div class="codebox"><div class="code-head"><span>C++ · 注册 15 分钟周期计划，放在合适的 Service 初始化入口</span><button class="copy" type="button">复制</button></div><pre><code>auto now = context.app().jobs().Now();
+if (now &amp;&amp; now-&gt;valid) {
+    auto registered = context.app().jobs().Register({
+        .id = 1,
+        .interval_seconds = 900,
+        .deadline_ms = 20000,
+        .next_utc = now-&gt;utc
+    });
+    if (!registered) context.app().log().Info("Job registration failed");
+}</code></pre></div>
+      <ol class="steps">
+        <li><strong>声明与登记</strong>requirements 中声明 <code>job: 65536</code>、Lifecycle、Service 和后台 task；按业务时机注册计划。没有有效 wall time 时，明确等待、提示或稍后重试。</li>
+        <li><strong>领取工作</strong>收到 <code>event.job()</code> 后检查是否为取消通知；正常工作先调用 <code>jobs().Enter(ticket)</code>，成功后才发起本次业务。</li>
+        <li><strong>推进与完成</strong>异步处理请求，成功、失败和取消路径都收束到同一个完成函数，最终调用 <code>jobs().Complete(ticket)</code>。</li>
+        <li><strong>尊重预算与代次</strong>超时取消当前工作；旧票据不能清理新的请求。计划可持久保存，work ticket 只对当前启动有效。</li>
+      </ol>
+      <p>当前周期范围为 60–86400 秒，工作预算为 1–60 秒；天气默认每 900 秒刷新、20 秒预算。用户显式 Stop 后，Host 阻止自动唤醒；重新打开应用或执行允许的 Home 刷新操作可以重新激活。详细限制见 <a href="app-manager-d6.zh-CN.md">D6 后台工作契约</a>。</p>
+      <h3>9.2 Widget 发布的是数据快照</h3>
+      <p>Home 的卡片由 Host 绘制。Service 调用 <code>app.widgets().Publish(id, WidgetData)</code> 提交标题、摘要、更新时间、有效期及模板字段，不自己绘制 Home UI。使用稳定的 Widget ID；失败时保留最后成功的数据，同时设置失败标记。</p>
+      <p>清单中声明实际 Widget 数量并要求 Widget 服务。例如天气使用 <code>WidgetTemplate::kWeather</code>，更新温度、天气代码、城市和数据有效时间。页面可以销毁，Home 快照仍由 Host 管理。</p>
+      <h3>9.3 消息表达操作请求</h3>
+      <p>同一实例内的状态共享可以直接通过 Model；需要由 Host 路由、从 Home 操作或跨 App 调用时使用 Messages。发送方调用 <code>Send()</code>，接收 Service 收到 MessageEvent 后 <code>Read(ticket)</code>，验证操作类型和 payload，处理完成后 <code>Ack(ticket, status)</code>。</p>
+      <p>共享的 Model 不应因等待消息回复而阻塞事件循环。跨 App 冷启动默认禁止，需要 Message 1.1 和接收方显式允许；仅使用 App ID 或实例地址不等于获得启动权限。同一个非零 request_id 的重试必须保持相同内容，新操作使用新的序号。</p>
+      <h3>9.4 Alarm 与 Timer / Job 的区别</h3>
+      <p>页面动画用 Timer；有预算的数据刷新用 Job；需要由 Host 持久管理、应用停止后仍可到点提醒的闹钟用 Alarm。不要用 Guest Timer 模拟 durable alarm。可参考 <a href="../../guest/apps/clock-alarm/main.cpp">clock-alarm</a> 与 <a href="../../guest/sdk/alarms.hpp">alarms.hpp</a>，不要假设普通应用有修改系统时间等可信时钟权限。</p>
+    </section>
+
+    <section class="section" id="storage" aria-labelledby="storage-title">
+      <span class="section-tag">10 / APP CAPABILITIES</span><h2 id="storage-title">保存状态、声明资源并播放音频</h2>
+      <h3>10.1 持久化与重建</h3>
+      <p>使用 <code>app.storage()</code> 访问按 App ID 隔离的 KV。设置、最后选择、最高分和最后成功缓存可以保存；Scene、资源句柄、组件 token 和 Job ticket 属于运行时代次，不持久保存。</p>
+      <div class="codebox"><div class="code-head"><span>C++ · 读取默认值并检查保存结果</span><button class="copy" type="button">复制</button></div><pre><code>uint32_t city = app.storage().GetU32Or("city", 0);
+auto saved = app.storage().SetU32("city", city);
+if (!saved) app.log().Info("Saving city failed");</code></pre></div>
+      <p>key 最多 15 个 UTF-8 字节，单 value 协议上限 4096 字节。总容量和 key 数量由 Host 策略限制，PC 与 MCU 默认配额不同；不要把配额视为已预留的物理空间。结构体缓存增加版本和长度检查；字段变化时迁移或重置，跨版本稳定格式优先显式序列化。</p>
+      <p>写入在 Host 提交后返回，会影响事件处理时间；只在设置确认、业务完成、检查点或有界停止等必要时机保存。同 App ID 覆盖安装保留私有状态；显式卸载会清理。</p>
+      <h3>10.2 素材与资源 ID</h3>
+      <p>运行时素材通过项目 <code>asset_manifest</code> 声明，由构建工具生成资源包和绑定。使用生成的 AssetId 加载纹理和字体，不手写资源目录数字，也不依赖任意文件系统路径。</p>
+      <p>加载纹理时就决定存储比例；仅把 Sprite 目标矩形画小，不会减少纹理的解码内存。Scene / Surface 混用时按 SDK 的逻辑坐标、缓冲坐标和纹理比例契约处理。参考 <a href="../../guest/apps/sdk-demo/app.json">sdk-demo 清单</a>、<a href="../../guest/apps/sdk-demo/assets/manifest.json">素材清单</a> 与 <a href="../../guest/sdk/README.zh-CN.md">SDK 图形说明</a>。</p>
+      <h3>10.3 音频与设备能力</h3>
+      <p>短音效参数写在 <code>audio/sfx.json</code>，复用生成 profile 与 <code>ToneSequencer</code>；片段播放用 AudioClip/Playback，连续合成用 PcmStream，URL 媒体按目标平台能力选择。设备主音量由 Host 管理，App 不再添加一层全局主音量。</p>
+      <p>传感器通过 <code>app.devices()</code> 发现并用 typed Sensors API 打开；不要按板名或物理设备名硬编码路由。GPIO、振动、音频、传感器需求同时体现在清单和运行时错误处理里；可选能力缺失时提供正常回退。</p>
+      <h3>10.4 内存与受限 C++23</h3>
+      <p>可使用已验证的 <code>array/span/string_view</code>、<code>optional</code>、<code>vector/string</code>、<code>unique_ptr</code> 等。限制响应长度、JSON token 数量、列表缓存和临时工作区，避免无界增长。线性内存与 Host 图形内存有各自限制；PC 余量不能推导 MCU 的性能或可用内存。</p>
+      <p>不使用 exception、RTTI、线程、mutex、filesystem、原生 socket 或自行新增 WASI import。能力调用走 SDK；SDK 到 wire 的转换集中在 Guest Runtime，应用无需触碰 <code>guest/abi/</code>。</p>
+    </section>
+
+    <section class="section" id="weather" aria-labelledby="weather-title">
+      <span class="section-tag">11 / CASE STUDY</span><h2 id="weather-title">沿着天气 App 读一遍真实业务</h2>
+      <p>组装入口：<a href="../../guest/apps/weather/main.cpp">main.cpp</a>；共享状态：<a href="../../guest/apps/weather/weather_model.hpp">weather_model.hpp</a>；页面：<a href="../../guest/apps/weather/weather_activity.hpp">weather_activity.hpp</a>；后台刷新：<a href="../../guest/apps/weather/weather_service.hpp">weather_service.hpp</a>；网络客户端：<a href="../../guest/apps/weather/weather_client.hpp">weather_client.hpp</a>；组件要求：<a href="../../guest/apps/weather/app.json">app.json</a>。</p>
+      <div class="codebox"><div class="code-head"><span>C++ · 天气 App 的 main</span><button class="copy" type="button">复制</button></div><pre><code>int main() {
+    micropixel::Application app;
+    weather::Model model(app);
+    weather::WeatherActivity page(model);
+    weather::WeatherService service(model);
+    app.RunComponents(&amp;page, &amp;service);
+    return 0;
+}</code></pre></div>
+      <h3>11.1 初始化：先恢复可用内容</h3>
+      <p>Model 从私有 KV 恢复城市与最后成功 Reading，检查版本、存储长度和城市索引。Service 启动 100 毫秒 Timer，发布已有 Widget 快照，wall time 有效时登记 Job。Activity 创建 Scene、天气图标、数字和城市选择页，先绘制缓存，无需等待首次网络成功。</p>
+      <h3>11.2 手动刷新：从页面动作到 Service</h3>
+      <ol class="steps">
+        <li><strong>页面识别操作</strong>刷新按钮通过 SDK 触摸状态判断点击；城市切换先保存选择并清理不适用的旧 Reading。</li>
+        <li><strong>发送刷新消息</strong>Activity 向本 App ID 发送 <code>AppAction::kRefresh</code>；Service 读取消息并检查是否已有刷新消息正在处理。</li>
+        <li><strong>登记单次 Job</strong>Service 使用有效 Host 时间创建本次有限工作，由 JobEvent 提供票据。</li>
+        <li><strong>进入工作并启动请求</strong>Service 调用 <code>jobs().Enter(ticket)</code>，记录本次城市、设置 busy、增加 revision，然后启动客户端。</li>
+        <li><strong>后续 Timer 推进</strong><code>WeatherClient::Poll()</code> 查询状态，校验 HTTP 200、16 KiB 长度限制和 JSON 字段。</li>
+        <li><strong>统一完成</strong>成功且城市未变化时写入 Reading、保存；完成函数关闭请求、更新失败状态、发布 Widget、Complete 工作、Ack 消息，并处理排队工作。</li>
+      </ol>
+      <h3>11.3 页面怎样看到新数据</h3>
+      <p>Model 的 <code>revision</code> 随业务变化增加。Activity 的 250 毫秒 Timer 发现版本不同后调用 <code>Draw()</code>，更新现有节点并 Present；<code>OnResume()</code> 也立即按当前 Model 绘制。网络业务通过共享 Model 连接到 UI，Service 不直接操作页面节点。</p>
+      <h3>11.4 失败、取消和旧请求</h3>
+      <p>客户端把解析结果放入临时 Reading；网络错误、坏 JSON、超时和刷新期间城市变化都不会提交旧结果。取消事件只清理匹配的工作票据；完成路径保留最后成功值，并更新 failed 状态供页面与 Widget 展示。</p>
+      <p>编写自己的数据型 App 时，可以沿用这条链路，把城市替换成文章、账户或查询参数。先建立业务身份快照，再异步获取、验证、提交和通知界面。</p>
+    </section>
+
+    <section class="section" id="build" aria-labelledby="build-title">
+      <span class="section-tag">12 / BUILD &amp; DEBUG</span><h2 id="build-title">构建、运行并定位问题</h2>
+      <h3>12.1 PC 原生 Wasm：日常开发主线</h3>
+      <div class="codebox"><div class="code-head"><span>Shell · 构建和运行</span><button class="copy" type="button">复制</button></div><pre><code>bash tools/pc.sh guest guest/apps/counter
+bash tools/pc.sh run --autostart build/pc-apps/counter/counter.pc.json
+
+# 打开所有已构建本地应用的大厅
+bash tools/pc.sh run build/pc-apps</code></pre></div>
+      <p>原生路径构建 Wasm、资源包和 <code>counter.pc.json</code>，Host 读取描述符。Home 默认四槽；<code>--multi-app</code> 是显式开发配置，测试它时要理解其后台策略与默认 Home 的差异。<code>--single-app</code> 保留兼容路径。</p>
+      <p>只改 App 源码、素材或清单时重新执行 guest 构建即可；无需重建 Host。新增服务或改 Host 适配器时，才需要对应 Host 构建和回归。</p>
+      <h3>12.2 日志与截图</h3>
+      <p>使用 <code>app.log().Info()</code> 输出启动、业务开始、成功/失败和取消等关键状态；日志包含 App 身份，方便区分多个实例。不要在逐像素或高频热路径打印大量日志。</p>
+      <div class="codebox"><div class="code-head"><span>Shell · 有界的无窗口运行与截图</span><button class="copy" type="button">复制</button></div><pre><code>bash tools/pc.sh run --headless --seconds 4 \
+  --autostart build/pc-apps/counter/counter.pc.json \
+  --screenshot build/counter.png</code></pre></div>
+      <p>图形模式中可用 Home/F1 返回系统主页；指定 screenshot 路径后 F12 保存当前画面。独立复现时用 <code>MICROPIXEL_PC_DATA_DIR</code> 指向专门的临时目录，避免旧安装、计划和 KV 影响结果。需要自定义启动参数时，PC 使用重复的 <code>--guest-arg</code>；App 从 <code>launch_arguments()</code> 读取。</p>
+      <h3>12.3 PC RV32：验证 AOT 桥接</h3>
+      <div class="codebox"><div class="code-head"><span>Shell · 环境就绪后按需使用</span><button class="copy" type="button">复制</button></div><pre><code>bash tools/pc.sh rv32-build
+bash tools/pc.sh guest guest/apps/counter --backend rv32
+bash tools/pc.sh run --rv32 \
+  --autostart build/pc-rv32-apps/counter/counter.pc.json</code></pre></div>
+      <p>RV32 使用匹配 WAMRC、QEMU 和 runner；它能验证该后端的 AOT 运行与服务桥接，不代表 MCU 组合根已经支持组件，也不代表 MCU 真机性能。</p>
+      <h3>12.4 增量与强制重建</h3>
+      <p>构建工具会复用未变化的对象和整包产物。源码、传递头文件、清单、生成资源和编译配置会参与检查。怀疑缓存问题时先确认项目和产物路径，再按需使用 <code>--force</code>；不要日常强制重编所有内容。</p>
+    </section>
+
+    <section class="section" id="mcu" aria-labelledby="mcu-title">
+      <span class="section-tag">13 / COMPATIBILITY</span><h2 id="mcu-title">编写当前 MCU 可运行的应用</h2>
+      <p>当前 MCU 组合根未注册组件 Lifecycle 能力，requirements v2 组件包不会因此自动兼容。需要今天就在 MCU 运行时，用 <code>Application::Run(handler)</code> 管理前台页面与业务，使用不含 components 的 requirements v1 清单。</p>
+      <div class="codebox"><div class="code-head"><span>C++ · Run() 完整最小应用</span><button class="copy" type="button">复制</button></div><pre><code id="legacy-source">// SPDX-License-Identifier: Apache-2.0
+#include &quot;sdk/micropixel.hpp&quot;
+
+int main() {
+    micropixel::Application app;
+    auto scene = app.renderer().CreateScene(micropixel::Color::Black()).value();
+    (void)scene.CreateLabel({24, 24}, &quot;Hello, World!&quot;, micropixel::Color::White()).value();
+    app.renderer().Present(scene).value();
+
+    app.Run([&amp;](const micropixel::Event&amp; event) {
+        if (event.type() == micropixel::EventType::kResume)
+            app.renderer().Present(scene).value();
+        return micropixel::EventResult::kContinue;
+    });
+    return 0;
+}</code></pre></div>
+      <p>配置 <code>sources</code> 指向这个文件；清单内层 <code>requirements.schema_version</code> 使用 1，删除 <code>components</code> 和不需要的 Lifecycle 服务要求。显示布局、字体和其他能力仍需与实际实现一致，可从 <code>init</code> 生成的清单开始调整。</p>
+      <h3>13.1 连接设备运行</h3>
+      <div class="codebox"><div class="code-head"><span>Shell · 仅对已适配当前 MCU 的项目使用</span><button class="copy" type="button">复制</button></div><pre><code>python3 tools/micropixel --transport usb device status
+python3 tools/micropixel --transport usb run path/to/your-app
+
+# 构建、安装、启动，完成后不跟随日志
+python3 tools/micropixel --transport usb run path/to/your-app --no-follow</code></pre></div>
+      <p>连接设备的 run 会识别芯片并选择目标 AOT。默认跟随日志，Ctrl-C 结束日志跟随，设备 App 继续运行。仅安装 App 不需要刷完整固件；串口不能同时被多个工具占用。</p>
+      <h3>13.2 Run() 的停止与恢复</h3>
+      <p><code>Run()</code> 的 Timer、输入和完成事件进入同一个 handler。恢复原 Session 时收到 Resume，不重新调用 main；返回 <code>EventResult::kExit</code> 可以主动退出。Host Stop 到来后按 SDK 约定做有界保存与清理，不能在停止回调里进行长网络操作。</p>
+      <p>MCU 图形、音频、传感器、内存和网络能力必须在选定板型上实测。不要因 PC 有 URL 媒体、文本输入或宽松内存，就把这些能力默认为所有 MCU 可用。真机操作前阅读<a href="flashing.zh-CN.md">构建与烧录指南</a>。</p>
+    </section>
+
+    <section class="section" id="release" aria-labelledby="release-title">
+      <span class="section-tag">14 / VALIDATION &amp; RELEASE</span><h2 id="release-title">把“能运行”推进到“可交付”</h2>
+      <h3>14.1 先验证 App 自己的行为</h3>
+      <ul class="checklist">
+        <li>全新状态能显示首帧；没有数据时有清晰的等待或空状态。</li>
+        <li>核心输入路径可用，拖出按钮、取消触摸和失焦后没有残留按下状态。</li>
+        <li>Home 隐藏与恢复正确；Activity 销毁后重建能够使用仍然有效的 Model。</li>
+        <li>Service 独立启动和停止安全；异步取消后迟到结果不会写回新一轮业务。</li>
+        <li>网络失败、坏数据、超时与重复操作保留可用状态，并允许重试。</li>
+        <li>Job 的成功、失败和取消路径都 Complete；消息都有对应 Ack。</li>
+        <li>设置保存与重启恢复符合预期，数据版本迁移和存储失败有处理。</li>
+        <li>只声明实际支持并验证的布局、能力和目标平台。</li>
+      </ul>
+      <h3>14.2 按改动范围选择回归</h3>
+      <p>纯 App 改动先构建该 App 并运行相关业务检查；解析器和状态迁移可以用确定性输入验证。修改 SDK/ABI 时增加相关 conformance；修改 Host 时通过仓库 wrapper 运行相关 Host 检查。不要把 PC 编译通过当作协议、生命周期和硬件验证全部完成。</p>
+      <div class="codebox"><div class="code-head"><span>Shell · 修改框架时按需选择，普通 App 不必全部执行</span><button class="copy" type="button">复制</button></div><pre><code>bash tools/tests/test_firmware_host.sh --app-framework
+bash tools/tests/test_firmware_host.sh --pc --components
+bash tools/tests/test_firmware_host.sh --pc --jobs</code></pre></div>
+      <p>测试入口与覆盖见 <a href="../../guest/tests/README.zh-CN.md">Guest tests</a> 和对应 App 的 README。Host 测试只通过 <code>tools/tests/test_firmware_host.sh</code> 运行，避免自行拼接编译命令。</p>
+      <h3>14.3 打包与发布的边界</h3>
+      <p>PC 的 <code>*.pc.json</code> 是本地运行描述符，不是商店 Bundle。离线 <code>package</code> 必须显式选择 AOT target；连接设备的 <code>run</code> / <code>app install</code> 自动选择目标。包格式、运行后端和目标平台支持是三个需要分别确认的条件。</p>
+      <div class="codebox"><div class="code-head"><span>Shell · 仅对目标平台兼容的项目使用</span><button class="copy" type="button">复制</button></div><pre><code>python3 tools/micropixel package path/to/your-app \
+  --aot-target riscv32-ilp32f
+
+# 发布前本地正式构建与校验
+python3 tools/micropixel publish path/to/your-app --dry-run</code></pre></div>
+      <div class="note"><span class="note-title">当前组件教程不直接等于 MCU 商店发布模板</span><p>当前 publish 流程按 RISC-V 和 Xtensa 两种 MCU 架构构建、校验并上传 Bundle。计数器采用的组件模式目前用于 PC；进入该发布流程前，必须先具备目标 Host 支持，或把应用实现为当前 MCU 可用的模式。</p></div>
+      <p>正式发布时提升规范版本，准备至少两张不同的真实运行画面、简短介绍、详细操作说明和准确的设备需求。之后执行 GitHub 开发者登录与 publish；成功后在返回的编辑页填写和上传商店资料。截图和说明不会自动随项目文件上传。</p>
+      <div class="codebox"><div class="code-head"><span>Shell · 确认目标兼容并完成实测后再执行</span><button class="copy" type="button">复制</button></div><pre><code>python3 tools/micropixel auth github
+python3 tools/micropixel publish path/to/your-app</code></pre></div>
+      <p>同版本同架构不能替换成不同 Bundle；更新二进制时提升版本。更完整的素材限制、工具链设置与发布顺序见 <a href="../../guest/sdk/PUBLISHING.zh-CN.md">发布应用</a>。</p>
+    </section>
+
+    <section class="section" id="troubleshooting" aria-labelledby="troubleshooting-title">
+      <span class="section-tag">15 / TROUBLESHOOTING</span><h2 id="troubleshooting-title">按现象定位常见问题</h2>
+      <div class="table-wrap"><table><thead><tr><th>现象</th><th>先检查什么</th></tr></thead><tbody>
+        <tr><td>Activity / AppService 类型不完整</td><td>完整定义在 <code>sdk/components.hpp</code>；只包含 application.hpp 得到的是前向声明。也可包含总入口 <code>sdk/micropixel.hpp</code>。</td></tr>
+        <tr><td>组件包被拒绝</td><td>requirements 内层版本 2、Lifecycle 1.0、组件声明与 RunComponents 参数；目标是否为当前支持组件的 Host。</td></tr>
+        <tr><td>找不到生成的 pc.json</td><td>构建名称来自 App ID 最后一段；区分 <code>build/pc-apps</code> 与 <code>build/pc-rv32-apps</code>，查看命令输出的 PC app ready 路径。</td></tr>
+        <tr><td>只看到空白或旧画面</td><td>Scene 是否已创建；修改节点后是否 Present；提交是否失败；启动是否实际打开目标 App。</td></tr>
+        <tr><td>恢复页面时报显示配置错误</td><td>ConfigureDisplay 是否在布局被冻结后再次执行；移到最早的一次性初始化位置。</td></tr>
+        <tr><td>Service 的请求随页面销毁被取消</td><td>请求是否实际在 Activity 域创建；move 到 Service 成员不会改变资源归属。</td></tr>
+        <tr><td>Timer 没触发或收到错的 Timer</td><td>RAII 对象是否已析构/Reset，是否使用 TimerFrom 匹配，组件或实例是否已经挂起。</td></tr>
+        <tr><td>Home 后 Service 不再执行</td><td>当前后台资格与 Host 策略；普通 task 声明不保证常驻，周期业务应使用 Job。</td></tr>
+        <tr><td>换城市后显示旧请求结果</td><td>是否记录发起请求时的业务身份，并在提交时再次核对；取消和迟到结果是否按代次处理。</td></tr>
+        <tr><td>HTTP 完成却解析失败</td><td>HTTP 状态、空响应、长度上限、Read 返回字节数、JSON token 限制，以及输入字符串寿命。</td></tr>
+        <tr><td>出现 Trap / Panic</td><td>先看原始日志定位调用；错误 Result 上的 value()、OOM、无效节点和无界计算都可能导致结束。</td></tr>
+        <tr><td>中文缺字或文字溢出</td><td>system_font、Host 字体、测量结果与实际布局；语义字号不保证按画布等比例缩放。</td></tr>
+        <tr><td>新增 cpp 的函数链接不到</td><td>该编译单元是否加入 app.json 的 sources；头文件声明与实现签名是否一致。</td></tr>
+        <tr><td>启动后读到旧设置</td><td>同 App ID 升级会保留 KV；诊断时使用独立数据目录，测试版本迁移，而非假定重编就是全新安装。</td></tr>
+      </tbody></table></div>
+      <h3>需要重新组织代码时，按寿命判断</h3>
+      <p>随页面消失的控件和临时输入状态放 Activity；页面重建仍要保留的业务状态放 Model；页面之外仍有意义的请求、播放和有限工作放 Service；需要跨进程启动或长期保存的计划交给 Host 的 Job / Alarm 等能力。</p>
+    </section>
+
+    <section class="section" id="references" aria-labelledby="references-title">
+      <span class="section-tag">16 / SOURCE MAP</span><h2 id="references-title">下一步读哪些源码</h2>
+      <p>下面的链接相对本 HTML 文件定位到仓库。把文件单独复制出去仍能阅读全部正文；源码与其他文档链接需要保留仓库目录结构。</p>
+      <div class="table-wrap"><table><thead><tr><th>想了解</th><th>入口</th><th>重点</th></tr></thead><tbody>
+        <tr><td>组件 API</td><td><a href="../../guest/sdk/components.hpp">components.hpp</a></td><td>Activity、AppService、ComponentContext 的完整定义</td></tr>
+        <tr><td>能力入口与循环</td><td><a href="../../guest/sdk/application.hpp">application.hpp</a></td><td>app.xxx()、Run、RunComponents</td></tr>
+        <tr><td>组件事件如何分发</td><td><a href="../../guest/runtime/components.cpp">runtime/components.cpp</a></td><td>注册、生命周期回调、资源域、事件路由与 ACK</td></tr>
+        <tr><td>最小组件样例</td><td><a href="../../guest/apps/components-demo/main.cpp">components-demo/main.cpp</a></td><td>共享 Model、页面重建、Service 独立工作</td></tr>
+        <tr><td>真实数据型 App</td><td><a href="../../guest/apps/weather/main.cpp">weather/main.cpp</a> / <a href="../../guest/apps/weather/weather_client.hpp">weather_client.hpp</a></td><td>缓存、HTTP、Job、消息、Widget 与页面同步</td></tr>
+        <tr><td>网络 / 后台 / 消息</td><td><a href="../../guest/sdk/network.hpp">network.hpp</a> / <a href="../../guest/sdk/jobs.hpp">jobs.hpp</a> / <a href="../../guest/sdk/messages.hpp">messages.hpp</a></td><td>签名、版本注释、资源和工作票据</td></tr>
+        <tr><td>Host 侧行为</td><td><a href="../../firmware/pc/app_sessions.cpp">app_sessions.cpp</a> / <a href="../../firmware/pc/network.cpp">network.cpp</a> / <a href="../../firmware/pc/media.cpp">media.cpp</a></td><td>需要定位平台实现问题时再进入</td></tr>
+      </tbody></table></div>
+      <ul class="source-list">
+        <li><a href="../../guest/sdk/QUICKSTART.zh-CN.md">快速入门</a>：SDK 初始化、USB 运行和首次发布。</li>
+        <li><a href="../../guest/sdk/README.zh-CN.md">SDK 契约与能力目录</a>：图形、输入、资源、时间、设备和错误策略。</li>
+        <li><a href="../design/app-components.zh-CN.md">PC 组件与资源契约</a>：组件状态、资源所有权和 Host 边界。</li>
+        <li><a href="app-manager-d5.zh-CN.md">Widget 与 Message</a>、<a href="app-manager-d6.zh-CN.md">Job 与天气</a>、<a href="app-manager-d7.zh-CN.md">Alarm 与默认 Home</a>：按当前工作深入。</li>
+        <li><a href="../../firmware/pc/README.zh-CN.md">PC Host 开发与运行</a>：环境、后端和自动验证入口。</li>
+        <li><a href="code-style.zh-CN.md">C/C++ 风格</a>、<a href="game-audio.zh-CN.md">音频规范</a>、<a href="../../guest/sdk/PUBLISHING.zh-CN.md">发布应用</a>：交付前查阅。</li>
+      </ul>
+      <div class="chapter-end"><a href="#setup">回到项目创建 ↑</a><a href="#example">回到完整示例 ↑</a></div>
+    </section>
+    <footer class="doc-footer">MicroPixel App 开发指南 · 基于当前仓库源码编写 · 2026-11-17<br>正文、样式和交互均包含在此 HTML 中；无需网络字体、CDN 或前端构建步骤。</footer>
+  </main>
+</div>
+<div id="status" role="status" aria-live="polite"></div>
+<script>
+(() => {
+  'use strict';
+  const rail = document.getElementById('rail');
+  const menu = document.getElementById('menu-toggle');
+  const status = document.getElementById('status');
+  const links = Array.from(document.querySelectorAll('.nav-list a'));
+  let statusTimer;
+  function announce(message) {
+    status.textContent = message;
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => { status.textContent = ''; }, 3500);
+  }
+  function closeMenu() { rail.classList.remove('open'); menu.setAttribute('aria-expanded', 'false'); }
+  menu.addEventListener('click', () => {
+    const open = rail.classList.toggle('open');
+    menu.setAttribute('aria-expanded', String(open));
+    if (open) document.getElementById('nav-search').focus();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && rail.classList.contains('open')) { closeMenu(); menu.focus(); }
+  });
+  document.addEventListener('click', event => {
+    if (rail.classList.contains('open') && !rail.contains(event.target) && !menu.contains(event.target)) closeMenu();
+  });
+  links.forEach(link => link.addEventListener('click', closeMenu));
+  const search = document.getElementById('nav-search');
+  search.addEventListener('input', () => {
+    const query = search.value.trim().toLocaleLowerCase();
+    let count = 0;
+    links.forEach(link => {
+      const section = document.querySelector(link.getAttribute('href'));
+      const match = !query || (link.textContent + ' ' + section.querySelector('h2').textContent + ' ' + (section.dataset.keywords || '')).toLocaleLowerCase().includes(query);
+      link.parentElement.hidden = !match;
+      if (match) count++;
+    });
+    document.getElementById('nav-empty').hidden = count !== 0;
+  });
+  document.querySelectorAll('.copy').forEach(button => {
+    button.addEventListener('click', async () => {
+      const code = button.closest('.codebox').querySelector('code');
+      try {
+        if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(code.textContent);
+        else {
+          const area = document.createElement('textarea');
+          area.value = code.textContent;
+          area.style.cssText = 'position:fixed;left:-9999px;top:0';
+          document.body.appendChild(area);
+          area.select();
+          const copied = document.execCommand('copy');
+          area.remove();
+          if (!copied) throw new Error('Clipboard is unavailable');
+        }
+        button.textContent = '已复制';
+        announce('代码已复制');
+        setTimeout(() => { button.textContent = '复制'; }, 1800);
+      } catch (_) {
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        announce('已选中代码，请按 Ctrl+C 或 Command+C 复制');
+      }
+    });
+  });
+  document.getElementById('print').addEventListener('click', () => window.print());
+  const sections = Array.from(document.querySelectorAll('main section[id]'));
+  let scheduled = false;
+  function updateActiveChapter() {
+    scheduled = false;
+    let active = sections[0];
+    for (const section of sections) {
+      if (section.getBoundingClientRect().top <= 130) active = section;
+    }
+    if (scrollY + innerHeight >= document.documentElement.scrollHeight - 2) active = sections[sections.length - 1];
+    links.forEach(link => {
+      if (link.hash === '#' + active.id) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+  }
+  function scheduleActiveChapter() {
+    if (!scheduled) { scheduled = true; requestAnimationFrame(updateActiveChapter); }
+  }
+  window.addEventListener('scroll', scheduleActiveChapter, {passive: true});
+  window.addEventListener('resize', scheduleActiveChapter);
+  scheduleActiveChapter();
+})();
+</script>
+</body>
+</html>

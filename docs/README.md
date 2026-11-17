@@ -18,7 +18,7 @@ The following detailed guides are in Simplified Chinese.
 | [Architecture](design/architecture.zh-CN.md) | [Build and flashing](development/flashing.zh-CN.md) |
 | [Home, music, weather and calendar panel](design/panel-ui.zh-CN.md) | [Panel verification](development/panel-ui.zh-CN.md) |
 | [AppManager, Activity and App Service design (HTML proposal)](design/app-manager.zh-CN.html) | [Nine-delivery implementation plan (HTML)](development/app-manager-plan.zh-CN.html) |
-| — | [C/C++ style](development/code-style.zh-CN.md) |
+| [Guest UI component abstraction (HTML design)](design/guest-ui-components.zh-CN.html) | [C/C++ style](development/code-style.zh-CN.md) |
 | [Service ABI](../guest/abi/README.zh-CN.md) | [Graphics performance](development/graphics-performance.zh-CN.md) |
 | [BundleFS](design/bundlefs.zh-CN.md) | [Audio](development/game-audio.zh-CN.md) |
 | [App Store](design/app-store.zh-CN.md) | [Timers and power](development/timers-and-idle-power.zh-CN.md) |

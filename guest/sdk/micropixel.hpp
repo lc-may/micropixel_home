@@ -32,7 +32,9 @@
 #include "sdk/symbols.hpp"
 #include "sdk/tilt_filter.hpp"
 #include "sdk/tone_sequencer.hpp"
+#include "sdk/ui/app_bar.hpp"
 #include "sdk/ui/button.hpp"
+#include "sdk/ui/content_state_view.hpp"
 #include "sdk/ui/flex_container.hpp"
 #include "sdk/ui/grid_container.hpp"
 #include "sdk/ui/icon_button.hpp"
@@ -41,8 +43,10 @@
 #include "sdk/ui/layout.hpp"
 #include "sdk/ui/list_item.hpp"
 #include "sdk/ui/scroll_view.hpp"
+#include "sdk/ui/segmented_control.hpp"
 #include "sdk/ui/slider.hpp"
 #include "sdk/ui/text_button.hpp"
+#include "sdk/ui/virtual_list.hpp"
 #include "sdk/widgets.hpp"
 
 #endif
