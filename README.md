@@ -20,7 +20,7 @@ This repository also includes a Linux/WSL2 PC Host for developing and running Gu
 | Network and audio | POSIX sockets and mbedTLS, asynchronous Guest HTTP/HTTPS, Host MQTT/MQTTS diagnostics, and local/network MP3, WAV, and Ogg/Opus playback through SDL stereo audio. |
 | Weather and jobs | Direct Open-Meteo current/hourly/daily weather; 394 city locations in 34 regions, ten popular shortcuts, saved selection and cache; persistent plans and bounded cold/hot work. |
 | Calendar and reminders | Month calendar, six editable Note reminders with completion/deletion, persistent one-shot/weekly alarms, ringing after Guest close, modal input and audio ducking. |
-| Guest UI SDK | IconButton, ListItem, ScrollView, Slider, shared panel styles/scalable digits, Gregorian calendar helpers and PNG/JPEG texture decoding. |
+| Guest UI SDK | AppBar, SegmentedControl, VirtualList, ContentStateView and Theme, plus IconButton, ListItem, ScrollView and Slider: composite widgets, reusable lists/grids, panel styles, scalable digits, calendar helpers and PNG/JPEG decoding. |
 
 PC Home defaults to four native Wasm slots with weather, clock, music and news; `--single-app` keeps the compatibility profile.
 Activity/Service, ownership, widgets, messages, Jobs, alarms and focus use the same SDK. See the
@@ -31,6 +31,62 @@ see [D8](docs/development/app-manager-d8.zh-CN.md). MCU multi-instance support r
 The new HTTP and URL audio adapters currently target PC; MCU support requires platform adapters.
 The Home, music, weather, news and calendar screens share a dark gray/orange visual style; see the
 [panel design](docs/design/panel-ui.zh-CN.md) and [verification guide](docs/development/panel-ui.zh-CN.md).
+
+## Default apps and screens
+
+PC Home includes the following four apps. These are actual 720×720 PC Host screenshots: music, weather and reminders use sample data, while news shows public CCTV content. Select an image for the full-size view.
+
+### NetEase Cloud Music
+
+Sign in with the official website's WeChat QR flow to browse playlists, daily recommendations and search results, and favorite songs.
+The dedicated player supports play/pause, previous/next and seeking; music keeps playing when you return to Home.
+See the [music app guide](guest/apps/netease-music/README.zh-CN.md) (Chinese).
+
+<p>
+  <a href="docs/images/default-apps/music-list.png"><img src="docs/images/default-apps/music-list.png" alt="NetEase Cloud Music: recommendations, favorites and the mini player" width="320"></a>
+  <a href="docs/images/default-apps/music-player.png"><img src="docs/images/default-apps/music-player.png" alt="NetEase Cloud Music: dedicated player, track controls and seek bar" width="320"></a>
+</p>
+
+*Recommendations and favorites · Dedicated player*
+
+### Weather
+
+View current conditions, hourly and three-day forecasts, humidity and wind speed.
+Choose from popular shortcuts or 394 locations grouped by region. The app saves your selection and retains the last successful forecast when refresh fails.
+See the [weather app guide](guest/apps/weather/README.zh-CN.md) (Chinese).
+
+<p>
+  <a href="docs/images/default-apps/weather-forecast.png"><img src="docs/images/default-apps/weather-forecast.png" alt="Weather: current temperature, hourly and daily forecasts, humidity and wind" width="320"></a>
+  <a href="docs/images/default-apps/weather-cities.png"><img src="docs/images/default-apps/weather-cities.png" alt="Weather: popular locations and region-based city selection" width="320"></a>
+</p>
+
+*Conditions and forecasts · Region and city selection*
+
+### Alarms and calendar
+
+Check the next alarm and reminder summary, configure one-shot or daily alarms, and select dates on the month calendar to add, edit, complete or delete reminders.
+The Host saves alarm plans persistently and rings even after the app closes.
+See the [calendar and reminders guide](guest/apps/clock-alarm/README.zh-CN.md) (Chinese).
+
+<p>
+  <a href="docs/images/default-apps/clock-alarm.png"><img src="docs/images/default-apps/clock-alarm.png" alt="Alarms: next alarm, enable switches and reminder summary" width="320"></a>
+  <a href="docs/images/default-apps/clock-calendar.png"><img src="docs/images/default-apps/clock-calendar.png" alt="Calendar: month view, date selection and the add-reminder action" width="320"></a>
+</p>
+
+*Alarms and reminder summary · Month calendar and date selection*
+
+### News
+
+Browse CCTV headlines and select a card to download and scroll through the article. Filter unread/read items, retry failed requests and revisit the most recently cached article.
+Select the source in the header to switch to Toutiao trending topics and their popularity scores.
+See the [news app guide](guest/apps/news/README.zh-CN.md) (Chinese).
+
+<p>
+  <a href="docs/images/default-apps/news-list.png"><img src="docs/images/default-apps/news-list.png" alt="News: CCTV headlines and unread/read filters" width="320"></a>
+  <a href="docs/images/default-apps/news-article.png"><img src="docs/images/default-apps/news-article.png" alt="News: downloaded article text, attribution and scrolling" width="320"></a>
+</p>
+
+*CCTV headlines · Article download and reading*
 
 ## Run on a PC
 

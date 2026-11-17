@@ -39,6 +39,9 @@ commit `75bf2e5ca209f4f1b3f822fa65d9f7b67e4b53ec`, under MIT, copyright (c) 2013
 The full permission notice is retained in [LICENSE.api-enhanced.txt](guest/apps/netease-music/LICENSE.api-enhanced.txt).
 The Node.js server and third-party music-source modules are not included or run by this client.
 
+The [default app screenshots](docs/images/default-apps/README.md) include public CCTV news headlines and article excerpts.
+This news content remains the property of its respective rights holders; the project's Apache-2.0 license does not relicense it.
+
 Unless otherwise noted, project-authored source code, documentation, and assets are licensed under the
 [Apache License 2.0](LICENSE).
 
