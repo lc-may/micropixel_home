@@ -1,10 +1,11 @@
-# Default app screenshots
+# Home and default app screenshots
 
 These 720×720 PNGs are unmodified captures of the MicroPixel PC Host. Both root READMEs share these files.
 Music, weather and reminder screens use local sample data. News screens show public CCTV content captured on 2026-11-17.
 
 | File | Screen |
 |---|---|
+| `home-panel.png` | Home dashboard with weather, reminders, background music controls and four configured apps |
 | `music-list.png` | Daily recommendations, favorites and mini player |
 | `music-player.png` | Dedicated player with active playback and seeking |
 | `weather-forecast.png` | Current, hourly and three-day forecasts |
@@ -14,7 +15,8 @@ Music, weather and reminder screens use local sample data. News screens show pub
 | `news-list.png` | CCTV headlines and read filters |
 | `news-article.png` | Downloaded article and scrollable reading area |
 
-Panel screens are captured by `bash tools/tests/test_firmware_host.sh --pc --panel`;
+The Home dashboard is captured by `bash tools/tests/test_firmware_host.sh --pc --news` with four configured apps.
+Other panel screens are captured by `bash tools/tests/test_firmware_host.sh --pc --panel`;
 the active music player by `--pc --music --interactive`; live article reading by `--pc --news --content --live`.
 For a news list capture, run the news app with `--headless --seconds 14 --screenshot <output.png>` through
 `bash tools/tests/test_firmware_host.sh --pc --run` after building the Guest.

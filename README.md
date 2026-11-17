@@ -32,6 +32,27 @@ The new HTTP and URL audio adapters currently target PC; MCU support requires pl
 The Home, music, weather, news and calendar screens share a dark gray/orange visual style; see the
 [panel design](docs/design/panel-ui.zh-CN.md) and [verification guide](docs/development/panel-ui.zh-CN.md).
 
+## Home dashboard
+
+Home is the PC Host's dashboard for time, weather, reminders and music. Open a page from its card and return to the dashboard while music keeps playing in the background.
+
+<p>
+  <a href="docs/images/default-apps/home-panel.png"><img src="docs/images/default-apps/home-panel.png" alt="Home dashboard: time and weather, alarms, calendar reminders, background music controls and the four-app launcher" width="640"></a>
+</p>
+
+*Home: time and weather, reminder cards, music controls and the app launcher (sample data)*
+
+| Area | Display and actions |
+|---|---|
+| Time and date | Shows the current time and date; select the time area to open alarms. |
+| Weather | Shows the selected city, temperature and weather icon; open the forecast or use the top-right button to refresh weather. |
+| Alarms / calendar and reminders | Shows the next alarm and upcoming reminder summary; opens the alarm page or month calendar. |
+| Music | Shows the current track and playback state; play/pause or skip directly, or select the card to resume the music page. |
+| Apps | Opens the app drawer to launch apps such as News, enter the market, adjust system volume or close the current app. |
+
+Press `Esc`, `Home` or `F1` in an app to return to Home. Select the music card or the drawer's Return to app entry to resume the existing instance.
+See the [PC Home guide](docs/design/pc-home.zh-CN.md) (Chinese) for navigation and background behavior.
+
 ## Default apps and screens
 
 PC Home includes the following four apps. These are actual 720×720 PC Host screenshots: music, weather and reminders use sample data, while news shows public CCTV content. Select an image for the full-size view.
