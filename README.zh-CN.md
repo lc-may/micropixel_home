@@ -8,6 +8,25 @@
 
 本仓库同时提供 Linux/WSL2 PC Host，可在没有 MCU 硬件时开发和运行 Guest 应用。
 
+## 相对原项目的关键新增
+
+**本分支的核心新增是 PC 多应用 Home 与独立的 Activity / Service 生命周期。**
+音乐播放时可以切换到天气或新闻，返回 Home 仍可暂停、切歌；页面销毁后可重建，账号和播放队列由业务模型保留。
+天气通过 Host 调度的后台任务刷新，闹钟计划由 Host 持久保存，关闭闹钟 App 后仍可触发提醒。
+
+| 关键新增 | 本分支提供的能力 |
+|---|---|
+| 多应用管理与后台服务 | PC 默认最多四个独立 App Session；Activity 管页面，AppService 管后台业务，支持分别创建、停止和清理组件资源。 |
+| Home 与跨应用协作 | 首页汇总天气、闹钟、事项和音乐状态；通过 Widget、消息与应用激活完成刷新、播控和页面跳转。 |
+| 持久任务与提醒 | Host 管理 Job 和 Alarm 计划、唤醒资格与工作期限；支持周期天气刷新、持久闹钟和事项提醒。 |
+| PC 开发与双执行后端 | Linux/WSL2 上使用 LVGL + SDL 进行真实界面、输入、网络和音频联调；支持原生 Wasm、QEMU RV32 AOT 及混合后端多实例。 |
+| 四个默认日常应用 | 提供网易云音乐、天气、闹钟日历和新闻，覆盖扫码登录、网络音乐、天气预报、事项管理和新闻正文阅读。 |
+| 可复用 Guest UI 组件 | 新增 AppBar、SegmentedControl、VirtualList、ContentStateView 和 Theme，共享标题布局、列表/网格复用与手势处理。 |
+
+对比基线为与[原 MicroPixel 项目](https://github.com/78/micropixel)的分叉点
+[`09833fa`](https://github.com/78/micropixel/commit/09833faa2d5b6b37dcae6781ce13f0948c7a40b3)。原有 MCU Wasm 运行时、C++23 SDK、Scene/Service ABI 和 Bundle 机制继续作为基础。
+上述多应用、后台服务和联网媒体能力目前以 PC Host 为实现与验证目标；MCU 多实例及相应网络/媒体平台适配仍需单独接入。
+
 ## PC 新增功能
 
 | 功能 | 已支持的能力 |

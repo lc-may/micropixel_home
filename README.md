@@ -8,6 +8,25 @@ The firmware manages hardware, app isolation, and the system UI.
 
 This repository also includes a Linux/WSL2 PC Host for developing and running Guest apps without MCU hardware.
 
+## Key additions to the original project
+
+**The central addition is a PC multi-app Home with independently managed Activity / Service lifecycles.**
+Switch to weather or news while music keeps playing, then pause or skip from Home. Pages can be destroyed and recreated while the app model retains the account and playback queue.
+Host-scheduled jobs refresh weather, and persistent Host alarm plans can ring after the alarm app closes.
+
+| Key addition | What this fork provides |
+|---|---|
+| Multi-app management and background services | Up to four independent PC App Sessions by default; Activity owns pages and AppService owns background work, with separate component creation, shutdown and resource cleanup. |
+| Home and app coordination | Weather, alarms, reminders and music appear on one dashboard; widgets, messages and app activation connect refresh actions, media controls and navigation. |
+| Persistent jobs and reminders | The Host manages Job and Alarm plans, wake eligibility and work deadlines for periodic weather updates, durable alarms and reminders. |
+| PC development and two execution backends | LVGL + SDL on Linux/WSL2 provides real UI, input, network and audio integration; native Wasm and QEMU RV32 AOT can run as multiple instances or mixed backends. |
+| Four default everyday apps | NetEase Cloud Music, weather, alarms/calendar and news cover QR login, network audio, forecasts, reminders and downloaded article reading. |
+| Reusable Guest UI components | AppBar, SegmentedControl, VirtualList, ContentStateView and Theme share header layout, list/grid recycling and gesture handling across apps. |
+
+The comparison baseline is the fork point from [the original MicroPixel project](https://github.com/78/micropixel),
+[`09833fa`](https://github.com/78/micropixel/commit/09833faa2d5b6b37dcae6781ce13f0948c7a40b3). The MCU Wasm runtime, C++23 SDK, Scene/Service ABI and Bundle model remain the foundation.
+These multi-app, background-service and network/media additions currently target and are validated on the PC Host; MCU multi-instance support and the corresponding network/media adapters require separate platform work.
+
 ## PC features
 
 | Feature | Available functionality |
