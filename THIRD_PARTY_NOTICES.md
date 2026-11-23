@@ -383,3 +383,14 @@ The weather example fetches current data from [Open-Meteo](https://open-meteo.co
 Data is provided under [CC BY 4.0](https://open-meteo.com/en/licence). The default free endpoint is for
 non-commercial use under the [service terms](https://open-meteo.com/en/terms); commercial deployments require an appropriate service plan.
 No Open-Meteo implementation code is bundled.
+
+## Bouffalo build inputs
+
+`firmware/bouffalo/sdk-source.json` pins the external public
+[Bouffalo SDK](https://github.com/bouffalolab/bouffalo_sdk) revision and toolchain
+archive checksums. SDK components and prebuilt libraries retain their individual
+licenses; consult the pinned SDK's LICENSE files before redistributing firmware.
+The build tools download these inputs outside the tracked source tree.
+
+`firmware/bouffalo/dependencies.json` pins the existing WAMR fork revision for a
+separate source checkout; the WAMR license and notices above also apply there.
