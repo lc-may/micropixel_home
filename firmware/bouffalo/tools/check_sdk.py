@@ -17,18 +17,27 @@ REQUIRED = {
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sdk', type=Path, default=os.environ.get('BL_SDK_BASE'))
+    parser.add_argument('--board', choices=['bl618dg_orion'])
     parser.add_argument('--exact', action='store_true')
     args = parser.parse_args()
     if not args.sdk:
         parser.error('Set BL_SDK_BASE or pass --sdk')
     sdk = Path(args.sdk).resolve()
     failures = []
-    for file, tokens in REQUIRED.items():
+    required = REQUIRED
+    if args.board == 'bl618dg_orion':
+        required = {**REQUIRED, 'bsp/board/bl618dg_orion/CMakeLists.txt': ['board_gpio.c']}
+    for file, tokens in required.items():
         path = sdk/file
         if not path.is_file() or any(token not in path.read_text() for token in tokens):
             failures.append(file)
     if args.exact:
         source = json.loads((ROOT/'sdk-source.json').read_text())
+        baseline = json.loads((ROOT/'sdk-baseline.json').read_text())
+        fingerprints = baseline['sha256']
+        if args.board:
+            source = source['boards'][args.board]
+            fingerprints = baseline['boards'][args.board]
         allowed_changes = set()
         for patch in source['patches']:
             allowed_changes.update(patch['files'])
@@ -57,12 +66,11 @@ if __name__ == '__main__':
                 stderr=subprocess.PIPE).decode().split('\0')
             if any(untracked):
                 failures.append('untracked SDK files: ' + ', '.join(filter(None, untracked)))
-            baseline = json.loads((ROOT/'sdk-baseline.json').read_text())['sha256']
-            if not allowed_changes.issubset(baseline):
+            if not allowed_changes.issubset(fingerprints):
                 failures.append('patched SDK files missing from fingerprint manifest')
         except (OSError, subprocess.CalledProcessError):
             failures.append('SDK Git metadata is missing or inaccessible')
-        for file, expected in json.loads((ROOT/'sdk-baseline.json').read_text())['sha256'].items():
+        for file, expected in fingerprints.items():
             path = sdk/file
             if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
                 failures.append(file)

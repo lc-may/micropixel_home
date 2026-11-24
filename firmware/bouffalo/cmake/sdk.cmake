@@ -1,10 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 get_filename_component(MPX_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
-execute_process(COMMAND python3 "${MPX_ROOT}/tools/check_sdk.py" --exact
+if(MPX_SDK_BOARD)
+    set(_sdk_board_args --board "${MPX_SDK_BOARD}")
+endif()
+execute_process(COMMAND python3 "${MPX_ROOT}/tools/check_sdk.py" --exact ${_sdk_board_args}
     COMMAND_ERROR_IS_FATAL ANY)
 # Load the exact configuration whose provenance was checked above. HINTS would
 # allow CMAKE_PREFIX_PATH, package registries or a cached *_DIR to override it.
 include("$ENV{BL_SDK_BASE}/cmake/bouffalo_sdk-config.cmake")
+if(MPX_SDK_BOARD AND NOT BOARD STREQUAL MPX_SDK_BOARD)
+    message(FATAL_ERROR "SDK selected BOARD=${BOARD}, expected ${MPX_SDK_BOARD}. Use a fresh BUILD_DIR.")
+endif()
 
 # Public MicroPixel RV32 AOT bundles use the single-float ABI on both chips.
 sdk_add_compile_options(-mabi=ilp32f)

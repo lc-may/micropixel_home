@@ -4,6 +4,8 @@ The two build profiles compose the same platform port with the public SDK's
 FreeRTOS kernel. BL616CL reserves its 4 MiB PSRAM region; BL618DG B0 uses the
 AP core with NP disabled and 16 MiB PSRAM. The vendor startup, linker and
 Picolibc TLS support remain responsible for board initialization.
+On Orion, the SDK's SYSINIT initializes the BSP and starts FreeRTOS before
+calling the smoke executable's `main()`.
 
 ## WAMR execution contract
 

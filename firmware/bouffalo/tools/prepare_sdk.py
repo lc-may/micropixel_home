@@ -12,14 +12,17 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def prepare(directory):
+def prepare(directory, board=None):
     pin = json.loads((ROOT/'sdk-source.json').read_text())
+    check = [sys.executable, str(ROOT/'tools/check_sdk.py'), '--exact']
+    if board:
+        pin = pin['boards'][board]
+        check.extend(('--board', board))
     for patch in pin['patches']:
         if hashlib.sha256((ROOT/patch['path']).read_bytes()).hexdigest() != patch['sha256']:
             raise ValueError('SDK patch checksum mismatch: ' + patch['path'])
     if directory.exists():
-        subprocess.run([sys.executable, str(ROOT/'tools/check_sdk.py'),
-                        '--sdk', str(directory), '--exact'], check=True)
+        subprocess.run([*check, '--sdk', str(directory)], check=True)
         return
     directory.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.micropixel-sdk-', dir=directory.parent) as scratch:
@@ -33,15 +36,15 @@ def prepare(directory):
             path = str(ROOT/patch['path'])
             subprocess.run(['git', '-C', str(sdk), 'apply', '--check', path], check=True)
             subprocess.run(['git', '-C', str(sdk), 'apply', path], check=True)
-        subprocess.run([sys.executable, str(ROOT/'tools/check_sdk.py'),
-                        '--sdk', str(sdk), '--exact'], check=True)
+        subprocess.run([*check, '--sdk', str(sdk)], check=True)
         sdk.rename(directory)
     print(f'SDK ready: {directory}\nSet BL_SDK_BASE to this directory.')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--board', choices=['bl618dg_orion'])
     parser.add_argument('--directory', type=Path, required=True,
                         help='new SDK directory, or an existing checkout to verify without modifying')
     args = parser.parse_args()
-    prepare(args.directory.resolve())
+    prepare(args.directory.resolve(), args.board)

@@ -26,6 +26,19 @@ patches, or modified critical inputs. This initial foundation declares no SDK
 patches. The preparation and verification tools also support explicitly declared,
 checksum-pinned patches for future adapters.
 
+## BL618DG Orion
+
+The `bl618dg_orion` board uses the Gitee SDK revision
+[`9e34f621`](https://gitee.com/bouffalolab/bouffalo_sdk/commit/9e34f621e6e3b0acef296fc5cedd0ed8c33d4464).
+This revision includes Orion's BSP under `bsp/board/bl618dg_orion`, including its
+console GPIO and 16 MiB PSRAM configuration. The SDK lock and fingerprints
+are recorded under `bl618dg_orion` in the same manifests.
+
+```sh
+python3 firmware/bouffalo/tools/prepare_sdk.py --board bl618dg_orion --directory ../bouffalo_sdk
+python3 firmware/bouffalo/tools/check_sdk.py --board bl618dg_orion --sdk ../bouffalo_sdk --exact
+```
+
 ## Toolchains
 
 The Linux x86_64 download URLs and SHA256 digests are also in `sdk-source.json`.

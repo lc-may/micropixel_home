@@ -1,6 +1,7 @@
 # Bouffalo build foundation
 
-This directory introduces external SDK build profiles for BL616CL and BL618DG B0 AP.
+This directory provides external SDK build profiles for BL616CL and BL618DG B0 AP,
+including the BL618DG Orion board.
 Each profile builds a minimal FreeRTOS/WAMR validation executable. Full MicroPixel
 firmware composition and board display, input, audio and storage adapters are
 separate follow-ups. See [runtime contracts](docs/runtime.md).
@@ -20,13 +21,25 @@ make -C firmware/bouffalo/boards/bl616cl
 make -C firmware/bouffalo/boards/bl618dg
 ```
 
-`cmake/sdk.cmake` verifies SDK provenance before configuring either target. Both
+For Orion, use its [Gitee SDK revision](docs/sdk.md#bl618dg-orion) with the same
+toolchains and WAMR dependency. From the MicroPixel repository root:
+
+```sh
+python3 firmware/bouffalo/tools/prepare_sdk.py --board bl618dg_orion --directory ../bouffalo_sdk
+make -C firmware/bouffalo/boards/bl618dg BOARD=bl618dg_orion \
+    BL_SDK_BASE="$(cd ../bouffalo_sdk && pwd)"
+```
+
+The Orion build defaults to the sibling `bouffalo_sdk` checkout and resolves
+`bsp/board/bl618dg_orion` in that SDK. Set `BL_SDK_BASE` to select a different
+checkout of the Orion revision. The Orion output directory is `build-orion/`.
+
+`cmake/sdk.cmake` verifies SDK provenance before configuring each target. All
 use RV32 ILP32F, C++23, disabled exceptions and RTTI. Unused prebuilt multimedia
 and PKA libraries are excluded because the SDK's DG variants use ILP32D. The
-linker continues to enforce ABI compatibility. Outputs stay inside each board's
-ignored `build/`; `CONFIG_SKIP_COMBINE` produces raw images without installation
-partition layouts. These foundation targets are runtime smoke checks, not desktop
-release images. Use `BUILD_DIR=build-other` for a fresh output directory.
+linker continues to enforce ABI compatibility. Outputs stay in each board's
+ignored build directory. `CONFIG_SKIP_COMBINE` produces raw test images without
+installation partition layouts. Use `BUILD_DIR=build-other` for a fresh output directory.
 
 ## Source dependencies
 

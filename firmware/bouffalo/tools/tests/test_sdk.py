@@ -129,6 +129,39 @@ class SdkPreparation(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('undeclared SDK changes', result.stderr)
 
+    def test_orion_uses_its_own_revision_and_fingerprints(self):
+        board = 'bl618dg_orion'
+        board_file = 'bsp/board/bl618dg_orion/CMakeLists.txt'
+        path = self.sdk/board_file
+        path.parent.mkdir(parents=True)
+        path.write_text('target_sources(app PRIVATE board_gpio.c)\n')
+        self.git('add', board_file)
+        self.git('-c', 'user.name=SDK Test', '-c', 'user.email=test@example.invalid',
+                 'commit', '-m', 'Orion board')
+        self.source['boards'] = {board: {
+            'repository': self.source['repository'],
+            'commit': self.git('rev-parse', 'HEAD').stdout.strip(),
+            'patches': [],
+        }}
+        (self.platform/'sdk-source.json').write_text(json.dumps(self.source))
+        baseline_path = self.platform/'sdk-baseline.json'
+        baseline = json.loads(baseline_path.read_text())
+        baseline['boards'] = {board: {board_file: hashlib.sha256(path.read_bytes()).hexdigest()}}
+        baseline_path.write_text(json.dumps(baseline))
+
+        result = self.tool('prepare_sdk.py', '--directory', str(self.target), '--board', board)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((self.target/'critical.c').read_text(), 'original\n')
+        result = self.tool('check_sdk.py', '--sdk', str(self.target), '--exact')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Git HEAD', result.stderr)
+
+        baseline['boards'][board][board_file] = '0' * 64
+        baseline_path.write_text(json.dumps(baseline))
+        result = self.tool('check_sdk.py', '--sdk', str(self.target), '--exact', '--board', board)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(board_file, result.stderr)
+
     def test_rejects_modified_patched_file(self):
         self.prepare()
         (self.target/'critical.c').write_text('unexpected\n')

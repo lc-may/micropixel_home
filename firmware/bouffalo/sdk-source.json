@@ -2,6 +2,13 @@
   "repository": "https://github.com/bouffalolab/bouffalo_sdk.git",
   "commit": "eba87edced5a03ce8bcad8cf6002494982f83a5f",
   "patches": [],
+  "boards": {
+    "bl618dg_orion": {
+      "repository": "https://gitee.com/bouffalolab/bouffalo_sdk.git",
+      "commit": "9e34f621e6e3b0acef296fc5cedd0ed8c33d4464",
+      "patches": []
+    }
+  },
   "toolchains": {
     "linux-x86_64": {
       "version": "Zephyr SDK 1.0.0-rc1, GCC 14.3.0",

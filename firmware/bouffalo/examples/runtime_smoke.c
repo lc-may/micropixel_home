@@ -116,8 +116,14 @@ static void runtime_smoke(void *argument) {
 }
 
 int main(void) {
+#ifndef CONFIG_SYSINIT
     board_init();
+#endif
     require(xTaskCreatePinnedToCore(runtime_smoke, "mpx_smoke", 8192, NULL, 3, NULL, 0) == pdPASS, "runtime task");
+#ifdef CONFIG_SYSINIT
+    return 0;
+#else
     vTaskStartScheduler();
     abort();
+#endif
 }

@@ -13,5 +13,29 @@
     "components/libc/picolibc/port_tls.c": "bf5d72b83146d55a2af8010ffec860db5c516a3d102fd81623f71ad5f42cecae",
     "tools/byai/toolchain.py": "23e57ae2c3f0f5a8aa5479431ee85d8b225cfac7b2af9833cf838492ab354f4b",
     "bsp/Kconfig": "a515d8a387eb3afd4e8b56db13d4fdb9cffda5785590cb5eb67bd1fdee7e7a18"
+  },
+  "boards": {
+    "bl618dg_orion": {
+      "bsp/Kconfig": "b6aa2678a679ce1eeaaabe731aadda6b53dc87166f152b056d92c58d1bbdb753",
+      "bsp/board/CMakeLists.txt": "0cb6131a1e0596631f2469c998b7eedcc156012cd6b417f2a367d522a4be0db0",
+      "bsp/board/Kconfig": "9e03f88b6a6368d3eeb9f4b55695dec3d92901d50f3542d56f14f95239f1d5b4",
+      "bsp/board/bl618dg_orion/CMakeLists.txt": "ef9a585a065fe816a1dd1c40419cf46babdc17570737510b12f2535e1dc8e6bb",
+      "bsp/board/bl618dg_orion/Kconfig.defconfig": "f9239d0f9744444b079140e895d913685f9c2a56e28346c99a56be46ac56a249",
+      "bsp/board/bl618dg_orion/board.h": "dced57db6fbd1e9e5f9c88d7d4ddbd7d1271e3fd3807638c7b59a2d447cc8439",
+      "bsp/board/bl618dg_orion/board_config.h": "9d6246e9bd6adeb7f9d2999f8d29a9bbdfde04daf089970d8299d569ccf8fab0",
+      "bsp/board/bl618dg_orion/board_gpio.c": "595a60971c6d82f56b44897e6a015670d29d35d08a7414519ce9140738f31040",
+      "bsp/board/bl618dg_orion/board_gpio.h": "06e8324d833cbc2593d77df6476e6a00eafedc9626578dc734d138b8c7696616",
+      "bsp/board/bl618dgdk/CMakeLists.txt": "8ea9ba27f06cd8f2d33ff4abb1e450721ffa4ab715ef0315438b6016b61a6252",
+      "bsp/board/bl618dgdk/bl618dg_common.ld.in": "6a7223704a85fa9acd92cb038b89e7b0380e229b0c102d663f3607456713e853",
+      "bsp/board/bl618dgdk/board.c": "ff193c1261bba8c70d50bed8d24976c37424456894bfd99c0066de1512ceb41b",
+      "bsp/board/bl618dgdk/board_ap.c": "53a40dae452d3e992cacabd388934a17aa835dde9e5bfc9a47dccd60b040648c",
+      "cmake/bouffalo_sdk-config.cmake": "f3cc77c605a8f49ace487bac7fc4aa9fad461fd0fed3ac156378d3f7dca5f8b0",
+      "cmake/compiler_flags.cmake": "20e92450834bbfe004bed5b1f6e0d2c22d4ba048ca4c186d485beb8140c62534",
+      "cmake/toolchain.cmake": "da78e49fdb0749ed2fcb807eca859e116d421ad0138783275e94d0a2ebb0a1d5",
+      "components/libc/picolibc/port_tls.c": "bf5d72b83146d55a2af8010ffec860db5c516a3d102fd81623f71ad5f42cecae",
+      "components/os/freertos/tasks.c": "5b4339da77b89550974a0d9fc1e799fce5a205ba0d8514fd4a7ba3c517183b60",
+      "project.build": "e1138954812a5cfdc20db3170b42910437ca95da740c78597aee02ccacb45040",
+      "tools/byai/toolchain.py": "23e57ae2c3f0f5a8aa5479431ee85d8b225cfac7b2af9833cf838492ab354f4b"
+    }
   }
 }

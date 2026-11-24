@@ -392,5 +392,8 @@ archive checksums. SDK components and prebuilt libraries retain their individual
 licenses; consult the pinned SDK's LICENSE files before redistributing firmware.
 The build tools download these inputs outside the tracked source tree.
 
+The same lock pins the [Gitee Bouffalo SDK](https://gitee.com/bouffalolab/bouffalo_sdk)
+revision used for the BL618DG Orion board.
+
 `firmware/bouffalo/dependencies.json` pins the existing WAMR fork revision for a
 separate source checkout; the WAMR license and notices above also apply there.
