@@ -42,7 +42,34 @@ GuestContext::GuestContext(const micropixel_aot_package_t& package, device::Devi
       storage_(package),
       touch_events_(events_, devices_.input(), clock_origin_us_),
       key_events_(events_, devices_.input(), clock_origin_us_),
-      components_(*this, component_flags),
+      components_(
+          events_, service_registry_, component_flags,
+          {.context = this,
+           .now = [](void* raw) { return static_cast<GuestContext*>(raw)->timers_.Now(); },
+           .stop = [](void* raw) { return static_cast<GuestContext*>(raw)->RequestStop(); },
+           .scope =
+               [](void* raw, uint32_t token, const micropixel_component_info_t& info) {
+                   auto& context = *static_cast<GuestContext*>(raw);
+                   context.devices_.audio().SetComponentScope(token);
+                   if (auto* apps = context.devices_.applications()) {
+                       apps->SetComponents(info);
+                       apps->SetComponentScope(token);
+                   }
+                   if (auto* http = context.devices_.http()) http->SetComponentScope(token);
+               },
+           .changed =
+               [](void* raw, const micropixel_component_info_t& info) {
+                   if (auto* apps = static_cast<GuestContext*>(raw)->devices_.applications()) apps->SetComponents(info);
+               },
+           .stop_audio = [](void* raw,
+                            uint32_t token) { static_cast<GuestContext*>(raw)->devices_.audio().StopComponent(token); },
+           .release_activity =
+               [](void* raw) {
+                   auto& context = *static_cast<GuestContext*>(raw);
+                   context.direct_surface_.Shutdown();
+                   context.devices_.graphics().ReleaseActivityResources();
+                   (void)context.devices_.input().EnableText(false);
+               }}),
       lifecycle_endpoint_(*this),
       widget_endpoint_(*this, MICROPIXEL_SERVICE_WIDGET),
       message_endpoint_(*this, MICROPIXEL_SERVICE_MESSAGE),

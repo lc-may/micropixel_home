@@ -11,7 +11,8 @@ namespace {
 static_assert(std::is_move_constructible_v<micropixel::PcmStream>);
 static_assert(!std::is_copy_constructible_v<micropixel::PcmStream>);
 
-constexpr uint32_t kToneHz = 440U;
+constexpr uint32_t kToneHz = 1000U;
+constexpr auto kToneDuration = micropixel::Duration::Seconds(3U);
 constexpr uint32_t kBlockFrames = 512U;
 constexpr uint32_t kTotalBlocks = 24U;
 
@@ -38,6 +39,16 @@ void FillBlock(int16_t* block, uint32_t frames, uint32_t sample_rate, uint32_t& 
     }
 }
 
+bool WaitFor(micropixel::Application& app, micropixel::Duration delay) {
+    const auto deadline = app.clock().Now() + delay;
+    for (auto now = app.clock().Now(); now < deadline; now = app.clock().Now()) {
+        micropixel::Event event;
+        if (!app.WaitEventFor(event, deadline - now)) return true;
+        if (event.type() == micropixel::EventType::kStop) return false;
+    }
+    return true;
+}
+
 }  // namespace
 
 int main() {
@@ -49,6 +60,16 @@ int main() {
         return 50;
     }
     const uint32_t mix_rate = info->sample_rate;
+    app.log().Info("audio_pcm_stream: play 1 kHz sine for 3 seconds");
+    if (!audio.Play({.waveform = micropixel::Waveform::kSine,
+                     .frequency_hz = kToneHz,
+                     .duration = kToneDuration,
+                     .volume_per_mille = 300U,
+                     .attack = micropixel::Duration::Milliseconds(8U),
+                     .release = micropixel::Duration::Milliseconds(40U)}) ||
+        !WaitFor(app, kToneDuration + micropixel::Duration::Milliseconds(100U))) {
+        return 67;
+    }
 
     // Invalid options are rejected locally and by the Host alike.
     if (audio.OpenPcmStream({.sample_rate = mix_rate, .channels = 3U}) ||
@@ -153,21 +174,12 @@ int main() {
         return 64;
     }
     // Let it play out before destruction closes the stream.
-    micropixel::Timer timer = app.timers().After(micropixel::Duration::Milliseconds(120U)).value();
-    for (;;) {
-        micropixel::Event event = app.WaitEvent();
-        if (event.TimerFrom(timer) != nullptr) {
-            break;
-        }
-        if (event.type() == micropixel::EventType::kStop) {
-            return 65;
-        }
-    }
+    if (!WaitFor(app, micropixel::Duration::Milliseconds(120U))) return 65;
     half->Reset();
     if (half->valid()) {
         return 66;
     }
 
-    app.log().Info("audio_pcm_stream: streamed with backpressure, low-water and 2x upsampled stereo");
+    app.log().Info("audio_pcm_stream: tone, PCM backpressure, low-water and 2x upsampled stereo");
     return 0;
 }

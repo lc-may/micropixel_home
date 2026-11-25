@@ -14,6 +14,12 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "task.h"
+
+/* MACSW exports allocators with the same generic names. WAMR needs PSRAM. */
+#define os_malloc mpx_wamr_malloc
+#define os_realloc mpx_wamr_realloc
+#define os_free mpx_wamr_free
+
 typedef TaskHandle_t korp_tid;
 typedef TaskHandle_t korp_thread;
 typedef SemaphoreHandle_t korp_mutex;

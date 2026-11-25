@@ -83,7 +83,7 @@ def main():
             def scenario(click, event, wait_for, log_path, process, escape):
                 open_home_app(click, 0)
                 wait_for("NETEASE_GUEST search: 6 tracks")
-                click(130, 190)
+                click(130, 245)
                 wait_for("NETEASE_GUEST selected: 101")
                 wait_for("Audio playing:")
                 click(48, 38)  # Player -> browser, whose account button starts QR login.
@@ -132,9 +132,9 @@ def main():
                 open_home_app(click, 0)
                 wait_for("NETEASE_LOGIN authenticated")
                 wait_for("NETEASE_HOME playlists:")
-                click(120, 680)
+                click(120, 101)
                 wait_for("NETEASE_HOME recommendations: 30")
-                click(140, 220)
+                click(140, 261)
                 wait_for("NETEASE_ACTIVITY destroyed")
                 wait_for("Audio playing:")
                 before = log_path.read_text().count("NETEASE_ACTIVITY created")

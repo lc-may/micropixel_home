@@ -68,6 +68,16 @@ class CityPicker final {
         root_.node().SetVisible(true);
     }
     bool visible() const { return visible_; }
+    bool Back() {
+        if (!visible_) return false;
+        if (mode_ == Mode::Cities)
+            SetMode(Mode::Provinces);
+        else if (mode_ == Mode::Provinces)
+            SetMode(Mode::Popular);
+        else
+            Hide();
+        return true;
+    }
     void Cancel() {
         header_.CancelInput();
         tabs_.CancelInput();
@@ -77,14 +87,9 @@ class CityPicker final {
         if (!visible_) return {};
         auto header = header_.OnTouch(touch);
         if (header.action) {
-            if (header.action->kind == micropixel::ui::AppBarActionKind::kLeading) {
-                if (mode_ == Mode::Cities)
-                    SetMode(Mode::Provinces);
-                else if (mode_ == Mode::Provinces)
-                    SetMode(Mode::Popular);
-                else
-                    Hide();
-            } else
+            if (header.action->kind == micropixel::ui::AppBarActionKind::kLeading)
+                Back();
+            else
                 Hide();
             return {.changed = true};
         }

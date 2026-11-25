@@ -12,12 +12,24 @@ if(MPX_SDK_BOARD AND NOT BOARD STREQUAL MPX_SDK_BOARD)
     message(FATAL_ERROR "SDK selected BOARD=${BOARD}, expected ${MPX_SDK_BOARD}. Use a fresh BUILD_DIR.")
 endif()
 
-# Public MicroPixel RV32 AOT bundles use the single-float ABI on both chips.
-sdk_add_compile_options(-mabi=ilp32f)
-sdk_add_link_options(-mabi=ilp32f)
+set(MPX_NATIVE_VIDEO_TEST OFF)
+if(BOARD STREQUAL "bl618dg_orion" AND CONFIG_DISPLAY_DEFAULT_TYPE_VIDEO AND CONFIG_LVGL9_PORT_DISP)
+    # The public B0 multimedia archive supplies the video HAL in ILP32D.
+    set(MPX_NATIVE_VIDEO_TEST ON)
+    return()
+endif()
+
 sdk_add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-std=gnu++23>)
 sdk_add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>)
 sdk_add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
+if(MPX_HOST_PORT)
+    # The portable Wasm Host uses the SDK ABI, including its prebuilt libraries.
+    return()
+endif()
+
+# Public MicroPixel RV32 AOT bundles use the single-float ABI on both chips.
+sdk_add_compile_options(-mabi=ilp32f)
+sdk_add_link_options(-mabi=ilp32f)
 
 # The SDK adds these prebuilt ILP32D libraries unconditionally on DG B0.
 # This foundation uses neither multimedia nor PKA. Drop them rather than

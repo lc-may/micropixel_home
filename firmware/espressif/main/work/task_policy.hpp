@@ -33,11 +33,15 @@ static_assert(kAudioPriority < configMAX_PRIORITIES);
 // exists on core 1). Everything the Host runs itself (LVGL, audio, I2C, USB,
 // workers) is pinned to kSystemCore. Tasks that use the FPU must be pinned to a
 // core on RISC-V targets; either core satisfies that requirement.
-constexpr BaseType_t kGuestCore = 1;
 constexpr BaseType_t kSystemCore = 0;
 
+#ifdef MICROPIXEL_BOUFFALO
+constexpr BaseType_t kGuestCore = kSystemCore;
+#else
+constexpr BaseType_t kGuestCore = 1;
 static_assert(kGuestCore != kSystemCore);
 static_assert(kGuestCore >= 0 && kGuestCore < static_cast<BaseType_t>(configNUMBER_OF_CORES));
 static_assert(kSystemCore >= 0 && kSystemCore < static_cast<BaseType_t>(configNUMBER_OF_CORES));
+#endif
 
 }  // namespace micropixel::task_policy

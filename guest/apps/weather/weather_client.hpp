@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+#include <algorithm>
 #include <array>
 #include <optional>
 #include <string>
@@ -53,8 +54,12 @@ class WeatherClient final {
         auto metadata = request_->Metadata();
         if (!metadata || metadata->status_code != 200) return -1;
         std::string body(state->body_length, '\0');
-        auto read = request_->Read(0, {reinterpret_cast<uint8_t*>(body.data()), body.size()});
-        if (!read || *read != body.size()) return -1;
+        for (uint32_t offset = 0; offset < body.size();) {
+            const auto size = std::min<size_t>(body.size() - offset, 4096);
+            auto read = request_->Read(offset, {reinterpret_cast<uint8_t*>(body.data() + offset), size});
+            if (!read || *read != size) return -1;
+            offset += *read;
+        }
         return Parse(body, out);
     }
     static int Parse(std::string_view body, Reading& out) {

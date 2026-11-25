@@ -29,7 +29,11 @@ constexpr uint32_t kFramesPerChunk = 128U;
 constexpr uint32_t kMaxCompressedPlaybacks = 2U;
 constexpr uint32_t kMaxGuestPcmStreams = 1U;
 constexpr uint32_t kPcmVoiceCount = kMaxCompressedPlaybacks + kMaxGuestPcmStreams;
+#if defined(MICROPIXEL_ORION_HOST)
+constexpr uint32_t kAudioTaskStackSize = 8192U;
+#else
 constexpr uint32_t kAudioTaskStackSize = 4096U;
+#endif
 constexpr BaseType_t kAudioTaskCore = task_policy::kSystemCore;
 constexpr uint32_t kAudioIdleGraceMs = 10000U;
 
@@ -386,7 +390,9 @@ int32_t AudioEngine::GetInfo(micropixel_audio_info_t& info) {
     return MICROPIXEL_STATUS_OK;
 }
 
-int32_t AudioEngine::PlayTone(const micropixel_audio_tone_t& tone) {
+int32_t AudioEngine::PlayTone(const micropixel_audio_tone_t& tone) { return PlayToneForOwner(tone, 0); }
+
+int32_t AudioEngine::PlayToneForOwner(const micropixel_audio_tone_t& tone, uint32_t owner) {
     if (!AudioMixer::ValidTone(tone)) {
         return MICROPIXEL_STATUS_INVALID_ARGUMENT;
     }
@@ -411,6 +417,17 @@ int32_t AudioEngine::PlayTone(const micropixel_audio_tone_t& tone) {
         }
     }
     AudioMixer::StartVoice(*selected, tone, State().sample_rate);
+    selected->owner = owner;
+    (void)xSemaphoreGive(State().voices_mutex);
+    NotifyAudioTask();
+    return MICROPIXEL_STATUS_OK;
+}
+
+int32_t AudioEngine::StopTonesForOwner(uint32_t owner) {
+    if (!State().voices_mutex || xSemaphoreTake(State().voices_mutex, pdMS_TO_TICKS(20)) != pdTRUE)
+        return MICROPIXEL_STATUS_RATE_LIMITED;
+    for (SynthVoice& voice : State().voices)
+        if (voice.owner == owner) voice.active = false;
     (void)xSemaphoreGive(State().voices_mutex);
     NotifyAudioTask();
     return MICROPIXEL_STATUS_OK;

@@ -10,7 +10,12 @@ namespace micropixel::platform::lvgl {
 // LVGL objects, draw tasks, layers or transient allocations are involved.
 class BitmapFontRasterizer final : public graphics::TextRasterizer {
    public:
-    explicit BitmapFontRasterizer(FontRegistry& fonts) : fonts_(fonts) {}
+    using ResolveFont = const lv_font_t* (*)(const void*, micropixel_font_handle_t);
+    explicit BitmapFontRasterizer(FontRegistry& fonts)
+        : BitmapFontRasterizer(&fonts, [](const void* context, micropixel_font_handle_t handle) {
+              return static_cast<const FontRegistry*>(context)->ResolveRetainedHandle(handle);
+          }) {}
+    BitmapFontRasterizer(const void* context, ResolveFont resolve) : context_(context), resolve_(resolve) {}
 
     [[nodiscard]] bool Measure(micropixel_font_handle_t font_handle, const char* text, uint16_t text_length,
                                graphics::RasterTextMetrics& metrics) const override;
@@ -23,7 +28,8 @@ class BitmapFontRasterizer final : public graphics::TextRasterizer {
                                     const lv_font_t* font, const char* text, uint16_t text_length) const;
 
    private:
-    FontRegistry& fonts_;
+    const void* context_;
+    ResolveFont resolve_;
 };
 
 }  // namespace micropixel::platform::lvgl

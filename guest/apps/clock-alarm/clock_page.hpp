@@ -158,7 +158,7 @@ class PageView {
             }
             if (Hit(8, touch)) {
                 StopInput(app);
-                model_.page = Notes;
+                model_.page = model_.editor_parent;
                 rebuild = true;
             }
         }

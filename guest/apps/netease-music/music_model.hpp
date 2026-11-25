@@ -17,7 +17,8 @@ class MusicModel final {
         ComponentContext context(app_, service_token_);
         return context.WithScope(static_cast<F&&>(fn));
     }
-    void Initialize() {
+    template <class DrawInitial>
+    void Initialize(DrawInitial draw_initial) {
         if (const char* query = app_.launch_arguments().FindValue("--query")) {
             state_.query = Clip(query, 128);
             explicit_query_ = true;
@@ -31,7 +32,12 @@ class MusicModel final {
                 initial_song_ = initial_song_ * 10 + *p - '0';
             }
         }
-        if (app_.launch_arguments().HasFlag("--login"))
+        const bool open_login = app_.launch_arguments().HasFlag("--login");
+        if (!open_login && !initial_song_) {
+            state_.loading = true;
+            draw_initial();
+        }
+        if (open_login)
             OpenAccount();
         else if (account_.HasToken())
             login_.Verify();
@@ -416,7 +422,7 @@ class MusicModel final {
             app_.log().Info(("NETEASE_FEED queue extended: " + Decimal(queue_.size())).c_str());
         }
         state_.load_hint =
-            count >= Client::kMaxFeedItems                                             ? "已加载600项，刷新可重新开始"
+            count >= Client::kMaxFeedItems ? "已加载600项，刷新可重新开始"
             : state_.content == MusicContent::kRecommendations && !client_.added_items ? "暂无新推荐，稍后点击刷新"
             : state_.content == MusicContent::kRecommendations && !appending && client_.recommendation_retained
                 ? "更新 " + Decimal(client_.added_items) + " 首 · 共 " + Decimal(count) + " 首 · 上滑加载更多"

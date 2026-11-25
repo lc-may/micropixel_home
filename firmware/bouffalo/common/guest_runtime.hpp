@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: Apache-2.0
+#pragma once
+
+#include <atomic>
+#include <cstdint>
+#include <span>
+
+#include "runtime/abi/service_registry.hpp"
+#include "runtime/event_queue.hpp"
+
+namespace micropixel::runtime {
+class Components;
+}
+
+namespace micropixel::bouffalo {
+
+class TimerEndpoint;
+
+struct GuestMemory final {
+    const uint8_t* Resolve(uint32_t offset, uint32_t length) const;
+    void* module{};
+};
+
+struct GuestContext final {
+    runtime::EventQueue& events;
+    const runtime::ServiceRegistry& services;
+    int64_t clock_origin_us;
+    TimerEndpoint* timers{};
+    runtime::Components* components{};
+    GuestMemory* memory{};
+    std::atomic<bool> stopping{};
+    bool instruction_budget_epoch{};
+};
+
+[[nodiscard]] bool InitializeGuestRuntime();
+int32_t RunGuest(GuestContext& context, std::span<const uint8_t> binary, uint32_t unpacked_size = 0,
+                 const char* launch_name = nullptr);
+void ShutdownGuestRuntime();
+
+}  // namespace micropixel::bouffalo

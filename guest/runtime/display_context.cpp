@@ -37,8 +37,7 @@ const micropixel_graphics_info_t& LoadPhysicalGraphicsInfo() {
                 cached_graphics_info.width ||
             static_cast<uint32_t>(cached_graphics_info.safe_inset_top) + cached_graphics_info.safe_inset_bottom >=
                 cached_graphics_info.height ||
-            cached_graphics_info.reserved0 != 0U || cached_graphics_info.max_surface_buffers == 0U ||
-            cached_graphics_info.max_text_bytes == 0U ||
+            cached_graphics_info.reserved0 != 0U || cached_graphics_info.max_text_bytes == 0U ||
             cached_graphics_info.max_scene_bytes < sizeof(micropixel_graphics_scene_header_t)) {
             micropixel::runtime::Panic("graphics.info.incompatible", MICROPIXEL_STATUS_UNSUPPORTED);
         }

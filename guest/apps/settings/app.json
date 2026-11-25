@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "app_id": "micropixel.settings",
+  "version": "0.1.0",
+  "threading": "none",
+  "title": {
+    "default": "zh-CN",
+    "values": {"zh-CN": "配置", "en": "Settings"}
+  },
+  "sources": ["main.cpp"],
+  "requirements": {
+    "schema_version": 1,
+    "display": {
+      "layouts": ["square"],
+      "min_width": 480,
+      "min_height": 480
+    },
+    "required": ["input.touch"],
+    "optional": [],
+    "any_of": [],
+    "services": {"graphics": 65536}
+  }
+}

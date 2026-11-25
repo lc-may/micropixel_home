@@ -10,6 +10,10 @@
 #include "runtime_smoke_aot.h"
 #include "wasm_export.h"
 
+#if defined(CONFIG_DISPLAY_DEFAULT) && defined(CONFIG_LVGL9_PORT_DISP)
+#include "display_smoke.h"
+#endif
+
 static void require(bool condition, const char *operation) {
     if (!condition) {
         printf("MicroPixel runtime smoke FAIL: %s\n", operation);
@@ -120,6 +124,9 @@ int main(void) {
     board_init();
 #endif
     require(xTaskCreatePinnedToCore(runtime_smoke, "mpx_smoke", 8192, NULL, 3, NULL, 0) == pdPASS, "runtime task");
+#if defined(CONFIG_DISPLAY_DEFAULT) && defined(CONFIG_LVGL9_PORT_DISP)
+    display_smoke_start();
+#endif
 #ifdef CONFIG_SYSINIT
     return 0;
 #else

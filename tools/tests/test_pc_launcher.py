@@ -84,9 +84,9 @@ def main():
                 wait_for("HOME visible: running=none apps=2")
                 click(100, 566)
                 wait_for("NETEASE_HOME avatar ready")
-                wait("NETEASE_HOME recommendations: 30", lambda: click(128, 680))
+                wait("NETEASE_HOME recommendations: 30", lambda: click(128, 101))
                 HomeHandler.resolve_id = 1001
-                wait("Audio playing:", lambda: click(240, 229))
+                wait("Audio playing:", lambda: click(240, 261))
                 HomeHandler.audio = longer_audio
                 HomeHandler.resolve_id = 1002
                 wait("APP_SHELL background: micropixel.netease-music", escape)

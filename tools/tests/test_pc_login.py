@@ -144,7 +144,7 @@ def main():
                     wait_for("NETEASE_LOGIN waiting");click(180,674)  # Remember is explicit opt-in.
                     wait_for("NETEASE_LOGIN authenticated")
                     wait_for("NETEASE_HOME playlists: 0")
-                    click(592,680);wait_for("NETEASE_GUEST search: 0 tracks")
+                    click(592,101);wait_for("NETEASE_GUEST search: 0 tracks")
                 navigate_x11(env,output,["--music-login",*args,*extra],drive,seconds=8)
                 login_log=(output/"navigation.log").read_text();assert TOKEN not in login_log and CSRF not in login_log
                 log=run("restore","--music",*extra,seconds=2)

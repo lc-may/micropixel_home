@@ -40,6 +40,11 @@ Result<void> Renderer::ConfigureDisplay(const DisplayConfiguration& configuratio
     return runtime::ConfigureDisplayContext(configuration);
 }
 
+Size Renderer::physical_size() const {
+    const auto& info = LoadPhysicalGraphicsInfo();
+    return {info.width, info.height};
+}
+
 Point DirectSurface::ToBuffer(Point logical) const {
     if (!valid()) return {};
     const auto& display = LoadDisplayContext();

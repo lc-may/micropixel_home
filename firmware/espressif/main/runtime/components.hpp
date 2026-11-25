@@ -4,12 +4,25 @@
 
 #include "freertos/FreeRTOS.h"
 #include "runtime/component_model.hpp"
+#include "runtime/event_queue.hpp"
 
 namespace micropixel::runtime {
-class GuestContext;
+class ServiceRegistry;
 class Components final {
    public:
-    Components(GuestContext& context, uint16_t declaration) : context_(context) { model_.declared = declaration; }
+    struct Hooks {
+        void* context{};
+        uint64_t (*now)(void*){};
+        bool (*stop)(void*){};
+        void (*scope)(void*, uint32_t, const micropixel_component_info_t&){};
+        void (*changed)(void*, const micropixel_component_info_t&){};
+        void (*stop_audio)(void*, uint32_t){};
+        void (*release_activity)(void*){};
+    };
+    Components(EventQueue& events, const ServiceRegistry& services, uint16_t declaration, Hooks hooks)
+        : events_(events), services_(services), hooks_(hooks) {
+        model_.declared = declaration;
+    }
     bool Available() const { return model_.declared != 0; }
     void SetVisible(bool value, bool create = true);
     void EnsureActivity();
@@ -31,7 +44,9 @@ class Components final {
     };
     void Cleanup(uint32_t token);
     static uint32_t CloseMethod(uint32_t service, uint32_t create_method);
-    GuestContext& context_;
+    EventQueue& events_;
+    const ServiceRegistry& services_;
+    Hooks hooks_;
     mutable portMUX_TYPE lock_ = portMUX_INITIALIZER_UNLOCKED;
     ComponentModel model_{};
     std::array<Resource, 128> resources_{};

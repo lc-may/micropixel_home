@@ -4,6 +4,8 @@ list(APPEND micropixel_sources
     "runtime/abi/guest_abi.cpp"
     "runtime/abi/native_symbols.c"
     "runtime/abi/service_endpoints.cpp"
+    "runtime/abi/url_media_endpoint.cpp"
+    "runtime/abi/network_endpoint.cpp"
     "runtime/abi/service_registry.cpp"
     "runtime/bundlefs/bundlefs.cpp"
     "runtime/bundlefs/bundle_store_source.cpp"

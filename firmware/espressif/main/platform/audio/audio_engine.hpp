@@ -26,6 +26,8 @@ class AudioEngine : public device::Audio {
 
     [[nodiscard]] int32_t GetInfo(micropixel_audio_info_t& info) override;
     [[nodiscard]] int32_t PlayTone(const micropixel_audio_tone_t& tone) override;
+    [[nodiscard]] int32_t PlayToneForOwner(const micropixel_audio_tone_t& tone, uint32_t owner);
+    [[nodiscard]] int32_t StopTonesForOwner(uint32_t owner);
     [[nodiscard]] int32_t StartPcm(const device::PcmSource& source, uint32_t token, uint16_t volume_per_mille,
                                    device::PcmStreamHandle& handle_out) override;
     [[nodiscard]] int32_t PausePcm(device::PcmStreamHandle handle) override;

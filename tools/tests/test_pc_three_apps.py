@@ -55,7 +55,7 @@ def main():
                 wait_new("APP_SHELL stopped: micropixel.clock-alarm",lambda:close_home_app(click,escape))
                 assert "ALARM overlay visible" not in log_path.read_text()
                 open_home_app(click, 2);wait_for("NETEASE_LOGIN authenticated");wait_for("NETEASE_HOME playlists:")
-                click(120,680);wait_for("NETEASE_HOME recommendations: 30");click(140,220);wait_for("Audio playing:");baseline=tones()[0]
+                click(120,101);wait_for("NETEASE_HOME recommendations: 30");click(140,261);wait_for("Audio playing:");baseline=tones()[0]
                 wait_for("ALARM overlay visible");wait_for("ALARM focus active=1");wait_for("NETEASE_FOCUS ducked")
                 during=tones();assert baseline>100 and during[0]<baseline*.4 and during[1]>100,(baseline,during)
                 assert "APP_SHELL started: micropixel.clock-alarm" in log_path.read_text()

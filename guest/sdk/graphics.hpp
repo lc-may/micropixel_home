@@ -594,6 +594,8 @@ class Renderer final {
     // Configure before querying layout, loading textures, creating scenes, or
     // translating input. Once used, the display coordinate space is immutable.
     [[nodiscard]] Result<void> ConfigureDisplay(const DisplayConfiguration& configuration) const;
+    // Can be called before ConfigureDisplay to select a layout for the Host's display area.
+    [[nodiscard]] Size physical_size() const;
     [[nodiscard]] RendererInfo info() const;
     [[nodiscard]] Result<Scene> CreateScene(Color background = Color::Black()) const;
     // Publishes pending Scene changes. Failure preserves both the displayed

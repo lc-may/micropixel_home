@@ -71,7 +71,7 @@ set(SHARED_SOURCES
     host/controller/app_manager.cpp host/controller/app_hub.cpp host/controller/job_scheduler.cpp host/controller/alarm_scheduler.cpp
     host/ui/system_locale.cpp host/ui/lvgl/square_common/hall_card_ui.cpp
     device/device_registry.cpp device/device_services.cpp device/text.cpp
-    runtime/abi/guest_abi.cpp runtime/abi/native_symbols.c runtime/abi/service_endpoints.cpp runtime/abi/service_registry.cpp
+    runtime/abi/guest_abi.cpp runtime/abi/native_symbols.c runtime/abi/service_endpoints.cpp runtime/abi/network_endpoint.cpp runtime/abi/url_media_endpoint.cpp runtime/abi/service_registry.cpp
     runtime/bundle/bundle_reader.c runtime/bundle/bundle_section_reader.cpp runtime/bundle/memory_bundle_source.c
     runtime/guest_context.cpp runtime/event_queue.cpp runtime/key_event_bridge.cpp runtime/touch_event_bridge.cpp
     runtime/components.cpp

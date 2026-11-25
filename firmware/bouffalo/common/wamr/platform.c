@@ -8,7 +8,7 @@
 #include "platform_api_extension.h"
 #include "platform_api_vmcore.h"
 
-#if !defined(__riscv_flen) || __riscv_flen != 32
+#if WASM_ENABLE_AOT && (!defined(__riscv_flen) || __riscv_flen != 32)
 #error "The Bouffalo WAMR target must match RV32F Guest code"
 #endif
 

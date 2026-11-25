@@ -5,14 +5,17 @@
 #include <cstring>
 
 #include "device/contracts/graphics.hpp"
+#if !defined(MICROPIXEL_BOUFFALO)
 #include "esp_lv_adapter.h"
+#endif
 #include "platform/lvgl/fonts/glyph_bitmap.hpp"
 
 namespace micropixel::platform::lvgl {
 namespace {
 
-// Scene composition can execute outside the display lock. Font caches are
-// shared with the Host UI; take the same recursive lock for all text access.
+// Orion serializes composition and measurement with its panel mutex. Other
+// callers share LVGL's recursive lock with the system UI.
+#if !defined(MICROPIXEL_BOUFFALO)
 class FontLock final {
    public:
     FontLock() : locked_(esp_lv_adapter_lock(-1) == ESP_OK) {}
@@ -24,6 +27,7 @@ class FontLock final {
    private:
     bool locked_;
 };
+#endif
 
 struct Rgb final {
     uint8_t red{};
@@ -196,9 +200,11 @@ bool DrawGlyph(graphics::PixelSurface destination, int32_t x, int32_t y, Rgb for
 
 bool BitmapFontRasterizer::Measure(micropixel_font_handle_t font_handle, const char* text, uint16_t text_length,
                                    graphics::RasterTextMetrics& metrics) const {
+#if !defined(MICROPIXEL_BOUFFALO)
     FontLock lock;
     if (!lock.locked()) return false;
-    const lv_font_t* font = fonts_.ResolveRetainedHandle(font_handle);
+#endif
+    const lv_font_t* font = resolve_(context_, font_handle);
     char terminated[micropixel::device::graphics_limits::kMaxTextBytes + 1U]{};
     if (font == nullptr || !CopyTerminated(text, text_length, terminated)) {
         return false;
@@ -214,13 +220,15 @@ bool BitmapFontRasterizer::Measure(micropixel_font_handle_t font_handle, const c
 
 bool BitmapFontRasterizer::Draw(graphics::PixelSurface destination, int32_t x, int32_t y, uint32_t rgb888,
                                 micropixel_font_handle_t font_handle, const char* text, uint16_t text_length) const {
-    return DrawWithFont(destination, x, y, rgb888, fonts_.ResolveRetainedHandle(font_handle), text, text_length);
+    return DrawWithFont(destination, x, y, rgb888, resolve_(context_, font_handle), text, text_length);
 }
 
 bool BitmapFontRasterizer::DrawWithFont(graphics::PixelSurface destination, int32_t x, int32_t y, uint32_t rgb888,
                                         const lv_font_t* font, const char* text, uint16_t text_length) const {
+#if !defined(MICROPIXEL_BOUFFALO)
     FontLock lock;
     if (!lock.locked()) return false;
+#endif
     if (!ValidDestination(destination) || font == nullptr || text == nullptr || text_length == 0U ||
         text_length > micropixel::device::graphics_limits::kMaxTextBytes || (rgb888 & 0xff000000U) != 0U) {
         return false;
@@ -251,7 +259,16 @@ bool BitmapFontRasterizer::DrawWithFont(graphics::PixelSurface destination, int3
         }
         lv_font_glyph_dsc_t glyph{};
         if (!lv_font_get_glyph_dsc(font, &glyph, codepoint, next_codepoint)) {
+#if defined(MICROPIXEL_BOUFFALO)
+            const auto missing_advance = glyph.adv_w;
+            if (!lv_font_get_glyph_dsc(font, &glyph, 0xfffdU, 0) && !lv_font_get_glyph_dsc(font, &glyph, '?', 0)) {
+                pen_x += missing_advance;
+                continue;
+            }
+            if (missing_advance) glyph.adv_w = missing_advance;
+#else
             return false;
+#endif
         }
         const bool drawn = DrawGlyph(destination, pen_x, pen_y, foreground, font, glyph);
         pen_x += glyph.adv_w;

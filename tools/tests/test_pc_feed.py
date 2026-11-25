@@ -34,7 +34,7 @@ def main():
                 (results/f"{name}.png").write_bytes((output/"navigation.png").read_bytes())
             def helpers(click,event,log_path):
                 def swipe():
-                    event(6,0,400,520);event(4,1,400,520);event(6,0,400,205);event(5,1,400,205)
+                    event(6,0,400,570);event(4,1,400,570);event(6,0,400,255);event(5,1,400,255)
                 def wait(marker,action=lambda:None):
                     offset=len(log_path.read_text());action();deadline=time.monotonic()+(10 if extra else 5)
                     while marker not in log_path.read_text()[offset:] and time.monotonic()<deadline:time.sleep(.03)
@@ -54,7 +54,7 @@ def main():
                 def refresh(click,event,wait_for,log_path,process,escape):
                     swipe,wait,bottom=helpers(click,event,log_path)
                     wait_for("NETEASE_HOME avatar ready", 30 if extra else 4)
-                    wait("added=30 total=30",lambda:click(128,680))
+                    wait("added=30 total=30",lambda:click(128,101))
                     # The API returns 30 songs; only two are new. Keep 28 old rows.
                     wait("added=2 total=30",lambda:click(572,38))
                     assert HomeHandler.recommendation_requests==3
@@ -64,11 +64,11 @@ def main():
                     # An unchanged response must retain the full list without more requests.
                     wait("added=0 total=30",lambda:click(572,38))
                     assert HomeHandler.recommendation_requests==4
-                    wait("NETEASE_HOME playlists: 20",lambda:click(360,680))
-                    wait("NETEASE_HOME recommendations: 30",lambda:click(128,680))
+                    wait("NETEASE_HOME playlists: 20",lambda:click(360,101))
+                    wait("NETEASE_HOME recommendations: 30",lambda:click(128,101))
                     assert HomeHandler.recommendation_requests==5
                     HomeHandler.resolve_id=2001
-                    wait("NETEASE_GUEST selected: 2001",lambda:click(240,229))
+                    wait("NETEASE_GUEST selected: 2001",lambda:click(240,261))
                     click(650,40);click(50,40)
                     partial=original[:28]+[3001,3002]
                     following=original[:28]+[4001,4002]
@@ -90,9 +90,9 @@ def main():
                 wait_for("NETEASE_HOME avatar ready", 30 if extra else 4)
                 HomeHandler.playlist_page=1
                 bottom(lambda:"added=3 total=23" in log_path.read_text())
-                wait("NETEASE_HOME recommendations: 30",lambda:click(128,680))
+                wait("NETEASE_HOME recommendations: 30",lambda:click(128,101))
                 HomeHandler.resolve_id=1001
-                wait("Audio playing:",lambda:click(240,229));wait("已暂停",lambda:click(360,326));click(50,40)
+                wait("Audio playing:",lambda:click(240,261));wait("已暂停",lambda:click(360,326));click(50,40)
                 bottom(lambda:HomeHandler.recommendation_started.is_set())
                 assert HomeHandler.recommendation_requests==2
                 swipe();swipe()
@@ -101,7 +101,7 @@ def main():
                 assert "NETEASE_FEED queue extended: 60" in log_path.read_text(),"active queue did not extend"
                 # 30 old rows minus a 356px viewport -> unchanged offset 1864.
                 HomeHandler.resolve_id=1026
-                wait("NETEASE_GUEST selected: 1026",lambda:click(240,229))
+                wait("NETEASE_GUEST selected: 1026",lambda:click(240,261))
                 click(650,40);click(50,40)
                 bottom(lambda:HomeHandler.recommendation_requests>=4)
                 wait_for("added=0 total=60")
@@ -109,7 +109,7 @@ def main():
                 assert HomeHandler.recommendation_requests==4,"duplicate-only batches caused a request loop"
                 wait("added=30 total=30",lambda:click(572,38))
                 HomeHandler.resolve_id=2001
-                wait("NETEASE_GUEST selected: 2001",lambda:click(240,229))
+                wait("NETEASE_GUEST selected: 2001",lambda:click(240,261))
                 click(650,40);click(50,40)
             scenario("append",append,40 if extra else 32)
             HomeHandler.playlist_page=0;HomeHandler.recommendation_requests=0
@@ -118,7 +118,7 @@ def main():
             def retry(click,event,wait_for,log_path,process,escape):
                 swipe,wait,bottom=helpers(click,event,log_path)
                 wait_for("NETEASE_HOME avatar ready", 30 if extra else 4)
-                wait("NETEASE_HOME recommendations: 30",lambda:click(128,680))
+                wait("NETEASE_HOME recommendations: 30",lambda:click(128,101))
                 bottom(lambda:HomeHandler.recommendation_requests>=2)
                 wait_for("fixture retry")
                 assert HomeHandler.recommendation_requests==2
@@ -127,12 +127,12 @@ def main():
                 # Search and playlist pages also append without losing previous rows.
                 HomeHandler.search_batches=[list(range(5001,5021)),list(range(5021,5041))]
                 HomeHandler.search_requests=0
-                wait("NETEASE_GUEST search: 20 tracks",lambda:click(592,680))
+                wait("NETEASE_GUEST search: 20 tracks",lambda:click(592,101))
                 bottom(lambda:HomeHandler.search_requests==2)
                 wait_for("NETEASE_GUEST search: 40 tracks")
-                wait("NETEASE_HOME playlists: 20",lambda:click(360,680))
+                wait("NETEASE_HOME playlists: 20",lambda:click(360,101))
                 HomeHandler.song_page=0
-                wait("NETEASE_HOME tracks: 20",lambda:click(240,305))
+                wait("NETEASE_HOME tracks: 20",lambda:click(240,353))
                 HomeHandler.song_page=1
                 bottom(lambda:"added=5 total=25" in log_path.read_text())
             scenario("retry",retry,28 if extra else 18)

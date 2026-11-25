@@ -371,6 +371,8 @@ Haptics finished 和 Core host wake。新增事件不会扩大 Core import 表�
   扳机 0..32767；`source` 携带轴编号，payload 的 `device` 是手柄的 Devices id（无法归属时为 0）。
   只有宣告该 capability 的 Host 才会投递；Host 应合并同一轴的积压样本，队列里只保留最新值。
   当前 Host 不宣告该 capability，也没有手柄 Peripheral；ABI 先行预留，Guest Runtime 已能解码。
+- `MICROPIXEL_INPUT_EVENT_NAVIGATE_BACK` 与 `MICROPIXEL_INPUT_CAP_NAVIGATE_BACK`：Host 向前台 Activity
+  投递系统返回请求，payload 为空。Activity 处理当前页面的返回，入口页由 Guest Runtime 请求退出应用。
 
 ## 稳定性与安全规则
 

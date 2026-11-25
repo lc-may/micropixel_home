@@ -28,10 +28,13 @@ def main() -> None:
     parser.add_argument("source", type=Path, help="Existing app directory, app.json, or a conformance .cpp")
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--extra-source", type=Path, action="append", default=[])
-    parser.add_argument("--profile", choices=("development", "release"))
+    parser.add_argument("--profile", choices=("development", "release", "performance"))
+    parser.add_argument("--stack-size", type=int, help="Native Wasm auxiliary stack in bytes")
     parser.add_argument("--backend", choices=("native", "rv32"), default="native")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
+    if args.stack_size is not None and (args.backend != "native" or not 4096 <= args.stack_size <= 262144):
+        parser.error("--stack-size requires the native backend and a size of 4096 to 262144 bytes")
     sdk = sdk_module()
     builder_path = ROOT / "tools/build_app_bundle.py"
     spec = importlib.util.spec_from_file_location("pc_bundle_builder", builder_path)
@@ -74,7 +77,7 @@ def main() -> None:
             source=str(sources[0]), extra_source=[str(s) for s in sources[1:]], name=name,
             profile=args.profile or "development", aot_target=None, generated_include_override=generated,
             output_dir_override=output, threading="none", unchecked_memory=False,
-            force=args.force, wasm_only=True,
+            force=args.force, wasm_only=True, stack_size=args.stack_size or 16384,
         ))
     raw = json.loads(manifest.read_text()) if manifest else {}
     title_data = raw.get("title", name)

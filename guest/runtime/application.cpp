@@ -191,6 +191,11 @@ bool Application::DecodeEventInternal(Event& event, uint64_t timeout_us) const {
         return true;
     }
 
+    if (raw.service_id == MICROPIXEL_SERVICE_INPUT && raw.event_id == MICROPIXEL_INPUT_EVENT_NAVIGATE_BACK) {
+        event = Event{EventType::kNavigateBack, timestamp};
+        return true;
+    }
+
     if (raw.service_id == MICROPIXEL_SERVICE_INPUT && raw.event_id == MICROPIXEL_INPUT_EVENT_TOUCH) {
         micropixel_touch_event_payload_t payload{};
         CopyBytes(&payload, raw.payload, sizeof(payload));

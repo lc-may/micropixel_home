@@ -2,9 +2,12 @@
 
 This directory provides external SDK build profiles for BL616CL and BL618DG B0 AP,
 including the BL618DG Orion board.
-Each profile builds a minimal FreeRTOS/WAMR validation executable. Full MicroPixel
-firmware composition and board display, input, audio and storage adapters are
-separate follow-ups. See [runtime contracts](docs/runtime.md).
+The default profiles build a FreeRTOS/WAMR validation executable. Orion also
+has a [portable Wasm Host build](docs/orion.zh-CN.md#pc-host-移植) with an app
+catalog, ST7102 LCD, ST7123 touch and JY6316 audio. The embedded
+[Settings Guest](docs/orion.zh-CN.md#wi-fi-与-ble) controls the radios enabled
+by the Orion build profile.
+See [runtime contracts](docs/runtime.md).
 
 ## Build
 
@@ -33,11 +36,13 @@ make -C firmware/bouffalo/boards/bl618dg BOARD=bl618dg_orion \
 The Orion build defaults to the sibling `bouffalo_sdk` checkout and resolves
 `bsp/board/bl618dg_orion` in that SDK. Set `BL_SDK_BASE` to select a different
 checkout of the Orion revision. The Orion output directory is `build-orion/`.
+See the [Orion peripheral guide](docs/orion.zh-CN.md) for the display and audio
+Guest test builds, and wireless integration.
 
-`cmake/sdk.cmake` verifies SDK provenance before configuring each target. All
-use RV32 ILP32F, C++23, disabled exceptions and RTTI. Unused prebuilt multimedia
-and PKA libraries are excluded because the SDK's DG variants use ILP32D. The
-linker continues to enforce ABI compatibility. Outputs stay in each board's
+`cmake/sdk.cmake` verifies SDK provenance before configuring each target. The
+AOT profiles select RV32 ILP32F and exclude the SDK's ILP32D multimedia and PKA
+libraries. The Orion portable Host and DSI validation profiles use the SDK's
+native ILP32D ABI. The linker enforces ABI compatibility. Outputs stay in each board's
 ignored build directory. `CONFIG_SKIP_COMBINE` produces raw test images without
 installation partition layouts. Use `BUILD_DIR=build-other` for a fresh output directory.
 

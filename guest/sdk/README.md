@@ -307,6 +307,8 @@ auto texture = app.resources().LoadTexture(atlas_asset).value();
 
 Non-native modes require nonzero dimensions. Logical and viewport extents must not exceed 32767.
 First use freezes the configuration; subsequent ConfigureDisplay calls return kInvalidState.
+Use `renderer().physical_size()` to choose a layout before configuring the display. It returns the Host's
+available drawing area and leaves the display configuration open.
 Invalid configuration leaves the previous one intact. Explicit SceneDescriptor dimensions must match
 this configured canvas. RendererInfo exposes logical layout/safe insets and the actual physical screen size.
 Touch uses the inverse transform, including viewport offsets. Letterbox touches stay outside the canvas;

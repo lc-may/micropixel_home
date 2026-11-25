@@ -12,6 +12,7 @@ using namespace micropixel;
 enum Page : unsigned { Alarm, Calendar, Notes, Editor, AlarmEditor };
 struct Model {
     unsigned hour{8}, minute{}, page{Alarm}, month{1};
+    unsigned editor_parent{Notes};
     int year{2026};
     bool daily{true}, enabled{}, opened{};
     int32_t offset{480};
@@ -75,6 +76,7 @@ struct Model {
                 draft_minute = 0;
             }
         }
+        editor_parent = page;
         page = Editor;
         title_status = "输入事项名称，再选择提醒时间";
         ++revision;
@@ -86,6 +88,7 @@ struct Model {
         draft = notes[i]->label.c_str();
         draft_date = calendar::LocalDate(notes[i]->once_utc, offset);
         draft_minute = uint32_t(calendar::LocalSeconds(notes[i]->once_utc, offset) % 86400) / 60;
+        editor_parent = page;
         page = Editor;
         title_status.clear();
         ++revision;

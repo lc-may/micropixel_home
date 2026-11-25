@@ -1885,7 +1885,7 @@ def _run_build_sources(args: argparse.Namespace) -> None:
             "-Wl,--no-entry",
             *thread_link_flags,
             f"-Wl,--max-memory={GUEST_LINEAR_MEMORY_ABSOLUTE_MAX_BYTES}",
-            "-Wl,-z,stack-size=16384",
+            f"-Wl,-z,stack-size={getattr(args, 'stack_size', 16384)}",
             "-Wl,--gc-sections",
             f"-Wl,--allow-undefined-file={root / 'guest/abi/allowed_imports.txt'}",
             "-Wl,--export=__micropixel_start",

@@ -182,7 +182,7 @@ def main():
                 log = run("normal")
                 assert "NETEASE_HOME playlists: 20" in log and "NETEASE_HOME avatar ready" in log, log
                 with Image.open(results / "normal.png") as screenshot:
-                    assert screenshot.getpixel((50, 104))[:3] == (205, 65, 83), "profile avatar not rendered"
+                    assert screenshot.getpixel((50, 168))[:3] == (205, 65, 83), "profile avatar not rendered"
                 assert "NETEASE_HOME playlists: 0" in run("empty")
                 assert "NETEASE_HOME playlists: 0" in run("empty-bad-avatar")
                 with Image.open(results/"empty.png") as good,Image.open(results/"empty-bad-avatar.png") as bad:
@@ -204,8 +204,8 @@ def main():
                         assert marker in log_path.read_text(errors="replace")[offset:],log_path.read_text()
                     wait_for("NETEASE_HOME avatar ready")
                     # My playlists -> songs -> full player.
-                    fresh("NETEASE_HOME tracks: 20",lambda:click(240,305))
-                    fresh("Audio playing:",lambda:click(240,229))
+                    fresh("NETEASE_HOME tracks: 20",lambda:click(240,353))
+                    fresh("Audio playing:",lambda:click(240,261))
                     deadline=time.monotonic()+3
                     while (not pcm.exists() or not any(pcm.read_bytes())) and time.monotonic()<deadline:time.sleep(.03)
                     assert pcm.exists() and any(pcm.read_bytes()),"playlist playback silent"
@@ -216,32 +216,32 @@ def main():
                     fresh("NETEASE_GUEST seek:",lambda:event(5,1,360,582))
                     assert log_path.read_text().count("NETEASE_GUEST seek:")==commits+1,"seek committed more than once"
                     click(50,40)
-                    fresh("NETEASE_HOME recommendations: 30",lambda:click(128,680))
+                    fresh("NETEASE_HOME recommendations: 30",lambda:click(128,101))
                     # The playlist queue uses 101/102, recommendations use 1001/1002.
                     HomeHandler.resolve_id=102
-                    fresh("NETEASE_GUEST selected: 102",lambda:click(650,612))
-                    fresh("已暂停",lambda:click(584,612))
+                    fresh("NETEASE_GUEST selected: 102",lambda:click(650,681))
+                    fresh("已暂停",lambda:click(584,681))
                     # A scroll gesture must not favorite the row where it ends.
                     count=HomeHandler.like_calls
-                    event(6,0,652,460);event(4,1,652,460);event(6,0,652,220);event(5,1,652,220)
+                    event(6,0,652,492);event(4,1,652,492);event(6,0,652,252);event(5,1,652,252)
                     assert HomeHandler.like_calls==count,"scroll changed favorites"
                     fresh("NETEASE_HOME recommendations: 30",lambda:click(572,38))
                     HomeHandler.home_mode="like-slow";HomeHandler.like_target=1001
                     HomeHandler.like_started.clear();HomeHandler.release_like.clear()
-                    click(652,229);assert HomeHandler.like_started.wait(3),"favorite request missing"
-                    click(652,229)
+                    click(652,261);assert HomeHandler.like_started.wait(3),"favorite request missing"
+                    click(652,261)
                     # Navigation cannot cancel an in-flight write.
-                    click(360,680)
+                    click(360,101)
                     assert HomeHandler.like_calls==count+1,"pending favorite was duplicated"
                     HomeHandler.home_mode="normal";HomeHandler.release_like.set()
                     wait_for("NETEASE_LIKE confirmed: liked=1");wait_for("NETEASE_HOME playlists: 20")
-                    fresh("NETEASE_HOME recommendations: 30",lambda:click(128,680))
+                    fresh("NETEASE_HOME recommendations: 30",lambda:click(128,101))
                     assert 1001 in HomeHandler.liked
                 navigate_x11(interactive_env,output,args,drive,seconds=45 if extra else 30,wait_seconds=12 if extra else 8)
                 (results/"interactive.log").write_text((output/"navigation.log").read_text())
                 (results/"mobile-liked.png").write_bytes((output/"navigation.png").read_bytes())
                 with Image.open(results/"mobile-liked.png") as screenshot:
-                    red=sum(r>180 and g<110 and b<150 for r,g,b in screenshot.convert("RGB").crop((628,198,686,260)).getdata())
+                    red=sum(r>180 and g<110 and b<150 for r,g,b in screenshot.convert("RGB").crop((628,230,686,292)).getdata())
                     assert red>40,"confirmed favorite star is not red"
                 def unlike_and_logout(click,event,wait_for,log_path,process,escape):
                     def fresh(marker,action):
@@ -250,33 +250,33 @@ def main():
                         while marker not in log_path.read_text(errors="replace")[offset:] and time.monotonic()<deadline:time.sleep(.03)
                         assert marker in log_path.read_text(errors="replace")[offset:],log_path.read_text()
                     wait_for("NETEASE_HOME avatar ready")
-                    fresh("NETEASE_HOME recommendations: 30",lambda:click(128,680))
+                    fresh("NETEASE_HOME recommendations: 30",lambda:click(128,101))
                     HomeHandler.home_mode="like-fail";HomeHandler.like_target=1001
-                    fresh("NETEASE_LIKES loaded: 2",lambda:click(652,229))
+                    fresh("NETEASE_LIKES loaded: 2",lambda:click(652,261))
                     assert "收藏状态未确认" in log_path.read_text()
                     assert 1001 in HomeHandler.liked,"failed unlike changed server state"
                     HomeHandler.home_mode="normal"
-                    fresh("NETEASE_LIKE confirmed: liked=0",lambda:click(652,229))
+                    fresh("NETEASE_LIKE confirmed: liked=0",lambda:click(652,261))
                     assert 1001 not in HomeHandler.liked
-                    fresh("NETEASE_HOME playlists: 20",lambda:click(360,680))
-                    fresh("NETEASE_HOME tracks: 1",lambda:click(300,186))
+                    fresh("NETEASE_HOME playlists: 20",lambda:click(360,101))
+                    fresh("NETEASE_HOME tracks: 1",lambda:click(300,247))
                     click(650,38);HomeHandler.expect_anonymous=True
                     fresh("已退出登录",lambda:click(600,674))
                     click(65,40)
-                    fresh("NETEASE_GUEST search: 0 tracks",lambda:click(592,680))
+                    fresh("NETEASE_GUEST search: 0 tracks",lambda:click(592,101))
                 navigate_x11(env,output,args,unlike_and_logout,seconds=35 if extra else 20,wait_seconds=12 if extra else 8)
                 HomeHandler.expect_anonymous=False
                 def expired(click,event,wait_for,log_path,process,escape):
                     wait_for("NETEASE_HOME avatar ready");HomeHandler.home_mode="expired"
-                    click(128,680);wait_for("登录已失效，请重新扫码")
-                    calls=len(HomeHandler.personal_hits);click(240,229);click(650,612);time.sleep(.25)
+                    click(128,101);wait_for("登录已失效，请重新扫码")
+                    calls=len(HomeHandler.personal_hits);click(240,261);click(650,681);time.sleep(.25)
                     assert len(HomeHandler.personal_hits)==calls,"expired private data remained interactive"
                 HomeHandler.home_mode="normal"
                 navigate_x11(env,output,args,expired,seconds=15 if extra else 12,wait_seconds=12 if extra else 8)
                 HomeHandler.home_mode="slow";HomeHandler.delayed.clear();HomeHandler.release.clear()
                 def cancel(click,event,wait_for,log_path,process,escape):
                     assert HomeHandler.delayed.wait(10 if extra else 4),"delayed personal request missing"
-                    started=time.monotonic();click(592,680);wait_for("NETEASE_GUEST search: 0 tracks")
+                    started=time.monotonic();click(592,101);wait_for("NETEASE_GUEST search: 0 tracks")
                     assert time.monotonic()-started<1.5,"home cancellation blocked UI"
                     HomeHandler.release.set()
                 navigate_x11(env,output,args,cancel,seconds=15 if extra else 12,wait_seconds=12 if extra else 8)

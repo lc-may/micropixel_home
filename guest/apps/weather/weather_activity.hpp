@@ -26,7 +26,6 @@ class WeatherActivity final : public Activity {
         range_ = scene_->CreateLabel({24, 216}, " ", Text, SystemFont::kLarge).value();
         glyph_ = ui::WeatherIcon::Create(*scene_, *icons_, {480, 96}, 117);
         condition_ = scene_->CreateLabel({455, 216}, " ", Muted, SystemFont::kLarge).value();
-        (void)scene_->CreateLabel({24, 250}, "逐小时预报", Muted, SystemFont::kSmall).value();
         for (unsigned i = 0; i < 5; ++i) {
             int x = 24 + int(i) * 138;
             Card(*scene_, {x, 280, 120, 132});
@@ -43,10 +42,14 @@ class WeatherActivity final : public Activity {
             highs_[i] = scene_->CreateRoundedRect({460, y + 28, 18, 7}, {.fill = Accent, .radius = 4}).value();
             day_values_[i] = scene_->CreateLabel({540, y + 13}, "--° / --°", Text, SystemFont::kMedium).value();
         }
-        Card(*scene_, {24, 627, 672, 69});
-        humidity_ = scene_->CreateLabel({48, 650}, "湿度 --", Text, SystemFont::kMedium).value();
-        wind_ = scene_->CreateLabel({320, 650}, "风速 --", Muted, SystemFont::kMedium).value();
-        status_ = scene_->CreateLabel({24, 700}, "Open-Meteo · CC BY 4.0", Muted, SystemFont::kSmall).value();
+        const auto safe = app.renderer().info().safe_area();
+        const auto footer = app.renderer().MeasureText("刷新失败 · 显示缓存", SystemFont::kSmall);
+        const int status_y = std::min(700, safe.y + safe.height - (footer ? int(footer->height) : 28) - 4);
+        const int stats_y = std::min(627, status_y - 73);
+        Card(*scene_, {24, stats_y, 672, 69});
+        humidity_ = scene_->CreateLabel({48, stats_y + 23}, "湿度 --", Text, SystemFont::kMedium).value();
+        wind_ = scene_->CreateLabel({320, stats_y + 23}, "风速 --", Muted, SystemFont::kMedium).value();
+        status_ = scene_->CreateLabel({24, status_y}, " ", Muted, SystemFont::kSmall).value();
         picker_ = std::make_unique<CityPicker>(*scene_, *icons_);
         timer_.emplace(app.timers().Every(Duration::Milliseconds(250)).value());
         Draw(app);
@@ -64,6 +67,18 @@ class WeatherActivity final : public Activity {
         scene_.reset();
         font_.reset();
         icons_.reset();
+    }
+    bool OnNavigateBack(ComponentContext& c) override {
+        if (picker_->Back()) {
+            Draw(c.app());
+            return true;
+        }
+        if (model_.local_refresh) {
+            ++model_.refresh_requests;
+            c.DestroyActivity().value();
+            return true;
+        }
+        return false;
     }
     void OnEvent(ComponentContext& c, const Event& event) override {
         const auto& app = c.app();
@@ -96,7 +111,12 @@ class WeatherActivity final : public Activity {
                 }
                 redraw |= update.changed;
             }
-            if (refresh) (void)app.messages().Send("micropixel.weather", static_cast<uint16_t>(AppAction::kRefresh));
+            if (refresh) {
+                if (model_.local_refresh)
+                    ++model_.refresh_requests;
+                else
+                    (void)app.messages().Send("micropixel.weather", static_cast<uint16_t>(AppAction::kRefresh));
+            }
             // Icon buttons have no pressed visual. Service revisions drive refresh
             // rendering; a full redraw on every pointer event delays RV32 input.
             if (redraw) Draw(app);
@@ -198,10 +218,7 @@ class WeatherActivity final : public Activity {
         humidity_.SetText(h.c_str());
         wind_.SetText(w.c_str());
         header_.SetActionEnabled(0, !model_.busy);
-        FixedString<96> status;
-        status.Append(model_.busy ? "正在更新 · " : model_.failed ? "刷新失败 · 显示缓存 · " : "北京时间 · ");
-        status.Append("Open-Meteo · CC BY 4.0");
-        status_.SetText(status.c_str());
+        status_.SetText(model_.busy ? "正在更新" : model_.failed ? "刷新失败 · 显示缓存" : " ");
         auto presented = app.renderer().Present(*scene_);
         if (!presented) Panic(presented.error().name());
         seen_ = model_.revision;

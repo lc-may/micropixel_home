@@ -113,10 +113,13 @@ class NewsActivity final : public Activity {
             tab_bg_[i] = scene_->CreateRoundedRect({x, 78, 212, 56}, {.fill = Surface, .radius = 28}).value();
             tab_text_[i] = scene_->CreateLabel({x + 106, 93}, titles[i], Text, SystemFont::kMedium, true).value();
         }
-        scroll_ = scene_->CreateScrollView({24, 155, 672, 528});
+        const auto safe = app.renderer().info().safe_area();
+        const auto footer = app.renderer().MeasureText("来源：今日头条 · 标题与热度", SystemFont::kSmall);
+        const int status_y = std::min(696, safe.y + safe.height - (footer ? int(footer->height) : 28) - 4);
+        scroll_ = scene_->CreateScrollView({24, 155, 672, std::min(528, status_y - 165)});
         for (auto& row : rows_) row.Create(scroll_.content());
         empty_ = scene_->CreateLabel({360, 330}, "暂无热榜", Muted, SystemFont::kLarge, true).value();
-        status_ = scene_->CreateLabel({24, 696}, "来源：今日头条 · 标题与热度", Muted, SystemFont::kSmall).value();
+        status_ = scene_->CreateLabel({24, status_y}, "来源：今日头条 · 标题与热度", Muted, SystemFont::kSmall).value();
         reader_ = std::make_unique<ArticleReader>(*scene_, *icons_);
         reader_->SetScene(*scene_);
         source_menu_ = scene_->CreateContainer({.z_order = 200, .visible = false}).value();
@@ -184,6 +187,17 @@ class NewsActivity final : public Activity {
         Rebuild(app, false);
         Draw(app);
     }
+    bool OnNavigateBack(ComponentContext& c) override {
+        if (source_open_) {
+            CloseSources(c.app());
+        } else if (reader_->visible()) {
+            reader_->Close();
+            RestoreFeed(c.app());
+        } else {
+            return false;
+        }
+        return true;
+    }
     void OnEvent(ComponentContext& c, const Event& event) override {
         const auto& app = c.app();
         if (timer_ && event.TimerFrom(*timer_) && reader_->visible()) {
@@ -216,18 +230,13 @@ class NewsActivity final : public Activity {
                 auto action = reader_->Touch(app, *touch);
                 if (action == ArticleReader::Action::NewsChannel)
                     SwitchSource(app, Source::Cctv);
-                else if (action == ArticleReader::Action::Back) {
-                    Rebuild(app, false);
-                    Draw(app);
-                    app.log().Info("NEWS detail closed");
-                }
+                else if (action == ArticleReader::Action::Back)
+                    RestoreFeed(app);
                 return;
             }
             if (source_open_) {
                 if (source_back_.OnTouch(*touch).clicked) {
-                    source_open_ = false;
-                    source_menu_.SetVisible(false);
-                    Draw(app);
+                    CloseSources(app);
                     return;
                 }
                 bool changed = false;
@@ -282,6 +291,18 @@ class NewsActivity final : public Activity {
             }
             if (redraw) app.renderer().Present(*scene_).value();
         }
+    }
+    void CloseSources(const Application& app) {
+        source_back_.Reset();
+        for (auto& source : sources_) source.Reset();
+        source_open_ = false;
+        source_menu_.SetVisible(false);
+        Draw(app);
+    }
+    void RestoreFeed(const Application& app) {
+        Rebuild(app, false);
+        Draw(app);
+        app.log().Info("NEWS detail closed");
     }
     void Rebuild(const Application& app, bool top) {
         visible_count_ = 0;

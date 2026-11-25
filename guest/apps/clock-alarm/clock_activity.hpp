@@ -55,6 +55,12 @@ class ClockActivity final : public Activity {
         font_.reset();
         icons_.reset();
     }
+    bool OnNavigateBack(ComponentContext& c) override {
+        if (!BackPage()) return false;
+        Build(c.app());
+        Draw(c.app());
+        return true;
+    }
     void OnEvent(ComponentContext& c, const Event& event) override {
         const auto& app = c.app();
         if (page_ != model_.page) Build(app);
@@ -62,10 +68,7 @@ class ClockActivity final : public Activity {
         if (auto* touch = event.touch()) {
             bool header = false;
             auto action = header_.OnTouch(*touch);
-            if (action.action && action.action->kind == ui::AppBarActionKind::kLeading && model_.page != Alarm) {
-                model_.page = model_.page == Editor ? Notes : Alarm;
-                rebuild = header = true;
-            }
+            if (action.action && action.action->kind == ui::AppBarActionKind::kLeading) rebuild = header = BackPage();
             if ((model_.page == Alarm || model_.page == Calendar || model_.page == Notes) && action.action &&
                 action.action->kind == ui::AppBarActionKind::kAction) {
                 if (model_.page == Alarm) {
@@ -85,6 +88,11 @@ class ClockActivity final : public Activity {
             if (page_ != model_.page || ((page_ == Alarm || page_ == Notes) && before != model_.revision)) Build(app);
         }
         Draw(app);
+    }
+    bool BackPage() {
+        if (model_.page == Alarm) return false;
+        model_.page = model_.page == Editor ? model_.editor_parent : Alarm;
+        return true;
     }
     void Build(const Application& app) {
         if (view_) view_->StopInput(app);

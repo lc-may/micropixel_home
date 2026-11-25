@@ -147,8 +147,15 @@ void Application::RunComponents(Activity* activity, AppService* service, bool st
         runtime::RequireOk(status, "component.route");
         if (activity_token && activity_state != 3 && (!target.token || target.token == activity_token)) {
             ComponentContext context(*this, activity_token);
-            context.WithScope([&] { activity->OnEvent(context, event); });
+            context.WithScope([&] {
+                if (event.type() == EventType::kNavigateBack) {
+                    if (!activity->OnNavigateBack(context)) context.Exit().value();
+                } else {
+                    activity->OnEvent(context, event);
+                }
+            });
         }
+        if (event.type() == EventType::kNavigateBack) continue;
         if (service_running && (!target.token || target.token == service_token)) {
             ComponentContext context(*this, service_token);
             context.WithScope([&] { service->OnEvent(context, event); });

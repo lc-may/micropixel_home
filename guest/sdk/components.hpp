@@ -44,6 +44,8 @@ class Activity {
     virtual void OnResume(ComponentContext&) {}
     virtual void OnStop(ComponentContext&) {}
     virtual void OnDestroy(ComponentContext&) {}
+    // Return true after handling Back within the activity.
+    virtual bool OnNavigateBack(ComponentContext&) { return false; }
     virtual void OnEvent(ComponentContext&, const Event&) {}
 };
 class AppService {

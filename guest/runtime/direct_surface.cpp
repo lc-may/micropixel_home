@@ -74,8 +74,10 @@ namespace {
 [[nodiscard]] Result<DirectSurfaceCreation> CreateSurfaceHandle(uint32_t buffer_count, uint32_t upscale,
                                                                 bool guest_buffers) {
     const micropixel_graphics_info_t& raw = LoadPhysicalGraphicsInfo();
-    if (buffer_count == 0U || buffer_count > LoadGraphicsLimits().max_surface_buffers || upscale == 0U ||
-        raw.width % upscale != 0U || raw.height % upscale != 0U) {
+    const uint32_t max_buffers = LoadGraphicsLimits().max_surface_buffers;
+    if (max_buffers == 0U) return unexpected(ErrorFromStatus(MICROPIXEL_STATUS_UNSUPPORTED));
+    if (buffer_count == 0U || buffer_count > max_buffers || upscale == 0U || raw.width % upscale != 0U ||
+        raw.height % upscale != 0U) {
         return unexpected(ErrorFromStatus(MICROPIXEL_STATUS_INVALID_ARGUMENT));
     }
     if (raw.size < sizeof(raw) || direct_surface_state.handle != 0U) {
@@ -136,8 +138,10 @@ Result<HostSurface> Renderer::CreateHostSurface(uint32_t buffer_count, uint32_t 
 
 Result<GuestSurface> Renderer::CreateGuestSurface(uint32_t buffer_count, uint32_t upscale) const {
     const micropixel_graphics_info_t& raw = LoadPhysicalGraphicsInfo();
-    if (buffer_count == 0U || buffer_count > LoadGraphicsLimits().max_surface_buffers || upscale == 0U ||
-        raw.width % upscale != 0U || raw.height % upscale != 0U) {
+    const uint32_t max_buffers = LoadGraphicsLimits().max_surface_buffers;
+    if (max_buffers == 0U) return unexpected(ErrorFromStatus(MICROPIXEL_STATUS_UNSUPPORTED));
+    if (buffer_count == 0U || buffer_count > max_buffers || upscale == 0U || raw.width % upscale != 0U ||
+        raw.height % upscale != 0U) {
         return unexpected(ErrorFromStatus(MICROPIXEL_STATUS_INVALID_ARGUMENT));
     }
     // The Host validates the presented pixel range against Guest memory, so
@@ -331,9 +335,7 @@ const uint16_t* GuestSurface::Buffer(uint32_t index) const {
 
 namespace micropixel::runtime {
 
-uint32_t ActiveSurfaceUpscale() {
-    return direct_surface_state.handle != 0U ? direct_surface_state.upscale : 0U;
-}
+uint32_t ActiveSurfaceUpscale() { return direct_surface_state.handle != 0U ? direct_surface_state.upscale : 0U; }
 
 void ReleaseSurfaceBuffer(uint32_t handle, uint32_t buffer_index) {
     if (handle == direct_surface_state.handle) {

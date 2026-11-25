@@ -37,6 +37,7 @@ enum class EventType : uint16_t {
     kMessage,
     kJob,
     kAudioFocus,
+    kNavigateBack,
 };
 
 struct LifecycleEvent final {

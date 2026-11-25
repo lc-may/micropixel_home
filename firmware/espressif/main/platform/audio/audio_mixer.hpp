@@ -21,6 +21,7 @@ struct SynthVoice final {
     uint32_t volume_per_mille{};
     uint32_t noise{0x51a9e21dU};
     bool active{};
+    uint32_t owner{};
 };
 
 class AudioMixer final {

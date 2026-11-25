@@ -164,7 +164,7 @@ def main():
                     assert log_path.read_text(errors="replace").count("Audio playing:") >= 2
                     close_home_app(click, escape); time.sleep(.3); click(100, 566); wait_for("NETEASE_GUEST search: 2 tracks")
                     before=Handler.hits.count("/weapi/search/get")
-                    click(200, 112)
+                    click(200, 170)
                     for char in "jazz": event.key(ord(char))
                     event.key(0xff08)  # Backspace removes one UTF-8 codepoint.
                     event.key(0xff0d)  # Return submits text through SDK Input 1.2.

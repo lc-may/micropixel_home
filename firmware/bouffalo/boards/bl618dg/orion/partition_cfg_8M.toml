@@ -1,0 +1,115 @@
+# SPDX-License-Identifier: Apache-2.0
+# Orion with 8 MiB Flash. FW has equally sized primary and secondary slots.
+# Preserve the system/factory regions at the end of the lower 4 MiB bank.
+[pt_table]
+address0 = 0xe000
+address1 = 0xf000
+version = 2
+
+[[pt_entry]]
+type = 16
+name = "Boot2"
+device = 0
+address0 = 0x0
+size0 = 0xe000
+address1 = 0x0
+size1 = 0x0
+len = 0
+header = 1
+security = 1
+
+[[pt_entry]]
+type = 0
+name = "FW"
+device = 0
+address0 = 0x10000
+size0 = 0x300000
+address1 = 0x400000
+size1 = 0x300000
+len = 0
+header = 1
+security = 1
+
+[[pt_entry]]
+type = 8
+name = "imgres"
+device = 0
+address0 = 0x310000
+size0 = 0xd9000
+address1 = 0x0
+size1 = 0x0
+len = 0
+header = 0
+security = 0
+
+[[pt_entry]]
+type = 3
+name = "PSM"
+device = 0
+address0 = 0x3e9000
+size0 = 0x8000
+address1 = 0x0
+size1 = 0x0
+len = 0
+header = 0
+security = 0
+
+[[pt_entry]]
+type = 4
+name = "KEY"
+device = 0
+address0 = 0x3f1000
+size0 = 0x2000
+address1 = 0x0
+size1 = 0x0
+len = 0
+header = 0
+security = 0
+
+[[pt_entry]]
+type = 5
+name = "DATA"
+device = 0
+address0 = 0x3f3000
+size0 = 0x5000
+address1 = 0x0
+size1 = 0x0
+len = 0
+header = 0
+security = 0
+
+[[pt_entry]]
+type = 6
+name = "factory"
+device = 0
+address0 = 0x3f8000
+size0 = 0x8000
+address1 = 0x0
+size1 = 0x0
+len = 0
+header = 0
+security = 0
+
+[[pt_entry]]
+type = 7
+name = "apps"
+device = 0
+address0 = 0x700000
+size0 = 0xe0000
+address1 = 0x0
+size1 = 0x0
+len = 0
+header = 0
+security = 0
+
+[[pt_entry]]
+type = 9
+name = "mp_kv"
+device = 0
+address0 = 0x7e0000
+size0 = 0x20000
+address1 = 0x0
+size1 = 0x0
+len = 0
+header = 0
+security = 0

@@ -3,7 +3,7 @@
 
 #include <cstring>
 
-#include "runtime/guest_context.hpp"
+#include "runtime/abi/service_registry.hpp"
 
 namespace micropixel::runtime {
 namespace {
@@ -28,7 +28,7 @@ void Components::Wake() {
     micropixel_event_t wake{};
     wake.size = sizeof(wake);
     wake.service_id = MICROPIXEL_SERVICE_LIFECYCLE;
-    (void)context_.events_.PushAdvisory(wake);
+    (void)events_.PushAdvisory(wake);
 }
 void Components::SetVisible(bool value, bool create) {
     portENTER_CRITICAL(&lock_);
@@ -63,7 +63,7 @@ bool Components::TakeEvent(micropixel_event_t& event) {
     event.event_id = MICROPIXEL_LIFECYCLE_EVENT;
     event.source = payload.token;
     event.sequence = payload.transition;
-    event.timestamp_us = context_.timers_.Now();
+    event.timestamp_us = hooks_.now(hooks_.context);
     std::memcpy(event.payload, &payload, sizeof(payload));
     return true;
 }
@@ -127,12 +127,7 @@ int32_t Components::Call(uint32_t method, const uint8_t* request, uint32_t size,
         }
         model_.current_scope = wire.token;
         portEXIT_CRITICAL(&lock_);
-        context_.devices_.audio().SetComponentScope(wire.token);
-        if (auto* apps = context_.devices_.applications()) {
-            apps->SetComponents(Info());
-            apps->SetComponentScope(wire.token);
-        }
-        if (auto* http = context_.devices_.http()) http->SetComponentScope(wire.token);
+        if (hooks_.scope) hooks_.scope(hooks_.context, wire.token, Info());
         return MICROPIXEL_STATUS_OK;
     }
     if (method == MICROPIXEL_LIFECYCLE_REQUEST) {
@@ -146,7 +141,7 @@ int32_t Components::Call(uint32_t method, const uint8_t* request, uint32_t size,
         }
         if (wire.kind == 0 && wire.command == MICROPIXEL_COMPONENT_STOP) {
             portEXIT_CRITICAL(&lock_);
-            return context_.RequestStop() ? MICROPIXEL_STATUS_OK : MICROPIXEL_STATUS_INTERNAL;
+            return hooks_.stop(hooks_.context) ? MICROPIXEL_STATUS_OK : MICROPIXEL_STATUS_INTERNAL;
         }
         if (wire.kind == MICROPIXEL_COMPONENT_ACTIVITY && (model_.declared & MICROPIXEL_COMPONENT_FLAG_ACTIVITY) &&
             (wire.command == MICROPIXEL_COMPONENT_CREATE || wire.command == MICROPIXEL_COMPONENT_DESTROY)) {
@@ -177,7 +172,7 @@ int32_t Components::Call(uint32_t method, const uint8_t* request, uint32_t size,
         portENTER_CRITICAL(&lock_);
         valid = model_.Ack(wire);
         portEXIT_CRITICAL(&lock_);
-        if (auto* apps = context_.devices_.applications()) apps->SetComponents(Info());
+        if (hooks_.changed) hooks_.changed(hooks_.context, Info());
         Wake();
         return valid ? MICROPIXEL_STATUS_OK : MICROPIXEL_STATUS_STALE_STATE;
     }
@@ -286,7 +281,7 @@ bool Components::StopAudioScoped() {
     const auto token = model_.current_scope;
     portEXIT_CRITICAL(&lock_);
     if (!token) return false;
-    context_.devices_.audio().StopComponent(token);
+    if (hooks_.stop_audio) hooks_.stop_audio(hooks_.context, token);
     for (size_t i = 0; i < resources_.size(); ++i) {
         portENTER_CRITICAL(&lock_);
         const auto resource = resources_[i];
@@ -299,19 +294,16 @@ bool Components::StopAudioScoped() {
         if (close) {
             micropixel_handle_request_t wire{sizeof(wire), 0, resource.handle};
             uint32_t n = 0;
-            (void)context_.service_registry_.Call(resource.service_handle, resource.close_method,
-                                                  reinterpret_cast<const uint8_t*>(&wire), sizeof(wire), nullptr, 0, n);
+            (void)services_.Call(resource.service_handle, resource.close_method,
+                                 reinterpret_cast<const uint8_t*>(&wire), sizeof(wire), nullptr, 0, n);
         }
     }
     return true;
 }
 void Components::Cleanup(uint32_t token) {
-    context_.devices_.audio().StopComponent(token);
-    if ((token & 3) == MICROPIXEL_COMPONENT_ACTIVITY) {
-        context_.direct_surface_.Shutdown();
-        context_.devices_.graphics().ReleaseActivityResources();
-        (void)context_.devices_.input().EnableText(false);
-    }
+    if (hooks_.stop_audio) hooks_.stop_audio(hooks_.context, token);
+    if ((token & 3) == MICROPIXEL_COMPONENT_ACTIVITY && hooks_.release_activity)
+        hooks_.release_activity(hooks_.context);
     for (size_t i = 0; i < resources_.size(); ++i) {
         portENTER_CRITICAL(&lock_);
         const auto resource = resources_[i];
@@ -320,9 +312,8 @@ void Components::Cleanup(uint32_t token) {
         if (resource.token != token) continue;
         micropixel_handle_request_t request{sizeof(request), 0, resource.handle};
         uint32_t written = 0;
-        (void)context_.service_registry_.Call(resource.service_handle, resource.close_method,
-                                              reinterpret_cast<const uint8_t*>(&request), sizeof(request), nullptr, 0,
-                                              written);
+        (void)services_.Call(resource.service_handle, resource.close_method, reinterpret_cast<const uint8_t*>(&request),
+                             sizeof(request), nullptr, 0, written);
     }
 }
 }  // namespace micropixel::runtime

@@ -13,14 +13,18 @@ class MusicActivity final : public micropixel::Activity {
     void OnCreate(micropixel::ComponentContext& context) override {
         auto& m = model_;
         m.activity_token_ = context.token();
-        if (!m.initialized_)
-            m.app_.renderer()
-                .ConfigureDisplay({.logical_size = {720, 720}, .scale_mode = micropixel::DisplayScaleMode::kAspectFit})
+        if (!m.initialized_) {
+            const auto renderer = m.app_.renderer();
+            layout_ = MusicLayout::ForDisplay(renderer.physical_size());
+            renderer
+                .ConfigureDisplay({.logical_size = {uint32_t(layout_.width), uint32_t(layout_.height)},
+                                   .scale_mode = micropixel::DisplayScaleMode::kAspectFit})
                 .value();
-        ui_ = std::make_unique<Ui>(m.app_);
+        }
+        ui_ = std::make_unique<Ui>(m.app_, layout_);
         timer_.emplace(m.app_.timers().Every(micropixel::Duration::Milliseconds(100)).value());
-        if (!m.initialized_) m.Initialize();
         visible_ = false;
+        if (!m.initialized_) m.Initialize([this] { Flush(true); });
         Flush(true);
         m.app_.log().Info("NETEASE_ACTIVITY created");
     }
@@ -47,6 +51,22 @@ class MusicActivity final : public micropixel::Activity {
         timer_.reset();
         ui_.reset();
         model_.app_.log().Info("NETEASE_ACTIVITY destroyed");
+    }
+    bool OnNavigateBack(micropixel::ComponentContext& context) override {
+        auto& m = model_;
+        if (m.login_visible_)
+            m.CloseAccount();
+        else if (m.state_.editing)
+            m.StopEditing();
+        else if (m.state_.screen == MusicScreen::kPlayer || m.state_.screen == MusicScreen::kCollection)
+            m.Act({MusicActionKind::kBack});
+        else {
+            context.DestroyActivity().value();
+            return true;
+        }
+        m.Draw();
+        Flush(false);
+        return true;
     }
     void OnEvent(micropixel::ComponentContext& context, const micropixel::Event& event) override {
         if (!ui_ || !visible_) return;
@@ -116,8 +136,10 @@ class MusicActivity final : public micropixel::Activity {
         micropixel::Scene scene;
         MusicView view;
         LoginView login;
-        explicit Ui(micropixel::Application& app)
-            : scene(app.renderer().CreateScene(micropixel::ui::panel::Background).value()), view(scene), login(scene) {}
+        Ui(micropixel::Application& app, MusicLayout layout)
+            : scene(app.renderer().CreateScene(micropixel::ui::panel::Background).value()),
+              view(scene, layout),
+              login(scene, layout) {}
     };
     void Flush(bool force) {
         auto& m = model_;
@@ -142,6 +164,7 @@ class MusicActivity final : public micropixel::Activity {
         seen_ = m.dirty_;
     }
     MusicModel& model_;
+    MusicLayout layout_;
     std::unique_ptr<Ui> ui_;
     std::optional<micropixel::Timer> timer_;
     uint32_t seen_{}, avatar_{}, cover_{};

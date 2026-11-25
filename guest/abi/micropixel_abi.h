@@ -1727,7 +1727,7 @@ typedef struct micropixel_graphics_info {
     /* Host capacity policy. Scene nodes, containers and batch instances are
      * bounded only by their uint16 wire ids and by Host memory: a submit that
      * cannot be stored fails with RESOURCE_EXHAUSTED and keeps the old scene.
-     * A Direct Surface may have 1..max_surface_buffers buffers; a MEASURE_TEXT
+     * A Direct Surface may have 1..max_surface_buffers buffers (0 if unsupported); a MEASURE_TEXT
      * or TEXT record carries at most max_text_bytes of UTF-8; max_scene_bytes
      * and max_raster_bytes bound one submit on each channel (max_raster_bytes
      * is 0 without CAP_RASTER). */
@@ -1919,6 +1919,7 @@ typedef enum micropixel_input_capability {
     MICROPIXEL_INPUT_CAP_KEY_EVENTS = 1U << 1U,
     /* Input 1.1: the Host may deliver MICROPIXEL_INPUT_EVENT_AXIS. */
     MICROPIXEL_INPUT_CAP_AXIS_EVENTS = 1U << 2U,
+    MICROPIXEL_INPUT_CAP_NAVIGATE_BACK = 1U << 4U,
 } micropixel_input_capability_t;
 
 typedef enum micropixel_key_code {
@@ -1966,6 +1967,8 @@ typedef enum micropixel_input_event_id {
     MICROPIXEL_INPUT_EVENT_KEY = 2,
     /* Input 1.1: analog gamepad axis; micropixel_event_t.source carries the axis code. */
     MICROPIXEL_INPUT_EVENT_AXIS = 3,
+    /* System navigation request with an empty payload. */
+    MICROPIXEL_INPUT_EVENT_NAVIGATE_BACK = 4,
 } micropixel_input_event_id_t;
 
 /* Input 1.1 analog axes, named by position like the gamepad face keys. Sticks

@@ -393,7 +393,21 @@ licenses; consult the pinned SDK's LICENSE files before redistributing firmware.
 The build tools download these inputs outside the tracked source tree.
 
 The same lock pins the [Gitee Bouffalo SDK](https://gitee.com/bouffalolab/bouffalo_sdk)
-revision used for the BL618DG Orion board.
+revision used for the BL618DG Orion board. The optional Orion display build uses
+the SDK's Apache-2.0 display framework and its MIT-licensed LVGL 9.5.0.
+The Orion Host includes 18 px UI glyphs and a compressed 17 px Han and Latin
+fallback derived from Adobe Source Han Sans SC Regular 2.004R under the SIL
+Open Font License 1.1. See
+[`OFL-SourceHanSans.txt`](firmware/bouffalo/boards/bl618dg/orion/fonts/OFL-SourceHanSans.txt).
+Orion Home uses the same Noto Sans SemiBold source as the PC clock and temperature
+readouts. The numeric subsets use the [Noto Sans OFL notice](guest/sdk/ui/NotoSans-OFL.txt).
+The LVGL Montserrat fonts also include Font Awesome 5 symbols under the font
+license listed above.
+
+The Orion Host uses the SDK's XZ Embedded decoder for its built-in Guest images.
+XZ Embedded is in the public domain as documented in the SDK's `components/lzma/xz` sources.
+The Orion Host also links the SDK's PacketVideo MP3 decoder (Apache-2.0) and builds JPEG
+and PNG decoding from the SDK's copy of `stb_image.h` (MIT or public domain).
 
 `firmware/bouffalo/dependencies.json` pins the existing WAMR fork revision for a
 separate source checkout; the WAMR license and notices above also apply there.

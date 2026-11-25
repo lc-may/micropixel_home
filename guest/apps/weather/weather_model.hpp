@@ -10,9 +10,16 @@ struct Model {
     } saved;
     bool failed{}, busy{};
     uint32_t revision{};
+    bool local_refresh{};
+    uint32_t refresh_requests{};
     explicit Model(Application& app) {
         auto n = app.storage().GetBytes("weather.v1", reinterpret_cast<uint8_t*>(&saved), sizeof(saved));
-        if (!n || *n != sizeof(saved) || saved.version != 4 || saved.city >= cities.size()) saved = {};
+        if (!n || *n != sizeof(saved) || saved.version != 4 || saved.city >= cities.size() ||
+            saved.reading.hour_count > saved.reading.hours.size() ||
+            saved.reading.day_count > saved.reading.days.size())
+            saved = {};
+        else if (saved.reading.utc)
+            app.log().Info("WEATHER cache restored");
     }
     void Save(const Application& app) {
         (void)app.storage().SetBytes("weather.v1", reinterpret_cast<const uint8_t*>(&saved), sizeof(saved));

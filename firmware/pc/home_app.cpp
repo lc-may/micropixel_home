@@ -10,11 +10,17 @@
 
 #include "app_sessions.hpp"
 #include "esp_timer.h"
+#include "host/ui/lvgl/home_layout.hpp"
 #include "sdk/ui/material_icons_data.hpp"
 namespace micropixel::pc {
 namespace {
-constexpr uint32_t kBg = 0x101214, kSurface = 0x1b1f23, kRaised = 0x242a2f, kText = 0xf5f7f8, kMuted = 0x8c979e,
-                   kAmber = 0xe8a15c;
+namespace layout = host::home_layout;
+using layout::kAmber;
+using layout::kBg;
+using layout::kMuted;
+using layout::kRaised;
+using layout::kSurface;
+using layout::kText;
 enum ActionId {
     kMusic,
     kMarket,
@@ -47,6 +53,9 @@ lv_obj_t* Label(lv_obj_t* parent, int x, int y, int width, const char* text, uin
     lv_obj_set_style_text_color(label, lv_color_hex(color), 0);
     return label;
 }
+lv_obj_t* Label(lv_obj_t* parent, layout::Bounds bounds, const char* text, uint32_t color) {
+    return Label(parent, bounds.x, bounds.y, bounds.width, text, color);
+}
 lv_obj_t* Button(lv_obj_t* parent, int x, int y, int width, int height, const char* text, int action,
                  lv_event_cb_t callback, void* context, bool accent = false) {
     auto* b = lv_button_create(parent);
@@ -61,6 +70,15 @@ lv_obj_t* Button(lv_obj_t* parent, int x, int y, int width, int height, const ch
     lv_obj_center(label);
     lv_obj_add_event_cb(b, callback, LV_EVENT_SHORT_CLICKED, context);
     return b;
+}
+
+lv_obj_t* Button(lv_obj_t* parent, layout::Bounds bounds, const char* text, int action, lv_event_cb_t callback,
+                 void* context) {
+    return Button(parent, bounds.x, bounds.y, bounds.width, bounds.height, text, action, callback, context);
+}
+void Place(lv_obj_t* object, layout::Bounds bounds) {
+    lv_obj_set_pos(object, bounds.x, bounds.y);
+    lv_obj_set_size(object, bounds.width, bounds.height);
 }
 lv_obj_t* Symbol(lv_obj_t* parent, int x, int y, int size, const char* symbol, uint32_t background,
                  uint32_t foreground) {
@@ -216,9 +234,9 @@ void HomeApp::UpdateWidgets() {
         lv_label_set_text(weather_value_, temp);
         auto* separator = std::strstr(w.data.subtitle, "·");
         lv_label_set_text(weather_condition_, (w.data.flags & MICROPIXEL_WIDGET_ERROR) ? "刷新失败 · 显示上次天气"
-                                              : !w.data.updated_utc                    ? "等待天气更新"
-                                              : separator                              ? separator + std::strlen("·")
-                                                                                       : w.data.subtitle);
+                                              : !w.data.updated_utc ? "等待天气更新"
+                                              : separator           ? separator + std::strlen("·")
+                                                                    : w.data.subtitle);
         unsigned icon = w.data.updated_utc ? micropixel::ui::material_art::Index(w.data.auxiliary) : 8;
         lv_obj_set_pos(weather_icon_, -int(icon % micropixel::ui::material_art::Columns) * 54,
                        -int(icon / micropixel::ui::material_art::Columns) * 54);
@@ -281,20 +299,19 @@ void HomeApp::Show(int width, int height) {
     Symbol(root_, 24, 27, 9, "", kAmber, kAmber);
     Label(root_, 48, 21, 380, "家中 · MicroPixel", kMuted);
     auto* hero = lv_obj_create(root_);
-    lv_obj_set_pos(hero, 24, 75);
-    lv_obj_set_size(hero, 672, 198);
-    Panel(hero, 0x232a30, 30);
-    lv_obj_set_style_bg_grad_color(hero, lv_color_hex(0x191d21), 0);
+    Place(hero, layout::kHero);
+    Panel(hero, layout::kHeroStart, 30);
+    lv_obj_set_style_bg_grad_color(hero, lv_color_hex(layout::kHeroEnd), 0);
     lv_obj_set_style_bg_grad_dir(hero, LV_GRAD_DIR_HOR, 0);
-    auto* clock_hit = Button(root_, 24, 75, 438, 198, "", kClock, Action, this);
+    auto* clock_hit = Button(root_, layout::kClock, "", kClock, Action, this);
     lv_obj_set_style_bg_opa(clock_hit, LV_OPA_TRANSP, 0);
-    time_ = Label(root_, 54, 90, 430, "--:--", kText);
+    time_ = Label(root_, layout::kClockValue, "--:--", kText);
     lv_obj_set_style_text_font(time_, fonts_.clock ? fonts_.clock : &lv_font_montserrat_48, 0);
-    date_ = Label(root_, 54, 228, 420, " ", kMuted);
-    weather_city_ = Label(root_, 504, 85, 150, "天气", kMuted);
-    weather_value_ = Label(root_, 504, 148, 180, "--°", kText);
+    date_ = Label(root_, layout::kClockDate, " ", kMuted);
+    weather_city_ = Label(root_, layout::kWeatherCity, "天气", kMuted);
+    weather_value_ = Label(root_, layout::kWeatherValue, "--°", kText);
     lv_obj_set_style_text_font(weather_value_, fonts_.temperature ? fonts_.temperature : &lv_font_montserrat_48, 0);
-    weather_condition_ = Label(root_, 504, 233, 174, "等待更新", kMuted);
+    weather_condition_ = Label(root_, layout::kWeatherCondition, "等待更新", kMuted);
     namespace art = micropixel::ui::material_art;
     if (weather_pixels_.empty()) {
         weather_pixels_.resize(art::Width * art::Height * 4);
@@ -309,8 +326,7 @@ void HomeApp::Show(int width, int height) {
     weather_image_.data_size = weather_pixels_.size();
     weather_image_.data = weather_pixels_.data();
     auto* weather_clip = lv_obj_create(root_);
-    lv_obj_set_pos(weather_clip, 612, 105);
-    lv_obj_set_size(weather_clip, 54, 54);
+    Place(weather_clip, layout::kWeatherIcon);
     Panel(weather_clip, kBg, 0);
     lv_obj_set_style_bg_opa(weather_clip, LV_OPA_TRANSP, 0);
     lv_obj_set_clickable(weather_clip, false);
@@ -319,20 +335,20 @@ void HomeApp::Show(int width, int height) {
     lv_image_set_pivot(weather_icon_, 0, 0);
     lv_image_set_scale(weather_icon_, 54 * 256 / art::Cell);
     lv_obj_set_pos(weather_icon_, -int(8 % art::Columns) * 54, -int(8 / art::Columns) * 54);
-    auto* weather_hit = Button(root_, 468, 75, 228, 198, "", kWeather, Action, this);
+    auto* weather_hit = Button(root_, layout::kWeather, "", kWeather, Action, this);
     lv_obj_set_style_bg_opa(weather_hit, LV_OPA_TRANSP, 0);
-    weather_refresh_ = Button(root_, 612, 0, 84, 75, "", kRefresh, Action, this);
+    weather_refresh_ = Button(root_, layout::kRefresh, "", kRefresh, Action, this);
     lv_obj_set_style_bg_opa(weather_refresh_, LV_OPA_TRANSP, 0);
     lv_obj_set_style_bg_opa(weather_refresh_, LV_OPA_TRANSP, LV_STATE_DISABLED);
     Icon(weather_refresh_, 25, 20, 34, unsigned(micropixel::ui::material_art::Symbol::Refresh));
-    auto* alarm = Button(root_, 24, 291, 327, 174, "", kClock, Action, this);
+    auto* alarm = Button(root_, layout::kAlarm, "", kClock, Action, this);
     lv_obj_set_style_radius(alarm, 27, 0);
     Label(alarm, 24, 21, 210, "闹钟", kMuted);
     Icon(alarm, 255, 24, 34, unsigned(micropixel::ui::material_art::Symbol::Alarm));
     alarm_time_ = Label(alarm, 24, 69, 279, "--:--", kText);
     lv_obj_set_style_text_font(alarm_time_, &lv_font_montserrat_48, 0);
     alarm_subtitle_ = Label(alarm, 24, 137, 279, "设置一个提醒", kMuted);
-    auto* agenda = Button(root_, 369, 291, 327, 174, "", kCalendar, Action, this);
+    auto* agenda = Button(root_, layout::kAgenda, "", kCalendar, Action, this);
     lv_obj_set_style_radius(agenda, 27, 0);
     Label(agenda, 24, 21, 279, "日历与事项", kMuted);
     Icon(agenda, 255, 24, 34, unsigned(micropixel::ui::material_art::Symbol::Calendar));
@@ -340,8 +356,7 @@ void HomeApp::Show(int width, int height) {
     if (fonts_.value) lv_obj_set_style_text_font(agenda_title_, fonts_.value, 0);
     agenda_subtitle_ = Label(agenda, 24, 137, 279, "暂无待提醒事项", kMuted);
     auto* current = lv_obj_create(root_);
-    lv_obj_set_pos(current, 24, 483);
-    lv_obj_set_size(current, 327, 174);
+    Place(current, layout::kMusic);
     Panel(current, kSurface, 27);
     resume_ = Button(current, 0, 0, 327, 174, "", kResume, Action, this);
     lv_obj_set_style_bg_opa(resume_, LV_OPA_TRANSP, 0);
@@ -350,8 +365,7 @@ void HomeApp::Show(int width, int height) {
     lv_obj_set_height(running_title_, 32);
     status_ = Label(current, 24, 127, 96, "选择音乐", kMuted);
     auto* transport = lv_obj_create(current);
-    lv_obj_set_pos(transport, 135, 96);
-    lv_obj_set_size(transport, 168, 60);
+    Place(transport, layout::kTransport);
     Panel(transport, kRaised, 20);
     lv_obj_set_clickable(transport, false);
     // Compact visible controls, with independent 84 px hit regions.
@@ -370,7 +384,7 @@ void HomeApp::Show(int width, int height) {
     lv_obj_set_style_bg_opa(next_, LV_OPA_TRANSP, 0);
     lv_obj_set_style_bg_opa(next_, LV_OPA_TRANSP, LV_STATE_DISABLED);
     Icon(next_, 28, 28, 28, unsigned(micropixel::ui::material_art::Symbol::Next));
-    auto* apps = Button(root_, 369, 483, 327, 174, "", kApps, Action, this);
+    auto* apps = Button(root_, layout::kApps, "", kApps, Action, this);
     lv_obj_set_style_radius(apps, 27, 0);
     Label(apps, 24, 21, 279, "应用", kMuted);
     Icon(apps, 255, 24, 34, unsigned(micropixel::ui::material_art::Symbol::Apps));
@@ -378,12 +392,10 @@ void HomeApp::Show(int width, int height) {
     lv_obj_set_style_text_font(apps_count_, &lv_font_montserrat_48, 0);
     Label(apps, 24, 137, 279, "全部应用与系统音量", kMuted);
     auto* page = lv_obj_create(root_);
-    lv_obj_set_pos(page, 344, 691);
-    lv_obj_set_size(page, 24, 8);
+    Place(page, layout::kPageIndicator);
     Panel(page, kAmber, 5);
     auto* page2 = lv_obj_create(root_);
-    lv_obj_set_pos(page2, 377, 691);
-    lv_obj_set_size(page2, 8, 8);
+    Place(page2, layout::kCatalogIndicator);
     Panel(page2, 0x3a4248, 4);
     catalog_overlay_ = lv_obj_create(root_);
     lv_obj_set_size(catalog_overlay_, 720, 720);
@@ -393,14 +405,13 @@ void HomeApp::Show(int width, int height) {
     auto* catalog_back = Button(catalog_overlay_, 612, 0, 84, 84, "", kApps, Action, this);
     Icon(catalog_back, 25, 25, 34, unsigned(art::Symbol::Close));
     catalog_ = lv_obj_create(catalog_overlay_);
-    lv_obj_set_pos(catalog_, 24, 108);
-    lv_obj_set_size(catalog_, 672, 480);
+    Place(catalog_, layout::kCatalog);
     Panel(catalog_, kBg, 0);
     lv_obj_set_scrollable(catalog_, true);
     lv_obj_set_scroll_dir(catalog_, LV_DIR_VER);
     for (uint32_t i = 0; i < apps_.size(); ++i) {
         if (!apps_[i]->available) continue;
-        auto* b = Button(catalog_, int(i % 2) * 348, int(i / 2) * 116, 324, 104, "", i, Launch, this);
+        auto* b = Button(catalog_, layout::AppTile(i), "", i, Launch, this);
         lv_obj_set_style_radius(b, 24, 0);
         Symbol(b, 16, 24, 52, "", kRaised, kAmber);
         auto symbol = apps_[i]->app_id == "micropixel.netease-music" ? art::Symbol::Music
