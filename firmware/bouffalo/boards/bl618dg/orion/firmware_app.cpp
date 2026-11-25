@@ -91,6 +91,7 @@ constexpr HomeTile kHomeTiles[]{
     {"错误处理测试", HomeAppRole::kDiagnostic},
 };
 static_assert(std::size(kApps) == std::size(kHomeTiles));
+static_assert(kApps[kClockApp].clock);
 static_assert(kApps[kMusicApp].music);
 
 constexpr const char* AppStateName(host::AppState state) {
@@ -140,7 +141,7 @@ void Shell(int argc, char** argv) {
         }
         if (argc == 4) {
             std::string_view option = argv[3];
-            command.options.alarm_test = kApps[command.app].can_set_time && option == "--alarm-test";
+            command.options.alarm_test = kApps[command.app].clock && option == "--alarm-test";
             command.options.music_login = kApps[command.app].music && option == "--login";
             if (kApps[command.app].music && option.starts_with("--song=")) {
                 option.remove_prefix(sizeof("--song=") - 1);
@@ -182,7 +183,7 @@ class FirmwareApp final {
         else if (!InitializeMedia(audio_, output_.SampleRate()))
             std::puts("MicroPixel URL media initialization failed");
 #endif
-        if (!alarms_.Initialize()) return false;
+        if (!alarms_.Initialize(kClockApp)) return false;
         media_widgets_ = MediaWidgets::Create(kMusicApp, "micropixel.netease-music", boot_);
         if (!media_widgets_) return false;
         for (auto& runner : runners_)
@@ -208,6 +209,7 @@ class FirmwareApp final {
         if (has_display)
             std::printf("MPX BOOT home_setup_us=%lu\n", static_cast<unsigned long>(esp_timer_get_time() - start_us));
         for (;;) {
+            SyncNetworkClock();
             const auto now_ms = static_cast<uint64_t>(esp_timer_get_time()) / 1000U;
             mpx_wireless_poll(static_cast<uint32_t>(now_ms));
             Command command{};
@@ -308,7 +310,6 @@ class FirmwareApp final {
         micropixel_wall_time_t wall{};
         uint64_t next_alarm;
         alarms_.ReadClock(now_ms, kClockApp, wall, next_alarm);
-        SyncClockIfUnset(wall, now_ms);
         home_.Update(wall, next_alarm);
         home_.UpdateWeather(weather_state_);
         home_.UpdateMusic(*media_widgets_);
@@ -353,15 +354,12 @@ class FirmwareApp final {
         (void)manager_.EnsureWork(kWeatherApp);
     }
 
-    void SyncClockIfUnset(const micropixel_wall_time_t& wall, uint64_t now_ms) {
+    void SyncNetworkClock() {
 #if defined(CONFIG_FHOST)
-        if (wall.valid || !mpx_network_time_ready()) return;
-        uint32_t seconds, microseconds;
-        mpx_network_get_time(&seconds, &microseconds);
-        (void)alarms_.SetUtc(seconds, now_ms);
-#else
-        (void)wall;
-        (void)now_ms;
+        mpx_network_time_sync_t sync{};
+        if (mpx_network_time_take_sync(&sync) &&
+            alarms_.SetUtc(sync.seconds, sync.monotonic_ms, sync.microseconds / 1000U))
+            std::printf("MicroPixel wall clock synchronized UTC=%lu\n", static_cast<unsigned long>(sync.seconds));
 #endif
     }
 

@@ -19,7 +19,7 @@
 #include "mbedtls/entropy.h"
 #include "mbedtls/ssl.h"
 
-enum { CONNECTION_TIMEOUT_MS = 10000 };
+enum { CONNECTION_TIMEOUT_MS = 10000, HTTPS_READ_BYTES = 4 * 1024 };
 
 static SemaphoreHandle_t bundle_lock;
 static StaticSemaphore_t bundle_lock_storage;
@@ -38,7 +38,7 @@ typedef struct {
     bool header_value;
     bool headers_complete;
     char host[254];
-    uint8_t read_buffer[1536];
+    uint8_t read_buffer[HTTPS_READ_BYTES];
 } transfer_t;
 
 bool mpx_https_initialize(void) {
@@ -223,13 +223,18 @@ static int body(struct http_parser* parser, const char* bytes, size_t length) {
         response->overflow = true;
         return 1;
     }
-    memcpy(response->body + response->length, bytes, length);
+    if (response->on_body) {
+        if (!response->on_body(response->context, (const uint8_t*)bytes, length)) return 1;
+    } else {
+        memcpy(response->body + response->length, bytes, length);
+    }
     response->length += length;
     return 0;
 }
 
 static int append_header(transfer_t* transfer, const char* bytes, size_t length) {
     mpx_https_response_t* response = transfer->response;
+    if (!response->headers) return 0;
     if (length > response->headers_capacity - response->headers_length) {
         response->overflow = true;
         return 1;
@@ -259,7 +264,12 @@ static int end_headers(struct http_parser* parser) {
     transfer_t* transfer = parser->data;
     transfer->headers_complete = true;
     // Return values 1 and 2 have special meanings in http-parser.
-    return transfer->header_value && append_header(transfer, "\r\n", 2) ? -1 : 0;
+    if (transfer->header_value && append_header(transfer, "\r\n", 2)) return -1;
+    mpx_https_response_t* response = transfer->response;
+    if (parser->status_code >= 200 && response->on_headers &&
+        !response->on_headers(response->context, parser->status_code, parser->content_length))
+        return -1;
+    return 0;
 }
 
 static int complete(struct http_parser* parser) {
@@ -295,11 +305,13 @@ static int receive_http(transfer_t* transfer) {
             continue;
         }
         if (count == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) count = 0;
-        if (count) transfer->deadline = bflb_mtimer_get_time_ms() + transfer->receive_timeout_ms;
         const size_t parsed = http_parser_execute(&parser, &settings, (const char*)transfer->read_buffer, count);
         if (transfer->complete && HTTP_PARSER_ERRNO(&parser) == HPE_PAUSED) return 0;
         if (parsed != (size_t)count || HTTP_PARSER_ERRNO(&parser) != HPE_OK) return -EBADMSG;
         if (!count) break;
+        // A streaming sink may wait for PCM capacity or pause. Socket idle
+        // time starts when the consumer is ready to receive again.
+        transfer->deadline = bflb_mtimer_get_time_ms() + transfer->receive_timeout_ms;
     }
     return transfer->complete ? 0 : cancelled(transfer) ? -ECANCELED : -ECONNRESET;
 }

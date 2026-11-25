@@ -34,13 +34,14 @@ class AppStorageEndpoint final : public runtime::ServiceHandler {
    public:
     runtime::ServiceDescriptor Describe() const override;
     int32_t Call(uint32_t, const uint8_t*, uint32_t, uint8_t*, uint32_t, uint32_t&) override;
-    void Authorize(bool weather, bool music) {
+    void Authorize(bool weather, bool music, bool clock) {
         weather_ = weather;
         music_ = music;
+        clock_ = clock;
     }
 
    private:
-    bool weather_{}, music_{};
+    bool weather_{}, music_{}, clock_{};
 };
 
 }  // namespace micropixel::bouffalo

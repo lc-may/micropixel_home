@@ -69,7 +69,8 @@ mpx stop audio_pcm_stream
 
 闹钟使用原版 Guest 的 Activity 和 Service 入口。可用串口命令 `mpx time <UTC 秒数>`
 设置本次开机的墙钟，再用 `mpx run clock-alarm --alarm-test` 运行 Guest 的五秒响铃测试。
-时钟和闹钟记录当前保存在 RAM 中，重启后需重新设置。
+主闹钟与各事项的提醒时间、重复规则、启用状态和上次触发记录保存在 `mp_kv` 的 `clock.alarms.v1` 文件中。
+文件同时保存时区和时钟设置，开机恢复记录，校时后重新计算下次触发。事项完成状态保存在 `clock.notes`。
 
 `boards/bl618dg/orion/` 定义 LCD、触控、音频引脚和 Host 组合入口。
 `common/` 提供 FreeRTOS Guest Runner、标准 Core imports 及服务端点，复用共享的
@@ -139,7 +140,8 @@ DHCP 模式在每次连接后重新取得地址。静态模式额外保存 IPv4�
 配置应用的连接入口使用 DHCP。现有 SDK 串口命令 `set_ipv4 <ip> <dns> <gateway> <netmask>` 可为已连接的 STA 设置静态值。
 写入先关闭临时文件，再重命名提交。已有 Timebox 配置可在首次成功连接后迁移到文件。
 
-拿到 IP 后，Host 通过 SNTP 同步 TLS 证书校验所需的时间。
+拿到 IP 后，Host 通过 SNTP 校时，成功后每 15 分钟重校。每次校时成功都会更新 TLS、Home 和闹钟的 UTC 基准。
+网络中断期间，Home 和闹钟继续使用最近一次 UTC 基准与单调时钟走时。串口手动设置的 UTC 基准在下一次成功校时时更新。
 天气应用通过 Network Service 请求 Open-Meteo，应用启动、切换城市及点击刷新时发起更新。
 天气 Service 在开机后占用独立 Session。首次启动先从 LittleFS 的 `weather.v1` 加载最近一次天气，
 再刷新并发布给 Home。退出天气页面时刷新一次，随后每 15 分钟更新，网络暂不可用时会重试。
@@ -152,10 +154,17 @@ Network 1.3 中的默认接收超时是 10 秒，Guest 可为微信长轮询单�
 256 KiB，响应头最多 8 KiB。HTTPS 使用固件的 CA 证书包校验服务器。交换接口把 HTTP 状态和重复的
 响应头交给 Guest，Cookie 跟随 Guest 的域名与路径规则。
 
+HTTPS 每次最多读取 4 KiB 明文，读取缓冲在 PSRAM。多个 TCP 连接共用 WRAM 中的 64 个 Wi-Fi RX
+缓冲，lwIP 通过自定义 `pbuf` 引用这些包，释放 `pbuf` 时归还缓冲。lwIP 堆为 80 KiB，
+活动 TCP PCB 池容量为 15，netconn 池容量为 24，TCP 段池容量为 96。每条连接的接收窗口为
+23,360 字节，乱序队列最多保留 8 个 `pbuf`。
+
 应用支持触屏拉丁字符输入、JPEG/PNG 封面和二维码。开启「记住登录」后凭证保存在本机 LittleFS 的
 `ncm.auth`，默认关闭。退出音乐页后 PlaybackService 继续运行，`mpx stop netease-music` 会结束该 Session。
 Home 音乐卡片随 PlaybackService 更新当前曲目及播放状态，可直接暂停、继续播放或切换下一首。
-板端每次下载一首最多 4 MiB 的 HTTPS MP3，使用 SDK 解码后经 Host 混音器输出到 JY6316。
+板端边接收 HTTPS MP3 边用 SDK 解码，经 Host 混音器输出到 JY6316。解析器使用 2 KiB 输入窗口，
+PCM 环形缓冲容纳 8,192 个单声道采样。开始播放和网络欠载后先积累约 200 ms PCM。暂停时保留已缓冲的数据，
+缓冲满后暂停读取 HTTPS。进度跳转会重新请求音频，从帧头定位到目标，并预解码前面的帧以恢复 MP3 解码状态。
 串口的 `--song=ID` 和 `--login` 参数在启动新 Session 时生效。
 
 ## 屏幕

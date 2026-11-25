@@ -26,7 +26,7 @@ struct EmbeddedApp final {
     bool activity{};
     bool wireless_settings{};
     uint16_t component_flags{};
-    bool can_set_time{};
+    bool clock{};
     bool weather{};
     bool music{};
     uint16_t canvas_extent{};

@@ -7,6 +7,10 @@
 #include "esp_timer.h"
 #include "platform/audio/audio_engine.hpp"
 
+#if defined(CONFIG_LITTLEFS)
+#include "alarm_store.hpp"
+#endif
+
 namespace micropixel::bouffalo {
 namespace {
 
@@ -29,22 +33,32 @@ int32_t Reply(const T& value, uint8_t* response, uint32_t capacity, uint32_t& si
 
 }  // namespace
 
-bool AlarmHost::Initialize() {
+bool AlarmHost::Initialize(uint32_t clock_app) {
     lock_ = xSemaphoreCreateMutexStatic(&lock_storage_);
-    return lock_ != nullptr;
+    if (!lock_) return false;
+    clock_app_ = clock_app;
+#if defined(CONFIG_LITTLEFS)
+    RestoreClockAlarms(alarms_, clock_, clock_app_);
+    alarms_.SetPersistence(
+        {this, [](void* context, const host::AlarmScheduler::Record* replacement, uint32_t app, uint32_t id) {
+             const auto& self = *static_cast<AlarmHost*>(context);
+             return app != self.clock_app_ || SaveClockAlarms(self.alarms_, self.clock_, app, id, replacement);
+         }});
+#endif
+    return true;
 }
 
-bool AlarmHost::SetUtc(uint64_t utc, uint64_t now_ms) {
-    if (utc < kMinUtc || utc > kMaxUtc) return false;
+bool AlarmHost::SetUtc(uint64_t utc, uint64_t now_ms, uint32_t fractional_ms) {
+    if (utc < kMinUtc || utc > kMaxUtc || fractional_ms >= 1000U) return false;
     Lock lock(lock_);
-    sync_utc_ = utc;
+    sync_utc_ms_ = utc * 1000U + fractional_ms;
     sync_ms_ = now_ms;
     return true;
 }
 
 uint64_t AlarmHost::Utc(uint64_t now_ms) const {
-    if (sync_utc_ == 0 || now_ms <= sync_ms_) return sync_utc_;
-    return sync_utc_ + (now_ms - sync_ms_) / 1000;
+    if (sync_utc_ms_ == 0 || now_ms <= sync_ms_) return sync_utc_ms_ / 1000U;
+    return (sync_utc_ms_ + (now_ms - sync_ms_)) / 1000U;
 }
 
 void AlarmHost::ReadClock(uint64_t now_ms, uint32_t app, micropixel_wall_time_t& wall, uint64_t& next_alarm) {
@@ -109,7 +123,13 @@ int32_t AlarmHost::Call(uint32_t app, bool can_set_time, uint32_t method, const 
             const host::SystemClock::Settings settings{
                 time.offset_minutes, time.valid != 0,
                 time.utc ? static_cast<int64_t>(time.utc) - static_cast<int64_t>(system_utc) : 0};
-            return clock_.Restore(settings) ? MICROPIXEL_STATUS_OK : MICROPIXEL_STATUS_INVALID_ARGUMENT;
+            auto clock = clock_;
+            if (!clock.Restore(settings)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+#if defined(CONFIG_LITTLEFS)
+            if (app == clock_app_ && !SaveClockAlarms(alarms_, clock, app)) return MICROPIXEL_STATUS_INTERNAL;
+#endif
+            clock_ = clock;
+            return MICROPIXEL_STATUS_OK;
         }
         case MICROPIXEL_ALARM_GET:
         case MICROPIXEL_ALARM_REMOVE: {

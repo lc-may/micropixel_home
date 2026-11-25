@@ -6,5 +6,8 @@
 #define SNTP_SERVER_DNS 1
 #define SNTP_MAX_SERVERS 2
 #define SNTP_CHECK_RESPONSE 2
-#define SNTP_SET_SYSTEM_TIME(seconds) mpx_network_set_time(seconds)
+#ifndef SNTP_UPDATE_DELAY
+#define SNTP_UPDATE_DELAY 900000U
+#endif
+#define SNTP_SET_SYSTEM_TIME_US(seconds, microseconds) mpx_network_set_time((seconds), (microseconds))
 #define SNTP_GET_SYSTEM_TIME(seconds, microseconds) mpx_network_get_time(&(seconds), &(microseconds))

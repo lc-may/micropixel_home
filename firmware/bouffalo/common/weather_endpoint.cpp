@@ -18,6 +18,8 @@ namespace {
 
 constexpr char kCacheName[] = "weather.v1";
 constexpr char kMusicAccount[] = "ncm.auth";
+constexpr char kNotesDoneKey[] = "notes.done";
+constexpr char kNotesDoneFile[] = "clock.notes";
 constexpr uint32_t kMaxAccountBytes = 3072;
 
 }  // namespace
@@ -84,16 +86,16 @@ runtime::ServiceDescriptor AppStorageEndpoint::Describe() const {
 int32_t AppStorageEndpoint::Call(uint32_t method, const uint8_t* request, uint32_t length, uint8_t* response,
                                  uint32_t capacity, uint32_t& written) {
 #if defined(CONFIG_LITTLEFS)
-    if (!weather_ && !music_) return MICROPIXEL_STATUS_PERMISSION_DENIED;
-    const std::string_view key = weather_ ? kCacheName : kMusicAccount;
-    const char* const file = key.data();
-    const uint32_t max_size = weather_ ? 512 : kMaxAccountBytes;
+    if (!weather_ && !music_ && !clock_) return MICROPIXEL_STATUS_PERMISSION_DENIED;
+    const std::string_view key = clock_ ? kNotesDoneKey : weather_ ? kCacheName : kMusicAccount;
+    const char* const file = clock_ ? kNotesDoneFile : key.data();
+    const uint32_t max_size = clock_ ? sizeof(uint32_t) : weather_ ? 512 : kMaxAccountBytes;
     if (method == MICROPIXEL_STORAGE_METHOD_SET) {
         micropixel_storage_set_request_t wire{};
         if (length < sizeof(wire)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
         std::memcpy(&wire, request, sizeof(wire));
         if (wire.size != length || wire.key_length != key.size() || wire.value_length > max_size ||
-            sizeof(wire) + wire.key_length + wire.value_length != length ||
+            (clock_ && wire.value_length != max_size) || sizeof(wire) + wire.key_length + wire.value_length != length ||
             std::string_view(reinterpret_cast<const char*>(request + sizeof(wire)), wire.key_length) != key)
             return MICROPIXEL_STATUS_INVALID_ARGUMENT;
         const auto* value = request + sizeof(wire) + wire.key_length;

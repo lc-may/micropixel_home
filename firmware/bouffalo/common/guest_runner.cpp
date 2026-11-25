@@ -153,7 +153,7 @@ struct GuestRunner::Session final {
 #endif
           touch(events, origin_us, panel),
           resources(panel.Bitmaps(), memory),
-          alarm(alarm_host, app_id, app.can_set_time),
+          alarm(alarm_host, app_id, app.clock),
           media_widgets(app.music ? media : nullptr, {app_id, key, 0}),
           widget(app.weather ? &weather : nullptr, media_widgets),
           messages(media_widgets),
@@ -189,7 +189,7 @@ struct GuestRunner::Session final {
                    messages, storage) {
 #endif
         wireless.Authorize(app.wireless_settings);
-        storage.Authorize(app.weather, app.music);
+        storage.Authorize(app.weather, app.music, app.clock);
         if (app.component_flags) {
             if (!app.weather) components.SetVisible(app.activity);
             guest.components = &components;

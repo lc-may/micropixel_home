@@ -9,12 +9,14 @@
 #include <memory>
 
 #include "background_task.hpp"
+#include "bflb_mtimer.h"
 #include "device/contracts/remote.hpp"
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "https_get.h"
+#include "mp3_stream.hpp"
 #include "network_time.h"
 #include "platform/audio/audio_engine.hpp"
 #include "pvmp3dec/pvmp3_framedecoder.h"
@@ -27,74 +29,19 @@ namespace {
 constexpr uint32_t kMediaTaskStackBytes = 16U * 1024U;
 BackgroundTask media_worker;
 
-constexpr uint32_t kMaxTrack = 4 * 1024 * 1024;
+constexpr uint32_t kMaxStreamBytes = 64U * 1024U * 1024U;
 constexpr uint32_t kRingFrames = 8192;
-constexpr uint32_t kFrameInput = 2048;
 constexpr unsigned kDecodeWarmupFrames = 10;
 
 struct PsramFree {
     void operator()(void* memory) const { heap_caps_free(memory); }
 };
 
-struct Frame final {
-    uint32_t bytes{}, rate{}, samples{};
-};
-
-Frame ParseFrame(const uint8_t* p) {
-    // MPEG-1/2/2.5 Layer III. The header determines the exact byte length,
-    // so the SDK decoder only sees complete frames in its private input buffer.
-    const unsigned version = (p[1] >> 3) & 3;
-    const unsigned bitrate = p[2] >> 4;
-    const unsigned rate_index = (p[2] >> 2) & 3;
-    if (p[0] != 0xff || (p[1] & 0xe0) != 0xe0 || (p[1] & 6) != 2 || version == 1 || !bitrate || bitrate == 15 ||
-        rate_index == 3)
-        return {};
-    constexpr uint16_t kMpeg1[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
-    constexpr uint16_t kMpeg2[] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160};
-    constexpr uint32_t kRates[] = {44100, 48000, 32000};
-    const uint32_t rate = kRates[rate_index] / (version == 3 ? 1 : version == 2 ? 2 : 4);
-    const uint32_t length = (version == 3 ? 144000 * kMpeg1[bitrate] : 72000 * kMpeg2[bitrate]) / rate;
-    return {length + ((p[2] >> 1) & 1), rate, version == 3 ? 1152U : 576U};
-}
-
-struct Track final {
-    size_t begin{}, end{};
-    uint32_t rate{}, samples{}, frames{};
-    uint32_t Duration() const { return static_cast<uint64_t>(frames) * samples * 1000 / rate; }
-};
-
-Track IndexTrack(std::span<const uint8_t> bytes) {
-    size_t start = 0;
-    if (bytes.size() >= 10 && std::memcmp(bytes.data(), "ID3", 3) == 0) {
-        for (unsigned i = 6; i < 10; ++i) {
-            if (bytes[i] & 0x80) return {};
-            start = (start << 7) | bytes[i];
-        }
-        start += bytes[3] == 4 && (bytes[5] & 0x10) ? 20 : 10;
-    }
-    if (start >= bytes.size()) return {};
-    // Permit alignment/padding before the first frame and trailing metadata.
-    for (const size_t limit = std::min(bytes.size(), start + 4096); start + 4 <= limit; ++start) {
-        const auto header = ParseFrame(bytes.data() + start);
-        if (!header.bytes || header.bytes > bytes.size() - start) continue;
-        Track track{.begin = start, .end = start, .rate = header.rate, .samples = header.samples};
-        while (track.end + 4 <= bytes.size()) {
-            const auto frame = ParseFrame(bytes.data() + track.end);
-            if (!frame.bytes || frame.rate != track.rate || frame.samples != track.samples ||
-                frame.bytes > bytes.size() - track.end)
-                break;
-            track.end += frame.bytes;
-            ++track.frames;
-        }
-        if (track.frames >= 2) return track;
-    }
-    return {};
-}
-
 struct Workspace final {
     char worker_url[MICROPIXEL_MEDIA_MAX_URL_BYTES + 1];
-    char response_headers[MICROPIXEL_HTTP_MAX_HEADER_BYTES];
-    alignas(4) uint8_t input[kFrameInput];
+    Mp3Stream stream;
+    tPVMP3DecoderExternal decoder_config;
+    alignas(4) uint8_t input[Mp3Stream::kBufferSize];
     int16_t output[2304];
     int16_t ring[kRingFrames];
 };
@@ -112,7 +59,10 @@ class Lock final {
 
 class MusicOutput final : public device::UrlMedia {
    public:
-    MusicOutput(platform::audio::AudioEngine& audio, uint32_t sample_rate) : audio_(audio), sample_rate_(sample_rate) {}
+    MusicOutput(platform::audio::AudioEngine& audio, uint32_t sample_rate)
+        : audio_(audio),
+          sample_rate_(sample_rate),
+          prefill_(std::clamp<uint32_t>(sample_rate / 5U, 1U, kRingFrames / 2U)) {}
     bool Initialize() {
         control_ = xSemaphoreCreateMutexStatic(&control_storage_);
         if (!control_) return false;
@@ -136,10 +86,11 @@ class MusicOutput final : public device::UrlMedia {
         if (!mpx_https_valid_request(&request)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
         if (++next_handle_ == 0) ++next_handle_;
         handle = handle_ = next_handle_;
-        desired_.store(handle_, std::memory_order_release);
         paused_.store(false, std::memory_order_relaxed);
         state_ = {.size = sizeof(state_), .state = MICROPIXEL_MEDIA_LOADING};
-        seek_serial_ = 0;
+        seek_position_ms_ = 0;
+        seek_serial_.store(0, std::memory_order_relaxed);
+        desired_.store(handle_, std::memory_order_release);
         xTaskNotifyGive(media_worker.Handle());
         return MICROPIXEL_STATUS_OK;
     }
@@ -148,10 +99,10 @@ class MusicOutput final : public device::UrlMedia {
         Lock lock(control_);
         if (!handle || handle != handle_) return MICROPIXEL_STATUS_STALE_STATE;
         state = state_;
-        if (playing_.load(std::memory_order_acquire) == handle) {
+        if (state.state == MICROPIXEL_MEDIA_PLAYING && playing_.load(std::memory_order_acquire) == handle) {
             const auto consumed = read_.load(std::memory_order_relaxed);
-            state.position_ms =
-                std::min<uint64_t>(state.duration_ms, seek_base_ms_ + consumed * 1000ULL / sample_rate_);
+            state.position_ms = std::min<uint64_t>(UINT32_MAX, state_.position_ms + consumed * 1000ULL / sample_rate_);
+            if (state.duration_ms) state.duration_ms = std::max(state.duration_ms, state.position_ms);
         }
         if (state.state == MICROPIXEL_MEDIA_PLAYING && paused_.load(std::memory_order_relaxed))
             state.state = MICROPIXEL_MEDIA_PAUSED;
@@ -168,9 +119,13 @@ class MusicOutput final : public device::UrlMedia {
     int32_t Seek(uint32_t handle, uint32_t position_ms) override {
         Lock lock(control_);
         if (!handle || handle != handle_) return MICROPIXEL_STATUS_STALE_STATE;
-        if (state_.state != MICROPIXEL_MEDIA_PLAYING) return MICROPIXEL_STATUS_WOULD_BLOCK;
-        seek_position_ms_ = std::min(position_ms, state_.duration_ms);
-        ++seek_serial_;
+        if (state_.state != MICROPIXEL_MEDIA_PLAYING &&
+            (state_.state != MICROPIXEL_MEDIA_LOADING || !state_.duration_ms))
+            return MICROPIXEL_STATUS_WOULD_BLOCK;
+        seek_position_ms_ = state_.duration_ms ? std::min(position_ms, state_.duration_ms) : position_ms;
+        state_.position_ms = seek_position_ms_;
+        state_.state = MICROPIXEL_MEDIA_LOADING;
+        seek_serial_.fetch_add(1, std::memory_order_release);
         return MICROPIXEL_STATUS_OK;
     }
 
@@ -202,48 +157,115 @@ class MusicOutput final : public device::UrlMedia {
     }
 
     bool Active() const { return desired_.load(std::memory_order_acquire) == job_; }
-    static bool CancelTransfer(void* raw) { return !static_cast<MusicOutput*>(raw)->Active() || !mpx_wifi_online(); }
 
-    void Publish(uint16_t phase, uint32_t duration, const char* error = "") {
+    bool Interrupted() const { return !Active() || seek_serial_.load(std::memory_order_acquire) != job_seek_serial_; }
+
+    static bool CancelTransfer(void* raw) {
+        return static_cast<MusicOutput*>(raw)->Interrupted() || !mpx_wifi_online();
+    }
+
+    static bool BeginBody(void* raw, uint16_t status, uint64_t length) {
+        auto& self = *static_cast<MusicOutput*>(raw);
+        if (self.Interrupted()) return false;
+        if (status != 200) {
+            self.error_ = "HTTPS audio request failed";
+            return false;
+        }
+        if (length != UINT64_MAX && length > kMaxStreamBytes) {
+            self.error_ = "MP3 response too large";
+            return false;
+        }
+        self.content_length_ = length == UINT64_MAX ? 0 : static_cast<uint32_t>(length);
+        return true;
+    }
+
+    static bool ReceiveBody(void* raw, const uint8_t* bytes, size_t length) {
+        auto& self = *static_cast<MusicOutput*>(raw);
+        if (self.Interrupted()) return false;
+        self.received_ += length;
+        return self.workspace_.stream.Push({bytes, length}, [&self](auto frame, const Mp3Frame& header, uint32_t n) {
+            return self.HandleFrame(frame, header, n);
+        });
+    }
+
+    bool Publish(uint16_t phase, uint32_t duration, const char* error = "") {
         Lock lock(control_);
-        if (handle_ != job_) return;
+        if (Interrupted()) return false;
         state_.state = phase;
         state_.duration_ms = duration;
         if (phase == MICROPIXEL_MEDIA_FINISHED) state_.position_ms = duration;
         std::snprintf(state_.message, sizeof(state_.message), "%s", error);
+        return true;
     }
 
     void Load() {
-        std::unique_ptr<uint8_t, PsramFree> encoded(
-            static_cast<uint8_t*>(heap_caps_malloc(kMaxTrack, MALLOC_CAP_SPIRAM)));
-        if (!encoded) {
-            Publish(MICROPIXEL_MEDIA_FAILED, 0, "Not enough memory for MP3");
-            return;
+        std::unique_ptr<void, PsramFree> decoder(heap_caps_malloc(pvmp3_decoderMemRequirements(), MALLOC_CAP_SPIRAM));
+        while (Active()) {
+            StopVoice();
+            uint32_t target;
+            {
+                Lock lock(control_);
+                if (handle_ != job_) break;
+                job_seek_serial_ = seek_serial_.load(std::memory_order_relaxed);
+                target = seek_position_ms_;
+            }
+            if (!decoder) {
+                Publish(MICROPIXEL_MEDIA_FAILED, 0, "Not enough memory for MP3 decoder");
+                break;
+            }
+            ResetStream(decoder.get());
+            Stream(target);
+            if (!Interrupted()) break;
         }
+    }
+
+    void ResetStream(void* decoder) {
+        read_.store(0, std::memory_order_relaxed);
+        write_.store(0, std::memory_order_relaxed);
+        end_.store(false, std::memory_order_relaxed);
+        buffering_ = false;
+        resample_phase_ = average_count_ = 0;
+        average_ = 0;
+        received_ = content_length_ = duration_ = target_frame_ = bad_ = 0;
+        error_ = nullptr;
+        decoder_ = decoder;
+        workspace_.stream.Reset();
+        workspace_.decoder_config = {};
+        pvmp3_InitDecoder(&workspace_.decoder_config, decoder_);
+        started_ms_ = bflb_mtimer_get_time_ms();
+    }
+
+    void Stream(uint32_t target) {
+        target_ms_ = target;
         const mpx_https_request_t request{.url = workspace_.worker_url, .receive_timeout_ms = 15000};
         mpx_https_response_t response{.context = this,
                                       .cancelled = CancelTransfer,
-                                      .body = encoded.get(),
-                                      .capacity = kMaxTrack,
-                                      .headers = workspace_.response_headers,
-                                      .headers_capacity = sizeof(workspace_.response_headers)};
-        if (mpx_https_exchange(&request, &response) || response.status != 200) {
-            Publish(MICROPIXEL_MEDIA_FAILED, 0,
-                    response.overflow ? "MP3 exceeds 4 MiB" : "HTTPS audio download failed");
+                                      .capacity = kMaxStreamBytes,
+                                      .on_headers = BeginBody,
+                                      .on_body = ReceiveBody};
+        const int result = mpx_https_exchange(&request, &response);
+        if (Interrupted()) return;
+        if (result || response.status != 200 || !workspace_.stream.Complete()) {
+            const char* error = error_                                ? error_
+                                : response.overflow                   ? "MP3 response too large"
+                                : !mpx_wifi_online()                  ? "Network disconnected"
+                                : response.status == 200 || received_ ? "Incomplete or invalid MP3 data"
+                                                                      : "HTTPS audio download failed";
+            Publish(MICROPIXEL_MEDIA_FAILED, duration_, error);
             return;
         }
-        if (!Active()) return;
-        const auto track = IndexTrack({encoded.get(), response.length});
-        if (!track.frames) {
-            Publish(MICROPIXEL_MEDIA_FAILED, 0, "Unsupported audio format");
+        duration_ = workspace_.stream.Duration();
+        end_.store(true, std::memory_order_release);
+        if (Queued() && !voice_ && !StartVoice()) return;
+        if (!voice_ && target_ms_ < duration_) {
+            Publish(MICROPIXEL_MEDIA_FAILED, duration_, "MP3 contains no playable frames");
             return;
         }
-        std::unique_ptr<void, PsramFree> decoder(heap_caps_malloc(pvmp3_decoderMemRequirements(), MALLOC_CAP_SPIRAM));
-        if (!decoder) {
-            Publish(MICROPIXEL_MEDIA_FAILED, track.Duration(), "Not enough memory for MP3 decoder");
-            return;
-        }
-        Decode(encoded.get(), track, decoder.get());
+        if (voice_) Publish(MICROPIXEL_MEDIA_PLAYING, duration_);
+        while (!Interrupted() && Queued()) vTaskDelay(pdMS_TO_TICKS(10));
+        if (Publish(MICROPIXEL_MEDIA_FINISHED, duration_))
+            std::printf("MicroPixel MP3 complete (%lu ms, %lu bytes)\n", static_cast<unsigned long>(duration_),
+                        static_cast<unsigned long>(received_));
     }
 
     void StopVoice() {
@@ -253,31 +275,85 @@ class MusicOutput final : public device::UrlMedia {
         playing_.store(0, std::memory_order_release);
     }
 
-    static device::PcmReadResult ReadPcm(void* raw, int16_t* destination, uint32_t capacity) {
-        auto& self = *static_cast<MusicOutput*>(raw);
-        if (!self.Active()) return {0, true};
-        if (self.paused_.load(std::memory_order_relaxed)) return {};
-        const auto read = self.read_.load(std::memory_order_relaxed);
-        const auto write = self.write_.load(std::memory_order_acquire);
-        const auto count = std::min(capacity, write - read);
-        for (uint32_t i = 0; i < count; ++i) destination[i] = self.workspace_.ring[(read + i) % kRingFrames];
-        self.read_.store(read + count, std::memory_order_release);
-        return {count, self.end_.load(std::memory_order_acquire) &&
-                           read + count == self.write_.load(std::memory_order_acquire)};
+    uint32_t Queued() const { return write_.load(std::memory_order_relaxed) - read_.load(std::memory_order_acquire); }
+
+    bool StartVoice() {
+        if (Interrupted()) return false;
+        if (audio_.StartPcm({ReadPcm, this}, 0, 1000, voice_) != MICROPIXEL_STATUS_OK) {
+            error_ = "Audio output busy";
+            Publish(MICROPIXEL_MEDIA_FAILED, duration_, error_);
+            return false;
+        }
+        playing_.store(job_, std::memory_order_release);
+        if (!Publish(MICROPIXEL_MEDIA_PLAYING, duration_)) return false;
+        std::printf("MicroPixel MP3 playing (%lu ms, %lu bytes received, %lu ms since request)\n",
+                    static_cast<unsigned long>(duration_), static_cast<unsigned long>(received_),
+                    static_cast<unsigned long>(bflb_mtimer_get_time_ms() - started_ms_));
+        return true;
     }
 
-    bool DecodeFrame(const uint8_t* input, const Frame& frame, tPVMP3DecoderExternal& config, void* decoder,
-                     bool enqueue) {
-        if (frame.bytes + 4 > sizeof(workspace_.input)) return false;
-        std::memcpy(workspace_.input, input, frame.bytes);
-        std::memset(workspace_.input + frame.bytes, 0, 4);
+    static device::PcmReadResult ReadPcm(void* raw, int16_t* destination, uint32_t capacity) {
+        auto& self = *static_cast<MusicOutput*>(raw);
+        if (self.Interrupted()) return {0, true};
+        if (self.paused_.load(std::memory_order_relaxed)) return {};
+        const auto read = self.read_.load(std::memory_order_relaxed);
+        const bool end = self.end_.load(std::memory_order_acquire);
+        const auto queued = self.write_.load(std::memory_order_acquire) - read;
+        if (!end && self.buffering_ && queued < self.prefill_) return {};
+        const auto count = std::min(capacity, queued);
+        for (uint32_t i = 0; i < count; ++i) destination[i] = self.workspace_.ring[(read + i) % kRingFrames];
+        self.buffering_ = count < capacity;
+        self.read_.store(read + count, std::memory_order_release);
+        return {count, end && count == queued};
+    }
+
+    uint32_t EstimateDuration(std::span<const uint8_t> bytes, const Mp3Frame& frame) const {
+        const auto tagged_frames = Mp3TaggedFrameCount(bytes, frame);
+        if (tagged_frames) return frame.Duration(tagged_frames);
+        const auto prefix = workspace_.stream.PrefixBytes();
+        return content_length_ > prefix ? (content_length_ - prefix) * 8ULL / frame.bitrate_kbps : 0;
+    }
+
+    bool HandleFrame(std::span<const uint8_t> bytes, const Mp3Frame& frame, uint32_t number) {
+        if (Interrupted()) return false;
+        if (!number) {
+            duration_ = EstimateDuration(bytes, frame);
+            target_frame_ = target_ms_ * uint64_t(frame.rate) / (1000U * frame.samples);
+            Lock lock(control_);
+            if (Interrupted()) return false;
+            state_.position_ms = frame.Duration(target_frame_);
+            if (duration_) state_.duration_ms = duration_;
+        }
+        if (number + kDecodeWarmupFrames < target_frame_) return true;
+        const bool output = number >= target_frame_;
+        if (output) {
+            const uint32_t needed = (frame.samples * sample_rate_ + frame.rate - 1) / frame.rate;
+            while (Queued() + needed > kRingFrames) {
+                if (CancelTransfer(this)) return false;
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
+        }
+        if (DecodeFrame(bytes, frame, output)) {
+            bad_ = 0;
+        } else if (++bad_ >= 8) {
+            error_ = "Invalid MP3 data";
+            return false;
+        }
+        return voice_ || Queued() < prefill_ || StartVoice();
+    }
+
+    bool DecodeFrame(std::span<const uint8_t> input, const Mp3Frame& frame, bool enqueue) {
+        if (input.size() + 4 > sizeof(workspace_.input)) return false;
+        std::memcpy(workspace_.input, input.data(), input.size());
+        std::memset(workspace_.input + input.size(), 0, 4);
+        auto& config = workspace_.decoder_config;
         config.pInputBuffer = workspace_.input;
-        config.inputBufferCurrentLength = frame.bytes;
+        config.inputBufferCurrentLength = input.size();
         config.inputBufferMaxLength = sizeof(workspace_.input);
         config.inputBufferUsedLength = 0;
         config.pOutputBuffer = workspace_.output;
         config.outputFrameSize = std::size(workspace_.output);
-        const auto decoded = pvmp3_framedecoder(&config, decoder);
+        const auto decoded = pvmp3_framedecoder(&config, decoder_);
         if (decoded == NO_ENOUGH_MAIN_DATA_ERROR) return true;
         if (decoded != NO_DECODING_ERROR || config.samplingRate != static_cast<int32_t>(frame.rate) ||
             (config.num_channels != 1 && config.num_channels != 2) || config.outputFrameSize <= 0 ||
@@ -306,94 +382,22 @@ class MusicOutput final : public device::UrlMedia {
         return true;
     }
 
-    bool SeekChanged(uint32_t& revision, uint32_t& target) {
-        Lock lock(control_);
-        if (handle_ != job_ || seek_serial_ == revision) return false;
-        revision = seek_serial_;
-        target = seek_position_ms_;
-        return true;
-    }
-
-    size_t ResetDecoder(const uint8_t* encoded, const Track& track, uint32_t target, tPVMP3DecoderExternal& config,
-                        void* decoder) {
-        StopVoice();
-        read_.store(0, std::memory_order_relaxed);
-        write_.store(0, std::memory_order_relaxed);
-        end_.store(false, std::memory_order_relaxed);
-        resample_phase_ = average_count_ = 0;
-        average_ = 0;
-        config = {};
-        pvmp3_InitDecoder(&config, decoder);
-        const auto frame_number =
-            std::min<uint64_t>(track.frames, target * uint64_t(track.rate) / (1000U * track.samples));
-        size_t offset = track.begin;
-        for (uint32_t i = 0; i < frame_number; ++i) {
-            const auto frame = ParseFrame(encoded + offset);
-            if (i + kDecodeWarmupFrames >= frame_number)
-                (void)DecodeFrame(encoded + offset, frame, config, decoder, false);
-            offset += frame.bytes;
-        }
-        {
-            Lock lock(control_);
-            seek_base_ms_ = frame_number * uint64_t(track.samples) * 1000 / track.rate;
-        }
-        return offset;
-    }
-
-    void Decode(const uint8_t* encoded, const Track& track, void* decoder) {
-        tPVMP3DecoderExternal config{};
-        uint32_t revision = 0, target = 0;
-        auto offset = ResetDecoder(encoded, track, target, config, decoder);
-        uint32_t bad = 0;
-        const uint32_t worst_frame = (1152U * sample_rate_ + track.rate - 1) / track.rate + 1;
-        while (Active()) {
-            if (SeekChanged(revision, target)) {
-                offset = ResetDecoder(encoded, track, target, config, decoder);
-                bad = 0;
-            }
-            const uint32_t queued = write_.load(std::memory_order_relaxed) - read_.load(std::memory_order_acquire);
-            if (offset == track.end) end_.store(true, std::memory_order_release);
-            if (queued && !voice_ && (queued >= 1024 || offset == track.end)) {
-                if (audio_.StartPcm({ReadPcm, this}, 0, 1000, voice_) != MICROPIXEL_STATUS_OK) {
-                    Publish(MICROPIXEL_MEDIA_FAILED, track.Duration(), "Audio output busy");
-                    return;
-                }
-                playing_.store(job_, std::memory_order_release);
-                Publish(MICROPIXEL_MEDIA_PLAYING, track.Duration());
-                std::printf("MicroPixel MP3 playing (%lu ms)\n", static_cast<unsigned long>(track.Duration()));
-            }
-            if (offset == track.end && !queued) {
-                const bool finished = voice_ || target >= track.Duration();
-                Publish(finished ? MICROPIXEL_MEDIA_FINISHED : MICROPIXEL_MEDIA_FAILED, track.Duration(),
-                        finished ? "" : "MP3 contains no playable frames");
-                return;
-            }
-            if (offset != track.end && queued + worst_frame <= kRingFrames) {
-                const auto frame = ParseFrame(encoded + offset);
-                if (DecodeFrame(encoded + offset, frame, config, decoder, true))
-                    bad = 0;
-                else if (++bad >= 8) {
-                    Publish(MICROPIXEL_MEDIA_FAILED, track.Duration(), "Invalid MP3 data");
-                    return;
-                }
-                offset += frame.bytes;
-            } else {
-                vTaskDelay(pdMS_TO_TICKS(10));
-            }
-        }
-    }
-
     platform::audio::AudioEngine& audio_;
-    uint32_t sample_rate_;
+    const uint32_t sample_rate_, prefill_;
     StaticSemaphore_t control_storage_{};
     SemaphoreHandle_t control_{};
     Workspace workspace_;
     char url_[MICROPIXEL_MEDIA_MAX_URL_BYTES + 1];
     micropixel_media_state_t state_{};
-    std::atomic<uint32_t> desired_{}, playing_{}, read_{}, write_{};
+    std::atomic<uint32_t> desired_{}, playing_{}, read_{}, write_{}, seek_serial_{};
     std::atomic<bool> paused_{}, end_{};
     device::PcmStreamHandle voice_{};
-    uint32_t handle_{}, next_handle_{}, job_{}, seek_serial_{}, seek_position_ms_{}, seek_base_ms_{};
+    uint32_t handle_{}, next_handle_{}, job_{}, job_seek_serial_{}, seek_position_ms_{};
+    uint32_t received_{}, content_length_{}, duration_{}, target_ms_{}, target_frame_{}, bad_{};
+    uint64_t started_ms_{};
+    const char* error_{};
+    void* decoder_{};
+    bool buffering_{};
     uint32_t resample_phase_{}, average_count_{};
     int32_t average_{};
 };
