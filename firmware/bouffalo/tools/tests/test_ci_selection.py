@@ -10,7 +10,7 @@ from plan_pr_builds import MATRIX, select
 
 class PrBuildSelection(unittest.TestCase):
     def test_bouffalo_sources_do_not_select_espressif(self):
-        self.assertEqual(select(['firmware/bouffalo/common/memory.c',
+        self.assertEqual(select(['firmware/bouffalo/platform/memory/psram_realloc.h',
                                  'firmware/bouffalo/boards/bl616cl/defconfig']), [])
 
     def test_mixed_change_keeps_selected_esp_board(self):
@@ -19,7 +19,7 @@ class PrBuildSelection(unittest.TestCase):
         self.assertEqual([entry['profile'] for entry in selected], ['esp-mosaico'])
 
     def test_shared_firmware_and_abi_still_select_all_esp_boards(self):
-        for path in ('firmware/espressif/main/runtime/abi/core.cpp',
+        for path in ('firmware/common/runtime/abi/service_registry.cpp',
                      'guest/abi/micropixel_abi.h', 'tools/ci/plan_pr_builds.py'):
             with self.subTest(path=path):
                 self.assertEqual(select([path]), MATRIX)

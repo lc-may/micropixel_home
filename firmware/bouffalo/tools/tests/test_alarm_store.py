@@ -22,8 +22,8 @@ class AlarmStoreTests(unittest.TestCase):
             source = root / "alarm.cpp"
             source.write_text(
                 r'''
-#include "alarm_store.hpp"
-#include "file_store.h"
+#include "host/controller/alarm_store.hpp"
+#include "platform/storage/file_store.h"
 #include "lfs.h"
 
 #include <cassert>
@@ -129,13 +129,13 @@ int main() {
 ''',
                 encoding="utf-8",
             )
-            host = ROOT.parent / "espressif/main"
+            host = ROOT.parent / "common"
             binary = root / "alarm"
             subprocess.run(
                 [
                     compiler, "-std=c++20", "-Wall", "-Wextra", "-Werror",
-                    "-I", str(root), "-I", str(ROOT / "common"), "-I", str(host),
-                    "-I", str(ROOT.parents[1] / "guest"), str(source), str(ROOT / "common/alarm_store.cpp"),
+                    "-I", str(root), "-I", str(ROOT), "-I", str(host),
+                    "-I", str(ROOT.parents[1] / "guest"), str(source), str(ROOT / "host/controller/alarm_store.cpp"),
                     str(host / "host/controller/alarm_scheduler.cpp"), str(host / "device/text.cpp"), "-o", str(binary),
                 ],
                 check=True,

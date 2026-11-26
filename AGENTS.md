@@ -5,7 +5,8 @@ Applies to the entire repository. Use source code, ABI headers, and executable t
 ## Architecture
 
 MicroPixel runs WebAssembly apps on Espressif MCUs using ESP-IDF 6.1 and a pinned WAMR fork (AOT v6).
-Guests use a restricted C++23 SDK and a single-threaded event loop. MCU composition still allows one AppSession.
+Guests use a restricted C++23 SDK and a single-threaded event loop. The Espressif MCU Host allows one AppSession.
+The BL618DG Orion Host provides four Guest slots.
 PC Home defaults to four native Wasm slots; --rv32 selects per-slot QEMU/AOT and mixed backends are supported.
 Activity/Service, widgets, jobs and Host alarms share the same AppManager.
 `--single-app` keeps compatibility; explicit `--multi-app` also permits legacy task demos.
@@ -19,7 +20,11 @@ The Host owns hardware, app lifecycle, and system UI. Guests access capabilities
 
 ## Source map
 
-Host paths below are relative to `firmware/espressif/main/`. Detailed design guides are currently in Chinese.
+Host module paths below are relative to `firmware/common/` for code shared by
+targets and `firmware/espressif/main/` for the Espressif implementation.
+Bouffalo builds use `firmware/bouffalo/`, `firmware/common/`, and `guest/` for
+firmware sources, with their own SDK and pinned dependencies. Detailed design
+guides are currently in Chinese. See the [Bouffalo source layout](firmware/bouffalo/README.md#source-layout).
 
 | Area | Source | Documentation |
 |---|---|---|

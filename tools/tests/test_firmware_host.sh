@@ -5,29 +5,29 @@ if [[ "${1:-}" == "--app-framework" ]]; then
     framework_root="$(cd "$(dirname "$0")/../.." && pwd)"
     mkdir -p "$framework_root/build/host-tests"
     python3 "$framework_root/tools/tests/build_host_test.py" "${CXX:-/usr/bin/clang++}" \
-        -std=c++2b -Wall -Wextra -Werror -I "$framework_root/firmware/espressif/main" -I "$framework_root/guest" \
+        -std=c++2b -Wall -Wextra -Werror -I "$framework_root/firmware/espressif/main" -I "$framework_root/firmware/common" -I "$framework_root/guest" \
         "$framework_root/tools/tests/test_app_framework.cpp" \
-        "$framework_root/firmware/espressif/main/host/controller/app_manager.cpp" \
+        "$framework_root/firmware/common/host/controller/app_manager.cpp" \
         -o "$framework_root/build/host-tests/app_framework_test"
     "$framework_root/build/host-tests/app_framework_test"
     python3 "$framework_root/tools/tests/build_host_test.py" "${CXX:-/usr/bin/clang++}" \
-        -std=c++2b -Wall -Wextra -Werror -I "$framework_root/firmware/espressif/main" -I "$framework_root/guest" \
+        -std=c++2b -Wall -Wextra -Werror -I "$framework_root/firmware/espressif/main" -I "$framework_root/firmware/common" -I "$framework_root/guest" \
         "$framework_root/tools/tests/test_app_hub.cpp" \
-        "$framework_root/firmware/espressif/main/host/controller/app_hub.cpp" \
-        "$framework_root/firmware/espressif/main/device/text.cpp" \
+        "$framework_root/firmware/common/host/controller/app_hub.cpp" \
+        "$framework_root/firmware/common/device/text.cpp" \
         -o "$framework_root/build/host-tests/app_hub_test"
     "$framework_root/build/host-tests/app_hub_test"
     python3 "$framework_root/tools/tests/build_host_test.py" "${CXX:-/usr/bin/clang++}" \
-        -std=c++2b -Wall -Wextra -Werror -I "$framework_root/firmware/espressif/main" -I "$framework_root/guest" \
+        -std=c++2b -Wall -Wextra -Werror -I "$framework_root/firmware/espressif/main" -I "$framework_root/firmware/common" -I "$framework_root/guest" \
         "$framework_root/tools/tests/test_job_scheduler.cpp" \
         "$framework_root/firmware/espressif/main/host/controller/job_scheduler.cpp" \
         -o "$framework_root/build/host-tests/job_scheduler_test"
     "$framework_root/build/host-tests/job_scheduler_test"
     python3 "$framework_root/tools/tests/build_host_test.py" "${CXX:-/usr/bin/clang++}" \
-        -std=c++2b -Wall -Wextra -Werror -I "$framework_root/firmware/espressif/main" -I "$framework_root/guest" \
+        -std=c++2b -Wall -Wextra -Werror -I "$framework_root/firmware/espressif/main" -I "$framework_root/firmware/common" -I "$framework_root/guest" \
         "$framework_root/tools/tests/test_alarm_scheduler.cpp" \
-        "$framework_root/firmware/espressif/main/host/controller/alarm_scheduler.cpp" \
-        "$framework_root/firmware/espressif/main/device/text.cpp" \
+        "$framework_root/firmware/common/host/controller/alarm_scheduler.cpp" \
+        "$framework_root/firmware/common/device/text.cpp" \
         -o "$framework_root/build/host-tests/alarm_scheduler_test"
     "$framework_root/build/host-tests/alarm_scheduler_test"
     python3 "$framework_root/tools/tests/build_host_test.py" "${CXX:-/usr/bin/clang++}" \
@@ -90,7 +90,7 @@ build_and_run() {
         -std=c++23 \
         -Wall -Wextra -Werror \
         -I "$workspace_root/tools/tests/firmware_stubs" \
-        -I "$workspace_root/firmware/espressif/main" \
+        -I "$workspace_root/firmware/espressif/main" -I "$workspace_root/firmware/common" \
         -I "$workspace_root/guest" \
         "$@" \
         -o "$test_binary"
@@ -109,7 +109,7 @@ build_and_run_c() {
         -Wall -Wextra -Werror \
         "$@" \
         -I "$workspace_root/tools/tests/watchdog_stubs" \
-        -I "$workspace_root/firmware/espressif/main" \
+        -I "$workspace_root/firmware/espressif/main" -I "$workspace_root/firmware/common" \
         -o "$test_binary"
     "$test_binary"
 }
@@ -316,7 +316,7 @@ build_and_run bitmap_store \
     -DMICROPIXEL_TEST_TRACK_HEAP -fsanitize=address,undefined -g \
     -I "$workspace_root/guest" \
     "$workspace_root/tools/tests/test_bitmap_store.cpp" \
-    "$workspace_root/firmware/espressif/main/runtime/resources/bitmap_store.cpp"
+    "$workspace_root/firmware/common/runtime/resources/bitmap_store.cpp"
 
 # Exercise the pinned decoder with real PNG input and fault-injected PSRAM.
 # libpng supports C++ compilation; no system libpng installation is required.
@@ -345,7 +345,7 @@ build_and_run spi_nand_block_storage \
 
 build_and_run pixel_compositor \
     "$workspace_root/tools/tests/test_pixel_compositor.cpp" \
-    "$workspace_root/firmware/espressif/main/platform/graphics/pixel_compositor.cpp"
+    "$workspace_root/firmware/common/platform/graphics/pixel_compositor.cpp"
 
 build_and_run psram_allocator \
     -DMICROPIXEL_TEST_TRACK_HEAP \
@@ -354,24 +354,24 @@ build_and_run psram_allocator \
 build_and_run app_surface_compositor \
     -I "$workspace_root/guest" \
     "$workspace_root/tools/tests/test_app_surface_compositor.cpp" \
-    "$workspace_root/firmware/espressif/main/platform/graphics/app_surface_compositor.cpp" \
-    "$workspace_root/firmware/espressif/main/platform/graphics/pixel_compositor.cpp" \
-    "$workspace_root/firmware/espressif/main/platform/graphics/guest_scene.cpp" \
-    "$workspace_root/firmware/espressif/main/device/text.cpp"
+    "$workspace_root/firmware/common/platform/graphics/app_surface_compositor.cpp" \
+    "$workspace_root/firmware/common/platform/graphics/pixel_compositor.cpp" \
+    "$workspace_root/firmware/common/platform/graphics/guest_scene.cpp" \
+    "$workspace_root/firmware/common/device/text.cpp"
 
 build_and_run scene_storage \
     -DMICROPIXEL_TEST_TRACK_PSRAM \
     "$workspace_root/tools/tests/test_scene_storage.cpp" \
-    "$workspace_root/firmware/espressif/main/platform/graphics/app_surface_compositor.cpp" \
-    "$workspace_root/firmware/espressif/main/platform/graphics/pixel_compositor.cpp" \
-    "$workspace_root/firmware/espressif/main/platform/graphics/guest_scene.cpp" \
-    "$workspace_root/firmware/espressif/main/device/text.cpp"
+    "$workspace_root/firmware/common/platform/graphics/app_surface_compositor.cpp" \
+    "$workspace_root/firmware/common/platform/graphics/pixel_compositor.cpp" \
+    "$workspace_root/firmware/common/platform/graphics/guest_scene.cpp" \
+    "$workspace_root/firmware/common/device/text.cpp"
 
 build_and_run guest_scene \
     -I "$workspace_root/guest" \
     "$workspace_root/tools/tests/test_guest_scene.cpp" \
-    "$workspace_root/firmware/espressif/main/platform/graphics/guest_scene.cpp" \
-    "$workspace_root/firmware/espressif/main/device/text.cpp"
+    "$workspace_root/firmware/common/platform/graphics/guest_scene.cpp" \
+    "$workspace_root/firmware/common/device/text.cpp"
 
 build_and_run guest_scene_lifecycle \
     -I "$workspace_root/guest" \
@@ -390,7 +390,7 @@ build_and_run control_curves \
 build_and_run synth_mixer \
     -I "$workspace_root/guest" \
     "$workspace_root/tools/tests/test_synth_mixer.cpp" \
-    "$workspace_root/firmware/espressif/main/platform/audio/audio_mixer.cpp"
+    "$workspace_root/firmware/common/platform/audio/audio_mixer.cpp"
 
 build_and_run system_shell \
     -pthread \
@@ -493,14 +493,14 @@ build_and_run sector_block_storage \
 build_and_run device_services \
     -I "$workspace_root/guest" \
     "$workspace_root/tools/tests/test_device_services.cpp" \
-    "$workspace_root/firmware/espressif/main/device/device_services.cpp"
+    "$workspace_root/firmware/common/device/device_services.cpp"
 
 build_and_run peripheral_lifecycle \
     "$workspace_root/tools/tests/test_peripheral_lifecycle.cpp" \
     -pthread \
     -I "$workspace_root/guest" \
     "$workspace_root/firmware/espressif/main/runtime/services/sensor_service.cpp" \
-    "$workspace_root/firmware/espressif/main/device/device_services.cpp" \
+    "$workspace_root/firmware/common/device/device_services.cpp" \
     "$workspace_root/firmware/espressif/main/runtime/services/gpio_service.cpp"
 
 # Uses the real EventQueue (FreeRTOS shims), so the firmware include path must
@@ -509,13 +509,13 @@ python3 "$workspace_root/tools/tests/build_host_test.py" "$cxx" \
     -std=c++23 \
     -Wall -Wextra -Werror \
     -pthread \
-    -I "$workspace_root/firmware/espressif/main" \
+    -I "$workspace_root/firmware/espressif/main" -I "$workspace_root/firmware/common" \
     -I "$workspace_root/guest" \
     -I "$workspace_root/tools/tests/firmware_stubs" \
     "$workspace_root/tools/tests/test_direct_surface_service.cpp" \
     "$workspace_root/firmware/espressif/main/runtime/services/direct_surface_service.cpp" \
-    "$workspace_root/firmware/espressif/main/runtime/event_queue.cpp" \
-    "$workspace_root/firmware/espressif/main/device/device_services.cpp" \
+    "$workspace_root/firmware/common/runtime/event_queue.cpp" \
+    "$workspace_root/firmware/common/device/device_services.cpp" \
     -o "$test_output_dir/direct_surface_service_test"
 "$test_output_dir/direct_surface_service_test"
 
@@ -526,7 +526,7 @@ python3 "$workspace_root/tools/tests/build_host_test.py" "$cxx" \
     -std=c++23 \
     -Wall -Wextra -Werror \
     -pthread \
-    -I "$workspace_root/firmware/espressif/main" \
+    -I "$workspace_root/firmware/espressif/main" -I "$workspace_root/firmware/common" \
     -I "$workspace_root/guest" \
     -I "$workspace_root/tools/tests/firmware_stubs" \
     -DCONFIG_MICROPIXEL_APP_SURFACE_TELEMETRY_LOG=1 \
@@ -535,8 +535,8 @@ python3 "$workspace_root/tools/tests/build_host_test.py" "$cxx" \
     "$workspace_root/firmware/espressif/main/runtime/graphics/raster_kernels.cpp" \
     "$workspace_root/firmware/espressif/main/runtime/services/raster_service.cpp" \
     "$workspace_root/firmware/espressif/main/runtime/services/direct_surface_service.cpp" \
-    "$workspace_root/firmware/espressif/main/runtime/event_queue.cpp" \
-    "$workspace_root/firmware/espressif/main/device/device_services.cpp" \
+    "$workspace_root/firmware/common/runtime/event_queue.cpp" \
+    "$workspace_root/firmware/common/device/device_services.cpp" \
     -o "$test_output_dir/raster_service_test"
 "$test_output_dir/raster_service_test"
 
@@ -544,13 +544,13 @@ python3 "$workspace_root/tools/tests/build_host_test.py" "$cxx" \
     -std=c++23 \
     -Wall -Wextra -Werror \
     -pthread \
-    -I "$workspace_root/firmware/espressif/main" \
+    -I "$workspace_root/firmware/espressif/main" -I "$workspace_root/firmware/common" \
     -I "$workspace_root/guest" \
     -I "$workspace_root/tools/tests/firmware_stubs" \
     "$workspace_root/tools/tests/test_pcm_stream_service.cpp" \
-    "$workspace_root/firmware/espressif/main/runtime/audio/pcm_stream_service.cpp" \
-    "$workspace_root/firmware/espressif/main/runtime/event_queue.cpp" \
-    "$workspace_root/firmware/espressif/main/device/device_services.cpp" \
+    "$workspace_root/firmware/common/runtime/audio/pcm_stream_service.cpp" \
+    "$workspace_root/firmware/common/runtime/event_queue.cpp" \
+    "$workspace_root/firmware/common/device/device_services.cpp" \
     -o "$test_output_dir/pcm_stream_service_test"
 "$test_output_dir/pcm_stream_service_test"
 
@@ -558,11 +558,11 @@ python3 "$workspace_root/tools/tests/build_host_test.py" "$cxx" \
     -std=c++23 \
     -Wall -Wextra -Werror \
     -pthread \
-    -I "$workspace_root/firmware/espressif/main" \
+    -I "$workspace_root/firmware/espressif/main" -I "$workspace_root/firmware/common" \
     -I "$workspace_root/guest" \
     -I "$workspace_root/tools/tests/firmware_stubs" \
     "$workspace_root/tools/tests/test_event_queue.cpp" \
-    "$workspace_root/firmware/espressif/main/runtime/event_queue.cpp" \
+    "$workspace_root/firmware/common/runtime/event_queue.cpp" \
     -o "$test_output_dir/event_queue_test"
 "$test_output_dir/event_queue_test"
 

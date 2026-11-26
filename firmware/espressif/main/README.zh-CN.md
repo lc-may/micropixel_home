@@ -1,6 +1,7 @@
 # Host 源码导航
 
 `FirmwareApp` 是组合根，依赖方向为 `Runtime → Device contracts ← Platform`。
+多个固件目标共用的 Host 实现位于 [firmware/common](../../common/)，各目标的 SDK 适配由各自的构建提供。
 
 | 目录 | 职责 |
 |---|---|

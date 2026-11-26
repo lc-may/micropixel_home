@@ -13,7 +13,7 @@ CONFIG_LVGL9_PORT_FS = n
 CONFIG_TLSF = y
 CONFIG_RF = y
 CONFIG_XZ = y
-CONFIG_OVERRIDE_PTFILE = "orion/partition_cfg_8M.toml"
+CONFIG_OVERRIDE_PTFILE = "orion/config/partition_cfg_8M.toml"
 CONFIG_GCC_COMPILE_LTO = y
 CONFIG_BACKTRACE = n
 ifneq ($(filter wifi dual,$(RADIO)),)

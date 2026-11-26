@@ -2,7 +2,9 @@
 SDK_DEMO_PATH := $(abspath .)
 BOARD := bl618dgdk
 RADIO ?= wifi
+CPU_MODEL := b0
 ifeq ($(BOARD),bl618dg_orion)
+CPU_MODEL := b1
 BL_SDK_BASE ?= $(abspath ../../../../../bouffalo_sdk)
 BUILD_DIR ?= $(if $(filter 1,$(HOST_PORT)),build-orion-host-$(RADIO)$(if $(strip $(LCD_CONFIG)),-lcd),$(if $(filter 1,$(AUDIO_TEST)),build-orion-audio,$(if $(strip $(DISPLAY_CONFIG)),build-orion-display,build-orion)))
 cmake_definition += -DMPX_SDK_BOARD=$(BOARD)
@@ -66,7 +68,6 @@ $(error Set BL_SDK_BASE to the SDK prepared by firmware/bouffalo/tools/prepare_s
 endif
 CHIP := bl618dg
 CPU_ID := ap
-CPU_MODEL := b0
 BUILD_DIR ?= build
 CROSS_COMPILE ?= riscv64-zephyr-elf-
 export BL_SDK_BASE

@@ -76,7 +76,7 @@
     <tr><td><a href="../../firmware/pc/session.cpp">PC Session</a>、<a href="../../firmware/pc/os.cpp">任务兼容层</a></td><td>Stop 等待 join；JoinTasks 涉及全局任务表</td><td>异步请求停止 / 完成通知；每实例 TaskGroup，只回收本 owner 的任务</td></tr>
     <tr><td><a href="../../firmware/pc/remote.hpp">HTTP / URL media</a></td><td>HTTP 单个活动 handle，媒体共用物理播放器</td><td>有界多句柄、组件归属、Service 预留名额、媒体仲裁</td></tr>
     <tr><td><a href="../../guest/sdk/application.hpp">Guest Application</a>、<a href="../../guest/abi/micropixel_abi.h">ABI</a></td><td>一个事件 handler；没有组件生命周期或跨 Guest 消息</td><td>事件循环内分发 Activity / Service；新增版本化 Service 方法和 typed facade</td></tr>
-    <tr><td><a href="../../firmware/espressif/main/runtime/abi/service_registry.hpp">ServiceRegistry</a></td><td>已注册 14 个端点，固定容量 16；目录在实例内缓存</td><td>D3 审计全部新增端点，按需要显式扩为固定容量（初始建议 24），不做无限增长或实例内热注册</td></tr>
+    <tr><td><a href="../../firmware/common/runtime/abi/service_registry.hpp">ServiceRegistry</a></td><td>已注册 14 个端点，固定容量 16；目录在实例内缓存</td><td>D3 审计全部新增端点，按需要显式扩为固定容量（初始建议 24），不做无限增长或实例内热注册</td></tr>
     <tr><td><a href="../../guest/apps/netease-music/app.json">音乐 manifest</a>、<a href="../../guest/apps/netease-music/main.cpp">入口</a></td><td>当前要求至少 720×720，界面、账号和播放业务混在应用对象内</td><td>D4 拆业务与页面；D9 按目标分辨率与内存调整布局 / 容量，不能仅降低 manifest 门槛</td></tr>
   </tbody></table></div>
   <p>PC 阶段预计涉及约 40–70 个新增或修改文件，包含示例和测试；这是静态范围估计，D1 完成依赖审计后重估。MCU 平台适配另计。WAMR / wamrc 固定版本、七个 Core imports、AOT v6 与 Bundle v1 外壳保持不变。</p>
@@ -136,7 +136,7 @@
     <li>把 PC 全局 JoinTasks 的会话用途改为 TaskGroup / owner 回收。共享网络执行器和任务池有固定容量，Guest 停止不能等待或结束其他实例的任务。</li>
     <li>在统一 Host 测试 wrapper 中增加便携应用框架测试分组；仅该分组可独立于 esp-http3 运行，保留原固件全量测试的依赖检查。直接调用编译器不作为测试入口。</li>
   </ol>
-  <p><strong>代码位置：</strong><a href="../../firmware/espressif/main/runtime/guest_context.hpp">GuestContext</a>、<a href="../../firmware/espressif/main/device/device_services.hpp">DeviceServices</a>、<a href="../../firmware/espressif/main/device/contracts/">设备契约</a>、Runtime 图形 / 音频 / 资源服务、<a href="../../firmware/pc/os.cpp">PC 任务兼容层</a>、PC remote / audio；拟新增 Runtime owner 与 scoped-services 类型。</p>
+  <p><strong>代码位置：</strong><a href="../../firmware/espressif/main/runtime/guest_context.hpp">GuestContext</a>、<a href="../../firmware/common/device/device_services.hpp">DeviceServices</a>、<a href="../../firmware/common/device/contracts/">设备契约</a>、Runtime 图形 / 音频 / 资源服务、<a href="../../firmware/pc/os.cpp">PC 任务兼容层</a>、PC remote / audio；拟新增 Runtime owner 与 scoped-services 类型。</p>
   <h3>建议提交边界</h3>
   <p>D1.1：owner 类型、固定容量与测试夹具；D1.2：作用域服务及局部清理；D1.3：任务 / 回调排空和现有单 Guest 回归。生产配置本阶段仍保持一个 Guest。</p>
   <h3>验收与交付证据</h3>

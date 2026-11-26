@@ -34,6 +34,25 @@ This revision includes Orion's BSP under `bsp/board/bl618dg_orion`, including it
 console GPIO and 16 MiB PSRAM configuration. The SDK lock and fingerprints
 are recorded under `bl618dg_orion` in the same manifests.
 
+Orion selects `CPU_MODEL=b1` and generates `CPU_MODEL_B1`. In the pinned SDK,
+both B0 and B1 use the non-A0 AP compiler path with RV32D and ILP32D. The SDK
+changes its link inputs according to the model selector.
+
+| Link input | SDK behavior for B0 | SDK behavior for B1 |
+| --- | --- | --- |
+| PHY/RF | `libbl618dg_phyrf_b0.a` | `libbl618dg_phyrf.a`. These two AP archives are byte-identical at this SDK revision. |
+| Multimedia and PKA | `*_b0.a` archives using ILP32D | Unsuffixed archives using ILP32F. The Orion Host and DSI video validation explicitly select the ILP32D archives. |
+| C++ standard library | The SDK adds `stdc++` | The MicroPixel build adds `stdc++` explicitly. |
+
+Both AP profiles use `bl618dg_common.ld.in`. The SDK's B0-specific linker
+script applies to the LP core. For AP, the SDK suppresses RWX segment warnings
+on B0. The B1 build uses the linker's default diagnostics.
+
+[Orion SDK integration](../cmake/sdk.cmake) ·
+[SDK PHY selection](https://github.com/bouffalolab/bouffalo_sdk/blob/9e34f621e6e3b0acef296fc5cedd0ed8c33d4464/drivers/soc/bl618dg/phyrf/CMakeLists.txt#L2-L13) ·
+[SDK multimedia selection](https://github.com/bouffalolab/bouffalo_sdk/blob/9e34f621e6e3b0acef296fc5cedd0ed8c33d4464/drivers/lhal/src/multimedia/CMakeLists.txt#L14-L20) ·
+[SDK link flags](https://github.com/bouffalolab/bouffalo_sdk/blob/9e34f621e6e3b0acef296fc5cedd0ed8c33d4464/cmake/compiler_flags.cmake#L77-L85)
+
 ```sh
 python3 firmware/bouffalo/tools/prepare_sdk.py --board bl618dg_orion --directory ../bouffalo_sdk
 python3 firmware/bouffalo/tools/check_sdk.py --board bl618dg_orion --sdk ../bouffalo_sdk --exact

@@ -20,7 +20,7 @@ class Mp3StreamTests(unittest.TestCase):
             binary = Path(directory) / "mp3"
             source.write_text(
                 r'''
-#include "mp3_stream.hpp"
+#include "platform/audio/mp3_stream.hpp"
 
 #include <cassert>
 #include <vector>
@@ -95,7 +95,7 @@ int main() {
                 encoding="utf-8",
             )
             subprocess.run(
-                [compiler, "-std=c++20", "-Wall", "-Wextra", "-Werror", "-I", str(ROOT / "common"),
+                [compiler, "-std=c++20", "-Wall", "-Wextra", "-Werror", "-I", str(ROOT),
                  str(source), "-o", str(binary)],
                 check=True,
             )

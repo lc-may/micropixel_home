@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 execute_process(COMMAND python3 "${MPX_ROOT}/tools/prepare_deps.py" --check
     COMMAND_ERROR_IS_FATAL ANY)
-sdk_add_include_directories("${MPX_ROOT}/config" "${MPX_ROOT}/common/include")
-target_sources(app PRIVATE "${MPX_ROOT}/common/memory.c")
-add_subdirectory("${MPX_ROOT}/common/wamr" wamr)
+sdk_add_include_directories("${MPX_ROOT}/config" "${MPX_ROOT}/platform/include" "${MPX_ROOT}")
+add_subdirectory("${MPX_ROOT}/runtime/wamr" wamr)
 if(MPX_HOST_PORT)
     include("${MPX_ROOT}/cmake/host_port.cmake")
     return()

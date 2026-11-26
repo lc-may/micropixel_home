@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 set(_board "${MPX_ROOT}/boards/bl618dg/orion")
 set(MPX_HOST_MAIN "${_board}/firmware_app.cpp")
+set(MPX_HOST_PARTITIONS "${_board}/config/partition_cfg_8M.toml")
 set(MPX_HOST_GUESTS sdk_hello main_failure timer_counter audio_pcm_stream)
 set(MPX_HOST_APP_GUESTS settings clock-alarm weather netease-music news)
 option(MPX_ORION_AOT "Compile Orion catalog Guests to native RISC-V AOT" ON)
@@ -39,9 +40,7 @@ if(MPX_LCD_CONFIG)
     get_filename_component(_lcd_dir "${MPX_LCD_CONFIG}" DIRECTORY)
     sdk_add_include_directories("${_lcd_dir}")
 endif()
-sdk_add_include_directories("${_board}" "${MPX_ROOT}/common"
-    "$ENV{BL_SDK_BASE}/examples/wifi/sta/wifi_https"
-    "$ENV{BL_SDK_BASE}/components/graphics/lvgl_v9/libs/gltf/stb_image")
+sdk_add_include_directories("${_board}" "${_board}/config")
 if(CONFIG_BLUETOOTH AND NOT CONFIG_FHOST)
     sdk_add_compile_definitions(-DCONFIG_BTBLE_USE_STANDALONE_PATH=1)
 endif()
@@ -51,16 +50,15 @@ set_property(SOURCE "$ENV{BL_SDK_BASE}/drivers/lhal/src/flash/bflb_flash_secreg.
     TARGET_DIRECTORY liblhal APPEND PROPERTY COMPILE_OPTIONS -fno-lto)
 # The pinned SDK exposes this panel in lcd.h but omits it from the source list.
 target_sources(app PRIVATE "$ENV{BL_SDK_BASE}/bsp/common/lcd/mipi_dsi/st7102_ydp395bt008_dsi.c")
-set(_board_sources "${_board}/orion_home.cpp" "${_board}/orion_touch.cpp" "${_board}/orion_font.cpp"
-    "${MPX_ROOT}/common/wireless.c" "${MPX_ROOT}/common/wireless_endpoint.cpp"
-    "${MPX_ROOT}/common/guest_panel.cpp" "${MPX_ROOT}/common/image_decode.c"
-    "${MPX_ROOT}/../espressif/main/platform/graphics/guest_scene.cpp"
-    "${MPX_ROOT}/../espressif/main/device/text.cpp")
+set(_board_sources
+    "${_board}/ui/orion_home.cpp"
+    "${_board}/display/orion_touch.cpp"
+    "${_board}/display/orion_font.cpp")
 target_sources(app PRIVATE "${_font_data}" "${_board}/fonts/font_orion_cjk.c"
     "${_board}/fonts/font_orion_clock.c" "${_board}/fonts/font_orion_temperature.c"
     "${_board}/fonts/font_orion_home.c" "${_board}/fonts/font_orion_home_value.c")
 if(CONFIG_FHOST AND NOT CONFIG_BLUETOOTH)
-    list(APPEND _board_sources "${_board}/orion_wifi.c")
+    list(APPEND _board_sources "${_board}/network/orion_wifi.c")
 endif()
 if(CONFIG_FHOST)
     set(MPX_ORION_WIFI_RX_BUFS 64 CACHE STRING "Orion Wi-Fi FHOST RX buffer count in WRAM")
@@ -77,28 +75,12 @@ if(CONFIG_FHOST)
     option(MPX_ORION_RX_BENCHMARK "Build the Orion LAN RX diagnostic shell commands" OFF)
     if(MPX_ORION_RX_BENCHMARK)
         sdk_add_compile_definitions(-DMICROPIXEL_ORION_RX_BENCHMARK=1)
-        list(APPEND _board_sources "${_board}/wifi_rx_benchmark.c")
+        list(APPEND _board_sources "${_board}/diagnostics/wifi_rx_benchmark.c")
         sdk_add_link_options(-Wl,--wrap=macif_rx_buf_check -Wl,--wrap=tcp_send_empty_ack)
         # Keep tcp_input's empty ACK calls visible to the benchmark linker wrapper.
         set_property(SOURCE "$ENV{BL_SDK_BASE}/components/net/lwip/lwip/src/core/tcp_in.c"
             TARGET_DIRECTORY liblwip APPEND PROPERTY COMPILE_OPTIONS -fno-lto)
     endif()
-    if(NOT CONFIG_PVMP3DEC)
-        add_subdirectory("$ENV{BL_SDK_BASE}/components/multimedia/pvmp3dec" "${CMAKE_CURRENT_BINARY_DIR}/mpx_pvmp3")
-    endif()
-    target_compile_definitions(libmbedtls PRIVATE MBEDTLS_HAVE_TIME_DATE)
-    set(_sntp "$ENV{BL_SDK_BASE}/components/net/lwip/lwip/src/apps/sntp/sntp.c")
-    set_property(SOURCE "${_sntp}" "${MPX_ROOT}/common/network_time.c" APPEND PROPERTY
-        COMPILE_OPTIONS "-include;${MPX_ROOT}/common/sntp_config.h")
-    list(APPEND _board_sources "${MPX_ROOT}/common/network.cpp" "${MPX_ROOT}/common/network_time.c"
-        "${MPX_ROOT}/common/https_get.c" "${MPX_ROOT}/common/media.cpp")
-    target_sources(app PRIVATE "${_sntp}")
 endif()
-if(CONFIG_LITTLEFS)
-    list(APPEND _board_sources "${MPX_ROOT}/common/alarm_store.cpp" "${MPX_ROOT}/common/file_store.c")
-endif()
-list(APPEND _board_sources "${MPX_ROOT}/common/weather_endpoint.cpp")
 target_sources(app PRIVATE ${_board_sources})
 set_property(SOURCE ${_board_sources} APPEND PROPERTY COMPILE_OPTIONS "-Werror=frame-larger-than=1536;-fstack-usage")
-set_property(SOURCE "${MPX_ROOT}/../espressif/main/platform/graphics/guest_scene.cpp" APPEND
-    PROPERTY COMPILE_OPTIONS "${MPX_ORION_RUNTIME_OPT}")

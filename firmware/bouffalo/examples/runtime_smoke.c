@@ -4,11 +4,12 @@
 #include <string.h>
 
 #include "board.h"
-#include "esp_heap_caps.h"
-#include "freertos/task.h"
+#include "mm.h"
+#include "platform/memory/psram_realloc.h"
 #include "platform_api_vmcore.h"
 #include "runtime_smoke_aot.h"
 #include "wasm_export.h"
+#include "work/task_stack.h"
 
 #if defined(CONFIG_DISPLAY_DEFAULT) && defined(CONFIG_LVGL9_PORT_DISP)
 #include "display_smoke.h"
@@ -81,13 +82,13 @@ static void check_aot(void) {
 
 static void runtime_smoke(void *argument) {
     (void)argument;
-    void *memory = heap_caps_aligned_alloc(64, 256, MALLOC_CAP_SPIRAM);
+    void *memory = kmalloc(256, MM_FLAG_HEAP_PSRAM_0 | MM_FLAG_ALIGN_64BYTE);
     require(memory && ((uintptr_t)memory % 64U == 0), "PSRAM alignment");
     memset(memory, 0x5a, 256);
-    void *grown = heap_caps_realloc(memory, 512, MALLOC_CAP_SPIRAM);
+    void *grown = mpx_psram_realloc(memory, 512);
     require(grown != NULL, "PSRAM realloc");
     for (size_t i = 0; i < 256; ++i) require(((uint8_t *)grown)[i] == 0x5a, "realloc contents");
-    heap_caps_free(grown);
+    kfree(grown);
 
     korp_mutex mutex = OS_THREAD_MUTEX_INITIALIZER;
     require(os_mutex_lock(&mutex) == 0, "lazy mutex");
@@ -123,7 +124,7 @@ int main(void) {
 #ifndef CONFIG_SYSINIT
     board_init();
 #endif
-    require(xTaskCreatePinnedToCore(runtime_smoke, "mpx_smoke", 8192, NULL, 3, NULL, 0) == pdPASS, "runtime task");
+    require(mpx_create_task(runtime_smoke, "mpx_smoke", 8192, NULL, 3, NULL) == pdPASS, "runtime task");
 #if defined(CONFIG_DISPLAY_DEFAULT) && defined(CONFIG_LVGL9_PORT_DISP)
     display_smoke_start();
 #endif

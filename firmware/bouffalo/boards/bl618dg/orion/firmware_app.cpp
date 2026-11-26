@@ -6,25 +6,25 @@
 #include <optional>
 #include <string_view>
 
-#include "alarm_endpoint.hpp"
+#include "audio/orion_audio_output.hpp"
 #include "bflb_core.h"
-#include "esp_heap_caps.h"
-#include "esp_timer.h"
-#include "guest_panel.hpp"
-#include "guest_runner.hpp"
-#include "guest_runtime.hpp"
+#include "bflb_mtimer.h"
+#include "display/orion_font.hpp"
 #include "host/controller/app_manager.hpp"
-#include "media.hpp"
-#include "media_widgets.hpp"
-#include "network.hpp"
-#include "network_time.h"
-#include "orion_audio_output.hpp"
-#include "orion_font.hpp"
-#include "orion_home.hpp"
+#include "host/controller/media_widgets.hpp"
+#include "host/network/network.hpp"
 #include "platform/audio/audio_engine.hpp"
-#include "weather_endpoint.hpp"
-#include "wireless.h"
+#include "platform/audio/media.hpp"
+#include "platform/network/network_time.h"
+#include "platform/wireless/wireless.h"
+#include "runtime/abi/alarm_endpoint.hpp"
+#include "runtime/abi/weather_endpoint.hpp"
+#include "runtime/graphics/guest_panel.hpp"
+#include "runtime/guest_runner.hpp"
+#include "runtime/wamr/guest_runtime.hpp"
+#include "ui/orion_home.hpp"
 #include "work/task_policy.hpp"
+#include "work/task_stack.h"
 
 #if WASM_ENABLE_AOT
 #include "mbedtls/sha256.h"
@@ -56,7 +56,6 @@ extern char __ram_wifi_start__, __rom_text_start__, __rom_text_end__;
 extern char __psram_text_start__, __psram_text_end__;
 #endif
 }
-
 namespace micropixel::bouffalo {
 namespace {
 
@@ -232,7 +231,7 @@ class FirmwareApp final {
 #endif
         if (!InitializeOrionFont()) std::puts("Orion expanded font unavailable");
         GuestPanel::SetFontFallback(OrionFontFallback());
-        if (audio_.Initialize(output_, output_.SampleRate()) != ESP_OK) return false;
+        if (audio_.Initialize(output_, output_.SampleRate()) != micropixel::platform::audio::kAudioOk) return false;
 #if defined(CONFIG_FHOST)
         if (!InitializeNetwork())
             std::puts("MicroPixel HTTPS worker initialization failed");
@@ -250,23 +249,24 @@ class FirmwareApp final {
                                        .messages = kApps[i].weather}))
                 return false;
         }
-        return xTaskCreatePinnedToCore(Controller, "mpx_host", kControllerStackBytes, this, task_policy::kHostPriority,
-                                       nullptr, task_policy::kSystemCore) == pdPASS;
+        return mpx_create_task(Controller, "mpx_host", kControllerStackBytes, this, task_policy::kHostPriority,
+                               nullptr) == pdPASS;
     }
 
    private:
     static void Controller(void* self) { static_cast<FirmwareApp*>(self)->Run(); }
 
     void Run() {
-        const auto start_us = esp_timer_get_time();
+        const auto start_us = bflb_mtimer_get_time_us();
         shell_init_with_task(bflb_device_get_by_name("uart0"));
         std::puts("MicroPixel Orion Host ready. Type mpx list.");
         const bool has_display = ConfigureHome();
         if (has_display)
-            std::printf("MPX BOOT home_setup_us=%lu\n", static_cast<unsigned long>(esp_timer_get_time() - start_us));
+            std::printf("MPX BOOT home_setup_us=%lu\n",
+                        static_cast<unsigned long>(bflb_mtimer_get_time_us() - start_us));
         for (;;) {
             SyncNetworkClock();
-            const auto now_ms = static_cast<uint64_t>(esp_timer_get_time()) / 1000U;
+            const auto now_ms = bflb_mtimer_get_time_us() / 1000U;
             mpx_wireless_poll(static_cast<uint32_t>(now_ms));
             Command command{};
             if (xQueueReceive(command_queue, &command, pdMS_TO_TICKS(20)) == pdTRUE)
@@ -319,7 +319,7 @@ class FirmwareApp final {
                 std::printf("Orion LCD frames=%lu, PCM signal writes=%lu, host stack min free=%lu bytes\n",
                             static_cast<unsigned long>(home_.Frames()),
                             static_cast<unsigned long>(output_.NonzeroWrites()),
-                            static_cast<unsigned long>(uxTaskGetStackHighWaterMark2(nullptr)));
+                            static_cast<unsigned long>(mpx_stack_free_bytes(nullptr)));
                 PrintMusicStatus();
                 break;
             case Action::kPerf:
@@ -342,7 +342,7 @@ class FirmwareApp final {
                 NavigateBack();
                 break;
             case Action::kTime:
-                if (alarms_.SetUtc(command.utc, esp_timer_get_time() / 1000U)) {
+                if (alarms_.SetUtc(command.utc, bflb_mtimer_get_time_us() / 1000U)) {
                     std::puts("MicroPixel UTC set");
                 } else {
                     std::puts("MicroPixel UTC out of range");
@@ -492,7 +492,7 @@ class FirmwareApp final {
             TaskStatus_t task[40];
             char names[40][configMAX_TASK_NAME_LEN];
         };
-        auto* snapshot = static_cast<Snapshot*>(heap_caps_malloc(sizeof(Snapshot), MALLOC_CAP_SPIRAM));
+        auto* snapshot = static_cast<Snapshot*>(kmalloc(sizeof(Snapshot), MM_FLAG_HEAP_PSRAM_0 | MM_FLAG_ALIGN_8BYTE));
         if (snapshot == nullptr) return;
         vTaskSuspendAll();
         const auto count = uxTaskGetSystemState(snapshot->task, std::size(snapshot->task), nullptr);
@@ -512,7 +512,7 @@ class FirmwareApp final {
                         static_cast<unsigned long>(task.uxCurrentPriority),
                         static_cast<unsigned long>(task.usStackHighWaterMark) * sizeof(StackType_t), bank);
         }
-        heap_caps_free(snapshot);
+        kfree(snapshot);
         std::puts("MPX PERF end");
     }
 
@@ -534,7 +534,7 @@ class FirmwareApp final {
     std::optional<Launch> launch_;
     uint64_t weather_retry_ms_{};
     runtime::SessionRunner* slots_[AppManager::kMaxInstances]{&runners_[0], &runners_[1], &runners_[2], &runners_[3]};
-    const uint64_t boot_{static_cast<uint64_t>(esp_timer_get_time()) | 1U};
+    const uint64_t boot_{bflb_mtimer_get_time_us() | 1U};
     AppManager manager_{slots_, boot_};
 };
 
@@ -542,13 +542,13 @@ class FirmwareApp final {
 }  // namespace micropixel::bouffalo
 
 int main() {
-    const auto start_us = esp_timer_get_time();
+    const auto start_us = bflb_mtimer_get_time_us();
     mpx_wireless_init();
     static micropixel::bouffalo::FirmwareApp app;
     if (app.Initialize()) {
         std::printf("MPX BOOT host_setup_us=%lu sysinit_stack_free=%lu\n",
-                    static_cast<unsigned long>(esp_timer_get_time() - start_us),
-                    static_cast<unsigned long>(uxTaskGetStackHighWaterMark2(nullptr)));
+                    static_cast<unsigned long>(bflb_mtimer_get_time_us() - start_us),
+                    static_cast<unsigned long>(mpx_stack_free_bytes(nullptr)));
         return 0;
     }
     std::puts("Unable to start MicroPixel Orion Host");

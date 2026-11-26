@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 get_filename_component(REPOSITORY_ROOT "../.." ABSOLUTE)
 set(HOST "${REPOSITORY_ROOT}/firmware/espressif/main")
+set(COMMON_HOST "${REPOSITORY_ROOT}/firmware/common")
 set(PC_DEPS "${REPOSITORY_ROOT}/build/pc-deps" CACHE PATH "Downloaded PC dependencies")
 set(PC_DEPENDENCY_ROOT "${PC_DEPS}/compiler/root" CACHE PATH "Optional locally unpacked Ubuntu development packages")
 find_package(PkgConfig REQUIRED)
@@ -67,28 +68,67 @@ target_compile_definitions(pc_protocols PUBLIC HTTP_DO_NOT_USE_CUSTOM_CONFIG MQT
 target_compile_definitions(pc_protocols PRIVATE
     HTTP_RECV_RETRY_TIMEOUT_MS=10000U HTTP_SEND_RETRY_TIMEOUT_MS=10000U)
 
-set(SHARED_SOURCES
-    host/controller/app_manager.cpp host/controller/app_hub.cpp host/controller/job_scheduler.cpp host/controller/alarm_scheduler.cpp
-    host/ui/system_locale.cpp host/ui/lvgl/square_common/hall_card_ui.cpp
-    device/device_registry.cpp device/device_services.cpp device/text.cpp
-    runtime/abi/guest_abi.cpp runtime/abi/native_symbols.c runtime/abi/service_endpoints.cpp runtime/abi/network_endpoint.cpp runtime/abi/url_media_endpoint.cpp runtime/abi/service_registry.cpp
-    runtime/bundle/bundle_reader.c runtime/bundle/bundle_section_reader.cpp runtime/bundle/memory_bundle_source.c
-    runtime/guest_context.cpp runtime/event_queue.cpp runtime/key_event_bridge.cpp runtime/touch_event_bridge.cpp
+set(COMMON_SOURCES
+    host/controller/app_manager.cpp
+    host/controller/app_hub.cpp
+    host/controller/alarm_scheduler.cpp
+    device/device_services.cpp
+    device/text.cpp
+    runtime/abi/network_endpoint.cpp
+    runtime/abi/url_media_endpoint.cpp
+    runtime/abi/service_registry.cpp
+    runtime/event_queue.cpp
     runtime/components.cpp
-    runtime/audio/audio_playback_service.cpp runtime/audio/pcm_stream_service.cpp runtime/graphics/raster_kernels.cpp
-    runtime/resources/bitmap_decoder.cpp runtime/resources/bitmap_store.cpp runtime/resources/resource_service.cpp
-    runtime/services/storage_service.cpp runtime/services/app_storage.cpp runtime/services/direct_surface_service.cpp
-    runtime/services/gpio_service.cpp runtime/services/haptics_service.cpp runtime/services/raster_service.cpp
-    runtime/services/sensor_service.cpp runtime/services/timer_service.cpp work/background_executor.cpp
-    platform/adapters/graphics_adapter.cpp platform/audio/audio_mixer.cpp
-    platform/graphics/app_surface_compositor.cpp platform/graphics/guest_scene.cpp platform/graphics/pixel_compositor.cpp
-    platform/lvgl/display/direct_surface_presenter.cpp platform/lvgl/display/dirty_region_coalescer.cpp
-    platform/lvgl/display/scanout_arbiter.cpp platform/lvgl/display/scanout_stage_pool.cpp
-    platform/lvgl/fonts/bitmap_font_rasterizer.cpp platform/lvgl/fonts/font_cbin_loader.cpp platform/lvgl/fonts/font_registry.cpp
-    platform/lvgl/guest_graphics_engine.cpp platform/lvgl/guest_graphics_operations.cpp platform/lvgl/lvgl_software_pixel_compositor.cpp
-    platform/lvgl/fonts/builtin/font_builtin_latin_14.c platform/lvgl/fonts/builtin/font_builtin_latin_18.c
-    platform/lvgl/fonts/builtin/font_builtin_latin_24.c platform/lvgl/fonts/builtin/font_builtin_latin_32.c)
-list(TRANSFORM SHARED_SOURCES PREPEND "${HOST}/")
+    runtime/audio/pcm_stream_service.cpp
+    runtime/resources/bitmap_store.cpp
+    platform/audio/audio_mixer.cpp
+    platform/graphics/app_surface_compositor.cpp
+    platform/graphics/guest_scene.cpp
+    platform/graphics/pixel_compositor.cpp
+    platform/lvgl/fonts/bitmap_font_rasterizer.cpp)
+list(TRANSFORM COMMON_SOURCES PREPEND "${COMMON_HOST}/")
+set(HOST_SOURCES
+    host/controller/job_scheduler.cpp
+    host/ui/system_locale.cpp
+    host/ui/lvgl/square_common/hall_card_ui.cpp
+    device/device_registry.cpp
+    runtime/abi/guest_abi.cpp
+    runtime/abi/native_symbols.c
+    runtime/abi/service_endpoints.cpp
+    runtime/bundle/bundle_reader.c
+    runtime/bundle/bundle_section_reader.cpp
+    runtime/bundle/memory_bundle_source.c
+    runtime/guest_context.cpp
+    runtime/key_event_bridge.cpp
+    runtime/touch_event_bridge.cpp
+    runtime/audio/audio_playback_service.cpp
+    runtime/graphics/raster_kernels.cpp
+    runtime/resources/bitmap_decoder.cpp
+    runtime/resources/resource_service.cpp
+    runtime/services/storage_service.cpp
+    runtime/services/app_storage.cpp
+    runtime/services/direct_surface_service.cpp
+    runtime/services/gpio_service.cpp
+    runtime/services/haptics_service.cpp
+    runtime/services/raster_service.cpp
+    runtime/services/sensor_service.cpp
+    runtime/services/timer_service.cpp
+    work/background_executor.cpp
+    platform/adapters/graphics_adapter.cpp
+    platform/lvgl/display/direct_surface_presenter.cpp
+    platform/lvgl/display/dirty_region_coalescer.cpp
+    platform/lvgl/display/scanout_arbiter.cpp
+    platform/lvgl/display/scanout_stage_pool.cpp
+    platform/lvgl/fonts/font_cbin_loader.cpp
+    platform/lvgl/fonts/font_registry.cpp
+    platform/lvgl/guest_graphics_engine.cpp
+    platform/lvgl/guest_graphics_operations.cpp
+    platform/lvgl/lvgl_software_pixel_compositor.cpp
+    platform/lvgl/fonts/builtin/font_builtin_latin_14.c
+    platform/lvgl/fonts/builtin/font_builtin_latin_18.c
+    platform/lvgl/fonts/builtin/font_builtin_latin_24.c
+    platform/lvgl/fonts/builtin/font_builtin_latin_32.c)
+list(TRANSFORM HOST_SOURCES PREPEND "${HOST}/")
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 file(GLOB HOST_CATALOGS CONFIGURE_DEPENDS "${HOST}/host/ui/i18n/*.json")
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.hpp"
@@ -97,8 +137,8 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.hp
         --output-header "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.hpp"
         --report "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.json"
     DEPENDS ${HOST_CATALOGS} "${REPOSITORY_ROOT}/tools/generate_localization.py")
-add_library(pc_host STATIC ${SHARED_SOURCES} os.cpp storage.cpp schedule_store.cpp jpeg.cpp audio.cpp portable_app.cpp session.cpp rv32_session.cpp network.cpp media.cpp market.cpp store.cpp "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.hpp")
-target_include_directories(pc_host PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/generated")
+add_library(pc_host STATIC ${COMMON_SOURCES} ${HOST_SOURCES} os.cpp storage.cpp schedule_store.cpp jpeg.cpp audio.cpp portable_app.cpp session.cpp rv32_session.cpp network.cpp media.cpp market.cpp store.cpp "${CMAKE_CURRENT_BINARY_DIR}/generated/host_strings.hpp")
+target_include_directories(pc_host PUBLIC "${COMMON_HOST}" "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_definitions(pc_host PUBLIC MICROPIXEL_PC_COMPONENTS=1)
 target_link_libraries(pc_host PUBLIC pc_wamr lvgl pc_opus pc_protocols PkgConfig::PNG PkgConfig::CJSON sqlite3 jpeg mbedtls mbedx509 mbedcrypto opusfile ogg mpg123)
 target_compile_options(pc_host PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions;-fno-rtti>)

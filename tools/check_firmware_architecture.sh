@@ -3,13 +3,18 @@ set -euo pipefail
 
 workspace_root="$(cd "$(dirname "$0")/.." && pwd)"
 source_root="$workspace_root/firmware/espressif/main"
+shared_root="$workspace_root/firmware/common"
 
 fail_on_include() {
     local directory="$1"
     local forbidden_prefix="$2"
     local explanation="$3"
     local matches
-    matches="$(rg -n "^[[:space:]]*#include[[:space:]]+\"${forbidden_prefix}/" "$source_root/$directory" || true)"
+    local roots=("$source_root/$directory")
+    if [[ -d "$shared_root/$directory" ]]; then
+        roots+=("$shared_root/$directory")
+    fi
+    matches="$(rg -n "^[[:space:]]*#include[[:space:]]+\"${forbidden_prefix}/" "${roots[@]}" || true)"
     if [[ -n "$matches" ]]; then
         printf '%s\n' "$matches" >&2
         printf '%s\n' "$explanation" >&2
@@ -220,9 +225,9 @@ if rg -n '\besp_restart[[:space:]]*\(' "$source_root/firmware_app.cpp"; then
     exit 1
 fi
 
-abi_file_count="$(find "$source_root/runtime/abi" -maxdepth 1 -type f | wc -l | tr -d ' ')"
-if [[ "$abi_file_count" != "7" ]]; then
-    echo "runtime/abi must remain a cohesive seven-file boundary; found $abi_file_count files." >&2
+abi_file_count="$(find "$source_root/runtime/abi" "$shared_root/runtime/abi" -maxdepth 1 -type f | wc -l | tr -d ' ')"
+if [[ "$abi_file_count" != "11" ]]; then
+    echo "The shared and Espressif runtime/abi directories must contain eleven files in total; found $abi_file_count." >&2
     exit 1
 fi
 

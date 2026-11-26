@@ -4,12 +4,12 @@ if(NOT CONFIG_XCODEC_IO)
 endif()
 
 set(_audio_sources
-    "${MPX_ROOT}/common/audio_endpoint.cpp"
-    "${_host}/runtime/abi/url_media_endpoint.cpp"
-    "${_host}/device/device_services.cpp"
-    "${_host}/platform/audio/audio_engine.cpp"
-    "${_host}/platform/audio/audio_mixer.cpp"
-    "${_host}/runtime/audio/pcm_stream_service.cpp")
+    "${MPX_ROOT}/runtime/abi/audio_endpoint.cpp"
+    "${MPX_SHARED_HOST}/runtime/abi/url_media_endpoint.cpp"
+    "${MPX_SHARED_HOST}/device/device_services.cpp"
+    "${MPX_SHARED_HOST}/platform/audio/audio_engine.cpp"
+    "${MPX_SHARED_HOST}/platform/audio/audio_mixer.cpp"
+    "${MPX_SHARED_HOST}/runtime/audio/pcm_stream_service.cpp")
 target_sources(app PRIVATE ${_audio_sources})
 set_source_files_properties(${_audio_sources}
     PROPERTIES COMPILE_OPTIONS "-Werror=frame-larger-than=1536;-fstack-usage")

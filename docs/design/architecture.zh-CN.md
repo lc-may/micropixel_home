@@ -213,7 +213,7 @@ Host 纹理适配层处理。Guest 继续使用原始资源坐标，Host 位图�
 best-effort cleanup，不 Panic、不抛异常。
 
 Host 实时与跨任务路径使用固定容量队列、数组和对象池，不隐式扩容、不创建 detached task。
-任务核心和优先级集中在 [task_policy.hpp](../../firmware/espressif/main/work/task_policy.hpp)，
+任务核心和优先级集中在 [task_policy.hpp](../../firmware/common/work/task_policy.hpp)，
 后台解码、持久化和日志不得阻塞 Guest 热路径。ISR 不调用 WAMR、Guest 或 LVGL。
 Host API 与非拥有视图优先使用 `std::string_view` 和 `std::span`，避免把文本或缓冲复制进内部 SRAM。
 必须由 Host 持有可增长文本或集合时，使用 `PsramString` / `PsramVector` / `PsramMap`

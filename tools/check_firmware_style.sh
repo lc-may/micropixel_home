@@ -2,12 +2,13 @@
 set -euo pipefail
 
 workspace_root="$(cd "$(dirname "$0")/.." && pwd)"
+shared_source_dir="$workspace_root/firmware/common"
 if [[ "${MICROPIXEL_HOST_TEST_PLATFORM:-espressif}" == "bouffalo" ]]; then
     if [[ "${1:-}" != "--format-only" || $# != 1 ]]; then
         echo "Bouffalo supports --format-only; use the board build for compiler diagnostics." >&2
         exit 2
     fi
-    find "$workspace_root/firmware/bouffalo" \
+    find "$workspace_root/firmware/bouffalo" "$shared_source_dir" \
         -type d \( -name 'build*' -o -name third_party \) -prune -o -type f \
         \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) -print0 \
         | xargs -0 -r "${CLANG_FORMAT:-clang-format-18}" --dry-run --Werror
@@ -76,12 +77,12 @@ fi
 source_files=()
 while IFS= read -r source_file; do
     source_files+=("$source_file")
-done < <(find "$source_dir" -path "$source_dir/platform/lvgl/fonts/builtin" -prune -o \
+done < <(find "$source_dir" "$shared_source_dir" -path "$source_dir/platform/lvgl/fonts/builtin" -prune -o \
     -type f \( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \) -print | sort)
 
 if $run_format; then
     clang-format --dry-run --Werror "${source_files[@]}"
-    if rg -n '^[[:space:]]*using[[:space:]]+namespace[[:space:]]+' "$source_dir" \
+    if rg -n '^[[:space:]]*using[[:space:]]+namespace[[:space:]]+' "$source_dir" "$shared_source_dir" \
         --glob '*.c' --glob '*.h' --glob '*.cpp' --glob '*.hpp'; then
         echo "Firmware source must not use a using-directive at namespace scope." >&2
         exit 1
@@ -116,8 +117,8 @@ jq -s '.[0] + .[1] | unique_by(.file)' \
 cpp_sources=()
 while IFS= read -r source_file; do
     cpp_sources+=("$source_file")
-done < <(jq -r --arg prefix "$source_dir/" \
-    '.[] | .file | select(startswith($prefix)) | select(endswith(".cpp"))' "$combined_database" | sort -u)
+done < <(jq -r --arg prefix "$source_dir/" --arg shared "$shared_source_dir/" \
+    '.[] | .file | select(startswith($prefix) or startswith($shared)) | select(endswith(".cpp"))' "$combined_database" | sort -u)
 
 clang-tidy -p "$temporary_dir" --config-file "$workspace_root/firmware/.clang-tidy" "${cpp_sources[@]}"
 echo "Firmware clang-tidy check passed (${#cpp_sources[@]} translation units)."

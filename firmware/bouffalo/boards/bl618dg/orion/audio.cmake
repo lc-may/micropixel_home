@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 set(_orion "${MPX_ROOT}/boards/bl618dg/orion")
 sdk_add_include_directories("${_orion}")
-target_sources(app PRIVATE "${_orion}/codec_pins.c" "${_orion}/orion_audio_output.cpp")
-set_source_files_properties("${_orion}/orion_audio_output.cpp"
+target_sources(app PRIVATE "${_orion}/audio/codec_pins.c" "${_orion}/audio/orion_audio_output.cpp")
+set_source_files_properties("${_orion}/audio/orion_audio_output.cpp"
     PROPERTIES COMPILE_OPTIONS "-Werror=frame-larger-than=1536;-fstack-usage")
 
 # Replace only the GPIO initializer called by xcodec. Keep the pinned SDK's

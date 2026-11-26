@@ -1,16 +1,16 @@
 # Bouffalo FreeRTOS/WAMR foundation
 
-The board builds compose the same platform port with the public SDK's
-FreeRTOS kernel. BL616CL reserves its 4 MiB PSRAM region; BL618DG B0 uses the
-AP core with NP disabled and 16 MiB PSRAM. The vendor startup, linker and
+The board builds compose the same platform port with the SDK's FreeRTOS
+kernel. BL616CL reserves its 4 MiB PSRAM region. The BL618DG profiles use the
+AP core with NP disabled and 16 MiB PSRAM. Orion uses B1 silicon and selects
+`CPU_MODEL=b1`. The vendor startup, linker and
 Picolibc TLS support remain responsible for board initialization.
 On Orion, the SDK's SYSINIT initializes the BSP and starts FreeRTOS before
 calling the smoke executable's `main()`.
 
 ## WAMR execution contract
 
-- The source revision is the existing Espressif WAMR submodule pin, AOT format 6.
-  No WAMR fork changes or Guest ABI changes are required.
+- The manifest pins the WAMR archive for AOT format 6.
 - The AOT builds compile WAMR as RV32F ILP32F on both chips, including DG, whose
   SDK otherwise selects RV32D. Source-level compiler options follow the SDK
   flags; a platform assertion requires `__riscv_flen == 32`. This retains the
@@ -45,19 +45,17 @@ calling the smoke executable's `main()`.
   mutex used before platform initialization. Stack boundaries come from the
   current task's native stack base. All hooks run in task context.
 
-## Host compatibility surface
+## Native Host APIs
 
-`common/include/` contains a deliberately limited compatibility layer for shared
-Host code that currently names ESP allocation and FreeRTOS interfaces. Include
-it only in Bouffalo targets. It does not replace ESP-IDF headers for Espressif
-builds or advertise complete ESP-IDF API compatibility.
+The Bouffalo port uses the SDK machine timer, memory manager, logger and
+FreeRTOS task APIs. Both Orion Host and the audio validation build use Host
+sources in `firmware/common/`. Bouffalo supplies its SDK adapters under
+`platform/include/`. Orion audio reports native xcodec status codes.
 
-Task creation accepts byte-sized stacks and converts to native stack words,
-rounding up without addition overflow. Zero-size requests and word counts above
-`configSTACK_DEPTH_TYPE`'s maximum fail before the native call, clearing an
-output task handle if supplied. A requested core is ignored on these single-scheduler profiles;
-stack high-water values are converted back to bytes. PSRAM allocations reject
-internal/DMA combinations. Unsupported capability bits fail allocation.
+`work/task_stack.h` converts byte-sized stack requests to native
+stack words before calling `xTaskCreate`. It rounds up without addition
+overflow and rejects zero or out-of-range depths. Stack high-water values
+are reported in bytes.
 
 ## Validation executable
 
@@ -105,6 +103,5 @@ configured UART baud rate. Restore the previous firmware after validation.
 
 The default runtime target verifies the FreeRTOS/WAMR platform over UART.
 The optional [Orion display build](orion.zh-CN.md#屏幕) adds a test pattern for
-panel bring-up. The portable Host build adds an app catalog, Guest timers and concurrent
-Orion LCD, touch and audio. The port still needs Guest graphics and input,
-storage, broader services and runtime lifecycle integration for games.
+panel bring-up. The Orion Host integrates the embedded app catalog, Guest Scene
+graphics, touch and text input, audio, and selected app data in LittleFS.

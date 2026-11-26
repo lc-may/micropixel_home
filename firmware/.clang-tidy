@@ -1,8 +1,8 @@
 ---
 Checks: '-*,readability-identifier-naming'
 WarningsAsErrors: 'readability-identifier-naming'
-HeaderFilterRegex: '^(.*/)?firmware/espressif/main/.*'
-ExcludeHeaderFilterRegex: '(^|/)(guest/abi/|firmware/espressif/main/.*\.h$)'
+HeaderFilterRegex: '^(.*/)?firmware/(espressif/main|common)/.*'
+ExcludeHeaderFilterRegex: '(^|/)(guest/abi/|firmware/(espressif/main|common)/.*\.h$)'
 CheckOptions:
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase

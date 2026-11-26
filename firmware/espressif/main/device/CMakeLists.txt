@@ -2,6 +2,6 @@
 # their implementations to the application composition root.
 list(APPEND micropixel_sources
     "device/device_registry.cpp"
-    "device/device_services.cpp"
-    "device/text.cpp"
+    "${micropixel_shared_host}/device/device_services.cpp"
+    "${micropixel_shared_host}/device/text.cpp"
 )

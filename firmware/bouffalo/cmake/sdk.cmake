@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 get_filename_component(MPX_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+get_filename_component(MPX_SHARED_HOST "${MPX_ROOT}/../common" ABSOLUTE)
 if(MPX_SDK_BOARD)
     set(_sdk_board_args --board "${MPX_SDK_BOARD}")
 endif()
@@ -14,8 +15,22 @@ endif()
 
 set(MPX_NATIVE_VIDEO_TEST OFF)
 if(BOARD STREQUAL "bl618dg_orion" AND CONFIG_DISPLAY_DEFAULT_TYPE_VIDEO AND CONFIG_LVGL9_PORT_DISP)
-    # The public B0 multimedia archive supplies the video HAL in ILP32D.
     set(MPX_NATIVE_VIDEO_TEST ON)
+endif()
+
+if(BOARD STREQUAL "bl618dg_orion" AND CPU_MODEL STREQUAL "b1")
+    # The pinned SDK links the C++ standard library only for the b0 model.
+    sdk_add_link_libraries(stdc++)
+    if(MPX_HOST_PORT OR MPX_NATIVE_VIDEO_TEST)
+        # The SDK's unsuffixed BL618DG multimedia and PKA archives are ILP32F.
+        # Use its ILP32D archives for the Orion AP while keeping CPU_MODEL=b1.
+        get_property(_libraries GLOBAL PROPERTY SDK_LIBS)
+        list(TRANSFORM _libraries REPLACE "(/lib(multimedia|pka)_bl618dg)[.]a$" "\\1_b0.a")
+        set_property(GLOBAL PROPERTY SDK_LIBS ${_libraries})
+    endif()
+endif()
+
+if(MPX_NATIVE_VIDEO_TEST)
     return()
 endif()
 
@@ -31,9 +46,7 @@ endif()
 sdk_add_compile_options(-mabi=ilp32f)
 sdk_add_link_options(-mabi=ilp32f)
 
-# The SDK adds these prebuilt ILP32D libraries unconditionally on DG B0.
-# This foundation uses neither multimedia nor PKA. Drop them rather than
-# disabling ABI diagnostics or rewriting vendor objects.
+# The ILP32F runtime and audio profiles do not need these vendor archives.
 get_property(_libraries GLOBAL PROPERTY SDK_LIBS)
 list(FILTER _libraries EXCLUDE REGEX "/(libmultimedia_|libpka_|libpec_v2_)[^/]*[.]a$")
 set_property(GLOBAL PROPERTY SDK_LIBS ${_libraries})

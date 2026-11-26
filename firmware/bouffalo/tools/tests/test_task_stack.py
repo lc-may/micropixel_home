@@ -45,9 +45,9 @@ static UBaseType_t uxTaskGetStackHighWaterMark(TaskHandle_t t) { (void)t; return
             source.write_text("""
 #include <assert.h>
 #include <limits.h>
-#include """ + '"' + str(ROOT/'common/include/freertos/task.h') + '"' + """
+#include """ + '"' + str(ROOT/'work/task_stack.h') + '"' + """
 static BaseType_t create(uint32_t bytes, TaskHandle_t *task) {
-    return xTaskCreatePinnedToCore(NULL, "test", bytes, NULL, 1, task, 0);
+    return mpx_create_task(NULL, "test", bytes, NULL, 1, task);
 }
 int main(void) {
     TaskHandle_t task = (void *)1;
@@ -77,7 +77,7 @@ int main(void) {
                 with self.subTest(native_depth=depth):
                     binary = root/'stack'
                     result = subprocess.run([compiler, '-std=c11', '-Wall', '-Wextra', '-Werror',
-                                             '-DconfigSTACK_DEPTH_TYPE='+depth, '-I', str(root),
+                                             '-DconfigSTACK_DEPTH_TYPE='+depth, '-I', str(root), '-I', str(ROOT/'platform/include'),
                                              str(source), '-o', str(binary)], capture_output=True, text=True)
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                     subprocess.run([str(binary)], check=True)

@@ -1,6 +1,6 @@
 list(APPEND micropixel_sources
-    "platform/audio/audio_engine.cpp"
-    "platform/audio/audio_mixer.cpp"
+    "${micropixel_shared_host}/platform/audio/audio_engine.cpp"
+    "${micropixel_shared_host}/platform/audio/audio_mixer.cpp"
 )
 
 if(IDF_TARGET STREQUAL "esp32s31" OR IDF_TARGET STREQUAL "esp32s3")

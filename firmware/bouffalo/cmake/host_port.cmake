@@ -48,34 +48,62 @@ foreach(_name IN LISTS MPX_HOST_APP_GUESTS)
 endforeach()
 if(MPX_ORION_AOT)
     set(_pack "${MPX_ROOT}/tools/pack_orion_apps.py")
-    set(_partitions "${MPX_ROOT}/boards/bl618dg/orion/partition_cfg_8M.toml")
     set(_catalog_header "${_generated}/orion_aot_catalog.h")
     set(_catalog_image "${CMAKE_CURRENT_BINARY_DIR}/orion_apps.bin")
     add_custom_command(OUTPUT "${_catalog_header}" "${_catalog_image}"
-        COMMAND python3 "${_pack}" "${_partitions}" "${_catalog_header}" "${_catalog_image}" ${_catalog_inputs}
-        DEPENDS "${_pack}" "${_partitions}" ${_catalog_inputs}
+        COMMAND python3 "${_pack}" "${MPX_HOST_PARTITIONS}" "${_catalog_header}" "${_catalog_image}" ${_catalog_inputs}
+        DEPENDS "${_pack}" "${MPX_HOST_PARTITIONS}" ${_catalog_inputs}
         VERBATIM)
     add_custom_target(orion_apps DEPENDS "${_catalog_header}" "${_catalog_image}")
     add_dependencies(app orion_apps)
 endif()
 
 set(_host_port_sources
-    "${MPX_ROOT}/common/alarm_endpoint.cpp"
-    "${MPX_ROOT}/common/guest_runner.cpp"
-    "${MPX_ROOT}/common/media_widgets.cpp"
-    "${MPX_ROOT}/common/resource_endpoint.cpp"
-    "${_host}/host/controller/alarm_scheduler.cpp"
-    "${_host}/host/controller/app_hub.cpp"
-    "${_host}/host/controller/app_manager.cpp"
-    "${_host}/runtime/abi/network_endpoint.cpp"
-    "${_host}/runtime/components.cpp"
-    "${_host}/runtime/resources/bitmap_store.cpp"
-    "${_host}/platform/graphics/app_surface_compositor.cpp"
-    "${_host}/platform/graphics/pixel_compositor.cpp"
-    "${_host}/platform/lvgl/fonts/bitmap_font_rasterizer.cpp")
+    "${MPX_ROOT}/host/controller/media_widgets.cpp"
+    "${MPX_ROOT}/platform/graphics/image_decode.c"
+    "${MPX_ROOT}/platform/wireless/wireless.c"
+    "${MPX_ROOT}/runtime/abi/alarm_endpoint.cpp"
+    "${MPX_ROOT}/runtime/abi/resource_endpoint.cpp"
+    "${MPX_ROOT}/runtime/abi/weather_endpoint.cpp"
+    "${MPX_ROOT}/runtime/abi/wireless_endpoint.cpp"
+    "${MPX_ROOT}/runtime/graphics/guest_panel.cpp"
+    "${MPX_ROOT}/runtime/guest_runner.cpp"
+    "${MPX_SHARED_HOST}/device/text.cpp"
+    "${MPX_SHARED_HOST}/host/controller/alarm_scheduler.cpp"
+    "${MPX_SHARED_HOST}/host/controller/app_hub.cpp"
+    "${MPX_SHARED_HOST}/host/controller/app_manager.cpp"
+    "${MPX_SHARED_HOST}/runtime/abi/network_endpoint.cpp"
+    "${MPX_SHARED_HOST}/runtime/resources/bitmap_store.cpp"
+    "${MPX_SHARED_HOST}/platform/graphics/app_surface_compositor.cpp"
+    "${MPX_SHARED_HOST}/platform/graphics/guest_scene.cpp"
+    "${MPX_SHARED_HOST}/platform/graphics/pixel_compositor.cpp"
+    "${MPX_SHARED_HOST}/platform/lvgl/fonts/bitmap_font_rasterizer.cpp")
+sdk_add_include_directories("$ENV{BL_SDK_BASE}/components/graphics/lvgl_v9/libs/gltf/stb_image")
+if(CONFIG_FHOST)
+    sdk_add_include_directories("$ENV{BL_SDK_BASE}/examples/wifi/sta/wifi_https")
+    if(NOT CONFIG_PVMP3DEC)
+        add_subdirectory("$ENV{BL_SDK_BASE}/components/multimedia/pvmp3dec" "${CMAKE_CURRENT_BINARY_DIR}/mpx_pvmp3")
+    endif()
+    target_compile_definitions(libmbedtls PRIVATE MBEDTLS_HAVE_TIME_DATE)
+    set(_sntp "$ENV{BL_SDK_BASE}/components/net/lwip/lwip/src/apps/sntp/sntp.c")
+    set_property(SOURCE "${_sntp}" "${MPX_ROOT}/platform/network/network_time.c" APPEND PROPERTY
+        COMPILE_OPTIONS "-include;${MPX_ROOT}/platform/network/sntp_config.h")
+    target_sources(app PRIVATE "${_sntp}")
+    list(APPEND _host_port_sources
+        "${MPX_ROOT}/host/network/network.cpp"
+        "${MPX_ROOT}/platform/audio/media.cpp"
+        "${MPX_ROOT}/platform/network/https_get.c"
+        "${MPX_ROOT}/platform/network/network_time.c")
+endif()
+if(CONFIG_LITTLEFS)
+    list(APPEND _host_port_sources
+        "${MPX_ROOT}/host/controller/alarm_store.cpp"
+        "${MPX_ROOT}/platform/storage/file_store.c")
+endif()
 target_sources(app PRIVATE ${_host_port_sources})
 sdk_set_main_file("${MPX_HOST_MAIN}")
 set_source_files_properties("${MPX_HOST_MAIN}" ${_host_port_sources}
     PROPERTIES COMPILE_OPTIONS "-Werror=frame-larger-than=1536;-fstack-usage")
-set_property(SOURCE "${_host}/platform/graphics/app_surface_compositor.cpp"
-    "${_host}/platform/graphics/pixel_compositor.cpp" APPEND PROPERTY COMPILE_OPTIONS "${MPX_ORION_RUNTIME_OPT}")
+set_property(SOURCE "${MPX_SHARED_HOST}/platform/graphics/app_surface_compositor.cpp"
+    "${MPX_SHARED_HOST}/platform/graphics/guest_scene.cpp"
+    "${MPX_SHARED_HOST}/platform/graphics/pixel_compositor.cpp" APPEND PROPERTY COMPILE_OPTIONS "${MPX_ORION_RUNTIME_OPT}")

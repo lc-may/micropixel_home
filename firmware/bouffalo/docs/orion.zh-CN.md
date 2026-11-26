@@ -2,8 +2,10 @@
 
 ## PC Host 移植
 
-`HOST_PORT=1` 在 Orion AP B0 上启动 FreeRTOS Host。它通过与 PC 相同的
-`tools/pc.py` 构建应用和 conformance Guest，默认用固定版本的 `wamrc` 编译为 RISC-V ILP32D AOT v6。
+`HOST_PORT=1` 在 Orion 的 BL618DG B1 芯片上使用 AP 核运行 FreeRTOS Host。
+板级构建选择 `CPU_MODEL=b1`。完整 Host 使用 SDK 预编译无线库和 MP3 解码库的原生 ILP32D ABI。
+应用和 conformance Guest 通过与 PC 相同的 `tools/pc.py` 构建，默认用固定版本的 `wamrc`
+编译为 RISC-V ILP32D AOT v6。
 WAMR 沿用 Core ABI、`ServiceRegistry`、`EventQueue` 和 `AppManager`，固件提供四个 Guest 槽。
 Guest 线性内存上限为 4 MiB，支持时钟、日志、事件等待、硬件随机数、语言和启动参数，
 以及定时器、合成音效和 PCM 流。定时器支持一次触发、周期、取消和销毁，Guest 在
@@ -30,7 +32,7 @@ cp firmware/bouffalo/boards/bl618dg/build-orion-host-wifi/build_out/micropixel_o
     /tmp/micropixel_orion_host.bin
 "$BL_SDK_BASE/tools/bflb_tools/bflb_fw_post_proc/bflb_fw_post_proc-ubuntu" \
     --chipname=bl618dg --imgfile=/tmp/micropixel_orion_host.bin --appkeys=shared \
-    --ptfile="$PWD/firmware/bouffalo/boards/bl618dg/orion/partition_cfg_8M.toml" \
+    --ptfile="$PWD/firmware/bouffalo/boards/bl618dg/orion/config/partition_cfg_8M.toml" \
     --dtsfile="$BL_SDK_BASE/bsp/board/bl618dgdk/config/bl_factory_params_IoTKitA_auto.dts"
 ```
 
@@ -78,7 +80,7 @@ mpx stop audio_pcm_stream
 文件同时保存时区和时钟设置，开机恢复记录，校时后重新计算下次触发。事项完成状态保存在 `clock.notes`。
 
 `boards/bl618dg/orion/` 定义 LCD、触控、音频引脚和 Host 组合入口。
-`common/` 提供 FreeRTOS Guest Runner、标准 Core imports 及服务端点，复用共享的
+`runtime/` 提供 FreeRTOS Guest Runner、标准 Core imports 及服务端点，复用共享的
 `AppManager`、`ServiceRegistry`、`EventQueue` 和 PCM 流实现。
 
 | PC 功能 | Orion 接入 |
@@ -121,7 +123,7 @@ OCRAM 存放 Host、Guest、音频等热路径的任务栈、控制结构及片�
 
 ## 8 MiB Flash 分区
 
-Orion Host 指定 [partition_cfg_8M.toml](../boards/bl618dg/orion/partition_cfg_8M.toml)。
+Orion Host 指定 [partition_cfg_8M.toml](../boards/bl618dg/orion/config/partition_cfg_8M.toml)。
 它适用于 JEDEC 容量为 8 MiB 的设备。原 `mfg` 和 `media` 区间用于扩展主固件槽和存放图片，
 Boot2、系统配置与工厂数据沿用原地址。
 
@@ -283,7 +285,7 @@ Guest 自启动，先以 Codec 音量 75/100 播放 3 秒的 1 kHz 正弦波，�
 | `board_audio.h` + `xcodec_dev.h` | `xcodec_dev_board_init()` 初始化 JY6316、PA、共享 I²C 和 I²S/DMA，`xcodec_dev_open/read/write` 提供 PCM 录放，另有音量和静音接口。 |
 | MicroPixel `AudioMixer`、`AudioOutputPeripheral` | 延续 Host 混音、Guest PCM 与 Ogg Opus 路径。在输出边界将立体声帧下混成 PCM16，再交给 xcodec。 |
 | SDK `wave_player` / `audio_pcm` | 备选 SDK 音频前端，分别提供播放和 PCM 会话控制。使用时由单一前端持有编解码器与 DMA。 |
-| SDK `OPUS`、`PVMP3DEC`、`AACDEC`、`OGG` | BL618DG 归档均为 ILP32D。现有 ILP32F Host 优先沿用 MicroPixel 的 Opus 实现，额外格式需要 ABI 一致的解码器。 |
+| SDK `OPUS`、`PVMP3DEC`、`AACDEC`、`OGG` | BL618DG 归档均为 ILP32D。完整 Host 使用 `PVMP3DEC` 对网易云音乐的 MP3 流解码，Ogg Opus 沿用 MicroPixel 的实现。 |
 
 JY6316 包含 JY6311 DAC 与 JY6166 ADC。I²S 使用四槽 PCM16，扬声器写 CH0
 （`channel_mask=0x01`），采样可先用 CH3（`0x08`）。用 16 kHz 进行录放回环。
@@ -298,7 +300,7 @@ DMA TX/RX 分别使用 `dma0_ch0` 和 `dma0_ch1`，显示配置应核对 DMA 分
 只有内置配置应用有权提交无线命令。 [配置 Guest 源码](../../../guest/apps/settings/)
 
 - **Wi-Fi** 页扫描网络，点选网络后输入密码。开放网络可直接接入。
-  连上并获得 DHCP 地址后显示 IPv4，也可在此断开。密码随接入请求交给 SDK，本构建未配置凭据持久化。
+  连上并获得 DHCP 地址后显示 IPv4，也可在此断开。最近一次成功连接的凭据保存到 LittleFS，供下次启动回连。
 - **Bluetooth LE** 页扫描可连接设备，点选后发起连接。选择 Make discoverable 后，以
   `MicroPixel Orion` 广播并可被对端连接。连接后可在同一页断开。
   功能覆盖 BLE 链路建立与断开，GATT 应用协议和凭据传输由后续应用实现。
@@ -317,6 +319,6 @@ Orion BSP 复用 BL618DG DK 的 `board_rf.c` 和工厂 RF 参数。在 Wi-Fi 单
 
 单无线固件的配置 Guest 会显示另一接口不可用。
 
-固件使用 SDK 原生 ILP32D，无线库与显示和音频在同一个 AP 核上运行。
-已有 ILP32F AOT Bundle 继续使用独立验证固件。天气和新闻还需要通用 HTTPS、图片解码与后台 Job，
-网易云音乐需要 HTTPS、压缩媒体解码与播放。
+Host 固件使用 SDK 原生 ILP32D，无线库、显示和音频在同一个 AP 核上运行。
+ILP32F AOT 测试使用独立验证固件。默认 Wi-Fi 构建为天气、新闻和网易云音乐提供 HTTPS，
+支持 JPEG/PNG 解码和 MP3 流式播放。天气更新由常驻 Service 发起。

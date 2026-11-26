@@ -1,3 +1,5 @@
+get_filename_component(micropixel_shared_host "${CMAKE_CURRENT_LIST_DIR}/../../common" ABSOLUTE)
+
 set(micropixel_sources
     "app_main.cpp"
     "firmware_app.cpp"
@@ -62,6 +64,7 @@ endif()
 idf_component_register(
     SRCS ${micropixel_sources}
     INCLUDE_DIRS "."
+                 "${micropixel_shared_host}"
                  "${CMAKE_CURRENT_LIST_DIR}/../../../guest"
     REQUIRES ${micropixel_requires}
 )
