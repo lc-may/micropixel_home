@@ -3,13 +3,14 @@
 ## PC Host 移植
 
 `HOST_PORT=1` 在 Orion AP B0 上启动 FreeRTOS Host。它通过与 PC 相同的
-`tools/pc.py` 构建应用和 conformance Guest，使用 WAMR 解释运行 Wasm，沿用 Core ABI、
-`ServiceRegistry`、`EventQueue` 和 `AppManager`。固件提供四个 Guest 槽，目录在构建时嵌入。
+`tools/pc.py` 构建应用和 conformance Guest，默认用固定版本的 `wamrc` 编译为 RISC-V ILP32D AOT v6。
+WAMR 沿用 Core ABI、`ServiceRegistry`、`EventQueue` 和 `AppManager`，固件提供四个 Guest 槽。
 Guest 线性内存上限为 4 MiB，支持时钟、日志、事件等待、硬件随机数、语言和启动参数，
 以及定时器、合成音效和 PCM 流。定时器支持一次触发、周期、取消和销毁，Guest 在
 `event_wait` 取走到期事件，周期跨过多次截止时间时合并为一次事件。
-应用从构建时嵌入的目录加载。构建时压缩 Wasm，Host 在 PSRAM 中解压后交给 WAMR。
-停止采用协作事件，解释器设有指令预算。
+构建时将应用压缩到 `orion_apps.bin`。Host 用固件内的 SHA-256 校验 `apps` 分区，再将
+各应用在 PSRAM 中解压、重定位并执行。AOT 应用停止采用协作事件。`ORION_AOT=0` 构建带指令预算的
+解释器固件，应用字节码随固件嵌入。
 
 ```sh
 make -C firmware/bouffalo/boards/bl618dg BOARD=bl618dg_orion HOST_PORT=1 \
@@ -17,6 +18,7 @@ make -C firmware/bouffalo/boards/bl618dg BOARD=bl618dg_orion HOST_PORT=1 \
 ```
 
 将 WASI SDK 和 [Bouffalo 构建工具链](../README.md)准备好后，从仓库根目录构建。
+把固定版本的 WAMR `wamrc 2.4.3` 加入 `PATH`，或通过环境变量 `WAMRC` 指定。
 Orion Host 的云端文字字库在构建时使用 Pillow 和 fontTools 生成，构建会下载并校验固定版本的思源黑体。
 离线构建可通过 `ORION_FONT_SOURCE=/path/to/SourceHanSansSC-Regular.otf` 指定同一版本的本地文件。
 默认 `RADIO=wifi`，构建产物在 `build-orion-host-wifi/build_out/micropixel_orion_host_bl618dg_ap.bin`。
@@ -32,7 +34,10 @@ cp firmware/bouffalo/boards/bl618dg/build-orion-host-wifi/build_out/micropixel_o
     --dtsfile="$BL_SDK_BASE/bsp/board/bl618dgdk/config/bl_factory_params_IoTKitA_auto.dts"
 ```
 
-按 [SDK 烧录流程](runtime.md#validation-executable) 检查设备与应用分区容量，再写入处理后的镜像。
+按 [SDK 烧录流程](runtime.md#validation-executable) 检查设备、分区表与容量。
+默认 8 MiB 布局将同一构建目录下的 `orion_apps.bin` 写入 `apps`（`0x700000`），并将
+处理后的固件写入选中的 `FW` 槽。通过串口的 `MPX AOT catalog verified` 和
+`MPX LOAD ... backend=aot` 确认板端运行。AOT 应用包和固件通过摘要绑定，需要配套烧录。
 启动后，在 LCD 首页点天气、闹钟、网易云音乐或新闻，也可从「全部应用」打开。
 应用和子页面的底部常驻「返回上一页」按钮。每次点击返回一层，在应用入口页点击会回到 Home。
 从底部中央上滑可直接回到 Home。
@@ -83,7 +88,7 @@ mpx stop audio_pcm_stream
 | 文件和 SQLite、资源包、本地安装 | Wi-Fi 配置和天气缓存分别保存为 `mp_kv` 上的 LittleFS 文件。Guest 通用 KV、BundleFS 和资源安装待接入。 |
 | POSIX 网络、HTTPS/MQTT、市场及联网 Guest | 配置 Guest 管理 Wi-Fi STA。Network 1.3 提供活动和后台 Service 两条 HTTPS 通道，支持 GET、POST、响应头和接收超时。明文 HTTP、MQTT、市场待接入。 |
 | 音效、PCM、压缩音频和 URL 媒体 | 音效与 PCM 输出和 LCD 可共用同一固件。网易云音乐的 HTTPS MP3 走 Host 混音器，支持暂停、进度跳转和后台播放。录音及其他 URL 音频格式待接入。 |
-| 官方 RV32 AOT Bundle | 保留独立的 ILP32F 验证固件；原生 Host 为 SDK 的 ILP32D，仍需安排兼容后端。 |
+| RV32 AOT | Orion 生产目录使用 SDK 的 ILP32D。公共 ILP32F Bundle 在独立验证固件运行。 |
 
 ## 内存与启动性能
 
@@ -110,7 +115,7 @@ OCRAM 存放 Host、Guest、音频等热路径的任务栈、控制结构及片�
 `Orion Guest frame displayed` 给出从分配应用画布到首帧合成的微秒数。
 
 比较编译选项时使用独立的 `BUILD_DIR`。可通过 `ORION_RUNTIME_OPT=-Os|-O2|-O3` 选择
-WAMR 热路径和软件图形合成的优化级别，`ORION_INTERPRETER_OPT` 可单独覆盖解释器编译级别。
+部分 Host 和软件图形合成的优化级别。`ORION_AOT=0` 下可用 `ORION_INTERPRETER_OPT` 单独设置解释器编译级别。
 通过 `ORION_GUEST_PROFILE=release|performance`
 选择内置 Guest 的优化级别。Orion 的 FW 槽为 3 MiB，烧录前检查 SDK 后处理后的完整镜像容量。
 
@@ -131,7 +136,8 @@ Boot2、系统配置与工厂数据沿用原地址。
 | mp_kv（LittleFS） | `0x7e0000` | 128 KiB |
 
 从旧版迁移时，先备份要重新分配的区间与双份分区表。写入并读回校验固件槽后，再切换分区表。
-现阶段 Guest 从固件的内置目录启动。`apps` 和 `imgres` 分别预留给 Bundle 和图片。
+默认固件从 `apps` 装载已校验的 AOT 目录，`imgres` 保留给图片。
+两个 FW 槽共用 `apps` 分区。切换到摘要不同的 AOT 固件时，需要写入它配套的应用包。
 
 ## Wi-Fi 回连与天气刷新
 
@@ -155,9 +161,26 @@ Network 1.3 中的默认接收超时是 10 秒，Guest 可为微信长轮询单�
 响应头交给 Guest，Cookie 跟随 Guest 的域名与路径规则。
 
 HTTPS 每次最多读取 4 KiB 明文，读取缓冲在 PSRAM。多个 TCP 连接共用 WRAM 中的 64 个 Wi-Fi RX
-缓冲，lwIP 通过自定义 `pbuf` 引用这些包，释放 `pbuf` 时归还缓冲。lwIP 堆为 80 KiB，
+缓冲，lwIP 通过自定义 `pbuf` 引用这些包，释放 `pbuf` 时归还缓冲。lwIP 堆为 96 KiB，
 活动 TCP PCB 池容量为 15，netconn 池容量为 24，TCP 段池容量为 96。每条连接的接收窗口为
-23,360 字节，乱序队列最多保留 8 个 `pbuf`。
+23,360 字节，乱序队列最多保留 3 个 `pbuf`。
+
+Wi-Fi 的 MAC/FHOST 驱动使用 SDK 预编译库。RX 缓冲池由 SDK 的
+`fhost_config_buffer.c` 重新编译，驱动启动时读取同一文件导出的数量和地址。
+`ORION_WIFI_RX_BUFS` 选择 WRAM 池容量。默认 64，72 是已验证过的对照配置。
+增加 8 个槽需要 13,440 字节的包缓冲。Orion 默认启用 lwIP SACK 输出，在握手允许后向发送端
+报告已收到的乱序区间。`ORION_TCP_SACK=0` 可关闭此选项用于对照。[RFC 2018](https://www.rfc-editor.org/rfc/rfc2018.html)
+
+在独立的 `BUILD_DIR` 使用 `ORION_RX_BENCHMARK=1` 构建并烧录诊断固件。
+在同一局域网的 Linux 或 WSL 中，从仓库根目录运行 [LAN RX 压测脚本](../../../tools/test_orion_lan_rx.py)。
+脚本会重启板子、暂停天气 Session 并向板端发送 15 路 TCP 数据。常用参数为
+`mixed small full small:100 mixed:150 mixed:200 mixed:300`，冒号后的数值是每路每秒目标段数。
+`--low-watermark 8` 对照 RX 空闲降到 8 个时每路保留一个乱序 `pbuf` 的策略。
+`--strict` 要求所有连接在 12 秒内返回匹配的字节数，超过 12 秒的连接继续采样到 30 秒。
+
+```sh
+python3 tools/test_orion_lan_rx.py "$ORION_PORT" mixed small full mixed:200
+```
 
 应用支持触屏拉丁字符输入、JPEG/PNG 封面和二维码。开启「记住登录」后凭证保存在本机 LittleFS 的
 `ncm.auth`，默认关闭。退出音乐页后 PlaybackService 继续运行，`mpx stop netease-music` 会结束该 Session。

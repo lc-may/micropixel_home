@@ -244,7 +244,7 @@ bool GuestRunner::Initialize(MediaWidgets& media_widgets) {
 }
 
 bool GuestRunner::BeginStart(uint32_t app, InstanceKey owner) {
-    if (worker_ == nullptr || session_ != nullptr || app >= apps_.size()) return false;
+    if (worker_ == nullptr || session_ != nullptr || app >= apps_.size() || apps_[app].wasm.empty()) return false;
     auto* memory = static_cast<Session*>(heap_caps_malloc(sizeof(Session), MALLOC_CAP_SPIRAM));
     if (memory == nullptr) return false;
     if (!panel_.Initialize(apps_[app].canvas_extent)) {

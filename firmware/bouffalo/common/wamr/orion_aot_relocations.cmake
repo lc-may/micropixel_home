@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# LLVM emits this libgcc helper for f64-to-u64 conversions on RV32D.
+set(_reloc_source "${WAMR_ROOT_DIR}/core/iwasm/aot/arch/aot_reloc_riscv.c")
+set(_reloc_orion "${CMAKE_CURRENT_BINARY_DIR}/aot_reloc_orion.c")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_reloc_source}")
+file(READ "${_reloc_source}" _relocations)
+set(_rv32d_symbols "    REG_SYM(__fixdfdi),\n    REG_SYM(__floatundidf),\n#endif\n#ifdef NEED_SOFT_I32_MUL")
+set(_orion_symbols "    REG_SYM(__fixdfdi),\n    REG_SYM(__fixunsdfdi),\n    REG_SYM(__floatundidf),\n#endif\n#ifdef NEED_SOFT_I32_MUL")
+string(FIND "${_relocations}" "${_rv32d_symbols}" _position)
+if(_position EQUAL -1 OR NOT "${_reloc_source}" IN_LIST WAMR_RUNTIME_LIB_SOURCE)
+    message(FATAL_ERROR "The pinned WAMR RV32D relocation table no longer matches the Orion extension")
+endif()
+string(REPLACE "${_rv32d_symbols}" "${_orion_symbols}" _relocations "${_relocations}")
+file(WRITE "${_reloc_orion}" "${_relocations}")
+list(REMOVE_ITEM WAMR_RUNTIME_LIB_SOURCE "${_reloc_source}")
+list(APPEND WAMR_RUNTIME_LIB_SOURCE "${_reloc_orion}")

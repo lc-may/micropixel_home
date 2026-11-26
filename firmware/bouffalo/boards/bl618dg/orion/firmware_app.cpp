@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+#include <algorithm>
 #include <charconv>
 #include <cstdio>
 #include <cstring>
@@ -6,7 +7,6 @@
 #include <string_view>
 
 #include "alarm_endpoint.hpp"
-#include "audio_pcm_stream.h"
 #include "bflb_core.h"
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
@@ -14,27 +14,37 @@
 #include "guest_runner.hpp"
 #include "guest_runtime.hpp"
 #include "host/controller/app_manager.hpp"
-#include "main_failure.h"
 #include "media.hpp"
 #include "media_widgets.hpp"
-#include "mpx_guest_clock-alarm.h"
-#include "mpx_guest_netease-music.h"
-#include "mpx_guest_news.h"
-#include "mpx_guest_settings.h"
-#include "mpx_guest_weather.h"
 #include "network.hpp"
 #include "network_time.h"
 #include "orion_audio_output.hpp"
 #include "orion_font.hpp"
 #include "orion_home.hpp"
 #include "platform/audio/audio_engine.hpp"
-#include "sdk_hello.h"
-#include "timer_counter.h"
 #include "weather_endpoint.hpp"
 #include "wireless.h"
 #include "work/task_policy.hpp"
 
+#if WASM_ENABLE_AOT
+#include "mbedtls/sha256.h"
+#include "orion_aot_catalog.h"
+#else
+#include "audio_pcm_stream.h"
+#include "main_failure.h"
+#include "mpx_guest_clock-alarm.h"
+#include "mpx_guest_netease-music.h"
+#include "mpx_guest_news.h"
+#include "mpx_guest_settings.h"
+#include "mpx_guest_weather.h"
+#include "sdk_hello.h"
+#include "timer_counter.h"
+#endif
+
 extern "C" {
+#if WASM_ENABLE_AOT
+#include "bflb_mtd.h"
+#endif
 #include "board_gpio.h"
 #include "mm.h"
 #include "shell.h"
@@ -59,22 +69,62 @@ constexpr uint32_t kWeatherApp = 2;
 constexpr uint32_t kMusicApp = 3;
 constexpr uint16_t kActivity = MICROPIXEL_COMPONENT_FLAG_ACTIVITY;
 constexpr uint16_t kActivityAndService = kActivity | MICROPIXEL_COMPONENT_FLAG_SERVICE;
+#if WASM_ENABLE_AOT
+#define ORION_CATALOG_IMAGE(symbol) .wasm = {}, .unpacked_size = 0
+#else
+#define ORION_CATALOG_IMAGE(symbol) .wasm = symbol, .unpacked_size = symbol##_wasm_size
+#endif
 constexpr EmbeddedApp kApps[] = {
-    {"settings", settings, settings_wasm_size, true, true},
-    {"clock-alarm", clock_alarm, clock_alarm_wasm_size, true, false, kActivityAndService, true},
-    {"weather", weather, weather_wasm_size, true, false, kActivityAndService, false, true},
+    {.name = "settings", ORION_CATALOG_IMAGE(settings), .activity = true, .wireless_settings = true},
+    {.name = "clock-alarm",
+     ORION_CATALOG_IMAGE(clock_alarm),
+     .activity = true,
+     .component_flags = kActivityAndService,
+     .clock = true},
+    {.name = "weather",
+     ORION_CATALOG_IMAGE(weather),
+     .activity = true,
+     .component_flags = kActivityAndService,
+     .weather = true},
     {.name = "netease-music",
-     .wasm = netease_music,
-     .unpacked_size = netease_music_wasm_size,
+     ORION_CATALOG_IMAGE(netease_music),
      .activity = true,
      .component_flags = kActivityAndService,
      .music = true},
-    {"news", news, news_wasm_size, true, false, kActivity},
-    {"sdk_hello", sdk_hello, sdk_hello_wasm_size},
-    {"timer_counter", timer_counter, timer_counter_wasm_size},
-    {"audio_pcm_stream", audio_pcm_stream, audio_pcm_stream_wasm_size},
-    {"main_failure", main_failure, main_failure_wasm_size},
+    {.name = "news", ORION_CATALOG_IMAGE(news), .activity = true, .component_flags = kActivity},
+    {.name = "sdk_hello", ORION_CATALOG_IMAGE(sdk_hello)},
+    {.name = "timer_counter", ORION_CATALOG_IMAGE(timer_counter)},
+    {.name = "audio_pcm_stream", ORION_CATALOG_IMAGE(audio_pcm_stream)},
+    {.name = "main_failure", ORION_CATALOG_IMAGE(main_failure)},
 };
+#undef ORION_CATALOG_IMAGE
+
+#if WASM_ENABLE_AOT
+bool BindAotCatalog(std::span<EmbeddedApp> apps) {
+    static_assert(std::size(kApps) == std::size(kOrionAotCatalog));
+    bflb_mtd_handle_t handle{};
+    if (bflb_mtd_open("apps", &handle, BFLB_MTD_OPEN_FLAG_BUSADDR) != 0) return false;
+    bflb_mtd_info_t info{};
+    const auto result = bflb_mtd_info(handle, &info);
+    bflb_mtd_close(handle);
+    if (result != 0 || !info.xip_addr || info.size < kOrionAotCatalogSize) return false;
+    const auto* image = static_cast<const uint8_t*>(info.xip_addr);
+    uint8_t digest[sizeof(kOrionAotCatalogSha256)];
+    if (mbedtls_sha256_ret(image, kOrionAotCatalogSize, digest, 0) != 0 ||
+        std::memcmp(digest, kOrionAotCatalogSha256, sizeof(digest)) != 0)
+        return false;
+    for (auto& app : apps) {
+        const auto* entry = std::find_if(
+            std::begin(kOrionAotCatalog), std::end(kOrionAotCatalog),
+            [&](const OrionAotCatalogEntry& candidate) { return std::string_view{app.name} == candidate.name; });
+        if (entry == std::end(kOrionAotCatalog)) return false;
+        app.wasm = {image + entry->offset, entry->size};
+        app.unpacked_size = entry->unpacked_size;
+    }
+    std::printf("MPX AOT catalog verified: %lu bytes\n", static_cast<unsigned long>(kOrionAotCatalogSize));
+    return true;
+}
+#endif
 struct HomeTile {
     const char* title;
     HomeAppRole role;
@@ -174,6 +224,12 @@ class FirmwareApp final {
     bool Initialize() {
         command_queue = xQueueCreate(8, sizeof(Command));
         if (command_queue == nullptr || board_shared_i2c_init() != 0 || !InitializeGuestRuntime()) return false;
+#if WASM_ENABLE_AOT
+        if (!BindAotCatalog(apps_)) {
+            apps_ = std::to_array(kApps);
+            std::puts("MPX AOT catalog missing or invalid in apps partition");
+        }
+#endif
         if (!InitializeOrionFont()) std::puts("Orion expanded font unavailable");
         GuestPanel::SetFontFallback(OrionFontFallback());
         if (audio_.Initialize(output_, output_.SampleRate()) != ESP_OK) return false;
@@ -348,7 +404,8 @@ class FirmwareApp final {
 
     void KeepWeatherRunning(uint64_t now_ms) {
         const auto& weather = manager_.Snapshot().apps[kWeatherApp];
-        if (launch_ || now_ms < weather_retry_ms_ || weather.user_stopped || weather.state != host::AppState::kStopped)
+        if (apps_[kWeatherApp].wasm.empty() || launch_ || now_ms < weather_retry_ms_ || weather.user_stopped ||
+            weather.state != host::AppState::kStopped)
             return;
         weather_retry_ms_ = now_ms + 5000;
         (void)manager_.EnsureWork(kWeatherApp);
@@ -466,11 +523,12 @@ class FirmwareApp final {
     WeatherState weather_state_;
     MediaWidgets* media_widgets_{};
     static uint32_t SignalWrites() { return output_.NonzeroWrites(); }
+    std::array<EmbeddedApp, std::size(kApps)> apps_{std::to_array(kApps)};
     std::array<GuestRunner, AppManager::kMaxInstances> runners_{{
-        {kApps, audio_, panels_[0], alarms_, weather_state_, SignalWrites},
-        {kApps, audio_, panels_[1], alarms_, weather_state_, SignalWrites},
-        {kApps, audio_, panels_[2], alarms_, weather_state_, SignalWrites},
-        {kApps, audio_, panels_[3], alarms_, weather_state_, SignalWrites},
+        {apps_, audio_, panels_[0], alarms_, weather_state_, SignalWrites},
+        {apps_, audio_, panels_[1], alarms_, weather_state_, SignalWrites},
+        {apps_, audio_, panels_[2], alarms_, weather_state_, SignalWrites},
+        {apps_, audio_, panels_[3], alarms_, weather_state_, SignalWrites},
     }};
     OrionHome home_;
     std::optional<Launch> launch_;

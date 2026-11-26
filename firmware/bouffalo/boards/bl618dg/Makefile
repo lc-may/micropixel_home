@@ -32,12 +32,25 @@ ifneq ($(strip $(filter 1,$(AUDIO_TEST)) $(DISPLAY_CONFIG)),)
 $(error Select one of HOST_PORT, AUDIO_TEST or DISPLAY_CONFIG)
 endif
 cmake_definition += -DMPX_HOST_PORT=ON
+ORION_AOT ?= 1
+cmake_definition += -DMPX_ORION_AOT=$(ORION_AOT)
 ORION_RUNTIME_OPT ?= -O2
 ORION_INTERPRETER_OPT ?= $(ORION_RUNTIME_OPT)
 ORION_GUEST_PROFILE ?= release
 cmake_definition += -DMPX_ORION_RUNTIME_OPT=$(ORION_RUNTIME_OPT)
 cmake_definition += -DMPX_ORION_INTERPRETER_OPT=$(ORION_INTERPRETER_OPT)
 cmake_definition += -DMPX_ORION_GUEST_PROFILE=$(ORION_GUEST_PROFILE)
+ifneq ($(strip $(ORION_WIFI_RX_BUFS)),)
+cmake_definition += -DMPX_ORION_WIFI_RX_BUFS=$(ORION_WIFI_RX_BUFS)
+endif
+ifneq ($(strip $(ORION_TCP_SACK)),)
+cmake_definition += -DMPX_ORION_TCP_SACK=$(ORION_TCP_SACK)
+endif
+ORION_RX_BENCHMARK ?= 0
+ifeq ($(filter $(ORION_RX_BENCHMARK),0 1),)
+$(error ORION_RX_BENCHMARK must be 0 or 1)
+endif
+cmake_definition += -DMPX_ORION_RX_BENCHMARK=$(ORION_RX_BENCHMARK)
 ifneq ($(strip $(ORION_FONT_SOURCE)),)
 cmake_definition += -DMPX_ORION_FONT_SOURCE="$(abspath $(ORION_FONT_SOURCE))"
 endif

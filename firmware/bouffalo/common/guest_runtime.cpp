@@ -180,6 +180,7 @@ int32_t RunGuest(GuestContext& context, std::span<const uint8_t> binary, uint32_
     }
     const auto image_us = esp_timer_get_time();
     char error[128]{};
+    constexpr const char* backend = WASM_ENABLE_AOT ? "aot" : "wasm";
     wasm_module_t module = wasm_runtime_load(image, size, error, sizeof(error));
     const auto loaded_us = esp_timer_get_time();
     const InstantiationArgs args{
@@ -193,10 +194,16 @@ int32_t RunGuest(GuestContext& context, std::span<const uint8_t> binary, uint32_
     int32_t status = -1;
     if (exec != nullptr && entry != nullptr) {
         if (launch_name) {
-            std::printf("MPX LOAD %s image=%lu load=%lu instantiate=%lu bytes=%lu\n", launch_name,
-                        static_cast<unsigned long>(image_us - start_us),
+            const auto memory = wasm_runtime_get_default_memory(instance);
+            const auto page_bytes = memory ? wasm_memory_get_bytes_per_page(memory) : 0;
+            const auto pages = memory ? wasm_memory_get_cur_page_count(memory) : 0;
+            const auto max_pages = memory ? wasm_memory_get_max_page_count(memory) : 0;
+            std::printf("MPX LOAD %s image=%lu load=%lu instantiate=%lu bytes=%lu backend=%s linear=%lu limit=%lu\n",
+                        launch_name, static_cast<unsigned long>(image_us - start_us),
                         static_cast<unsigned long>(loaded_us - image_us),
-                        static_cast<unsigned long>(esp_timer_get_time() - loaded_us), static_cast<unsigned long>(size));
+                        static_cast<unsigned long>(esp_timer_get_time() - loaded_us), static_cast<unsigned long>(size),
+                        backend, static_cast<unsigned long>(pages * page_bytes),
+                        static_cast<unsigned long>(max_pages * page_bytes));
         }
         wasm_runtime_set_custom_data(instance, &context);
         if (context.memory) context.memory->module = instance;

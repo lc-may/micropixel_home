@@ -8,7 +8,11 @@
 #include "platform_api_extension.h"
 #include "platform_api_vmcore.h"
 
-#if WASM_ENABLE_AOT && (!defined(__riscv_flen) || __riscv_flen != 32)
+#if WASM_ENABLE_AOT && defined(MICROPIXEL_ORION_HOST)
+#if !defined(__riscv_float_abi_double) || !defined(__riscv_flen) || __riscv_flen != 64
+#error "Orion Host and its catalog AOT modules require the SDK ILP32D ABI"
+#endif
+#elif WASM_ENABLE_AOT && (!defined(__riscv_flen) || __riscv_flen != 32)
 #error "The Bouffalo WAMR target must match RV32F Guest code"
 #endif
 
