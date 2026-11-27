@@ -296,12 +296,14 @@ DMA TX/RX 分别使用 `dma0_ch0` 和 `dma0_ch1`，显示配置应核对 DMA 分
 
 ## Wi-Fi 与 BLE
 
-从首页打开「配置」应用。该应用独立编译成 Wasm，通过 Wireless 1.0 Service 管理 Host 的无线状态。
+从首页打开「配置」应用。该应用独立编译成 Wasm，通过 Wireless 1.1 Service 管理 Host 的无线状态。
 只有内置配置应用有权提交无线命令。 [配置 Guest 源码](../../../guest/apps/settings/)
 
-- **Wi-Fi** 页扫描网络，点选网络后输入密码。开放网络可直接接入。
-  连上并获得 DHCP 地址后显示 IPv4，也可在此断开。最近一次成功连接的凭据保存到 LittleFS，供下次启动回连。
-- **Bluetooth LE** 页扫描可连接设备，点选后发起连接。选择 Make discoverable 后，以
+- **Wi-Fi** 页最多列出 SDK 返回的 100 个 AP，按 RSSI 从大到小排列。长网络名称可换行显示，每个 AP 标记各自的频段，
+  同时扫到 2.4 GHz 和 5 GHz 的 SSID 标记为「双频」。点选网络后优先尝试同名、同为开放或加密的最强
+  5 GHz AP，关联失败时尝试兼容的 2.4 GHz AP。开放网络可直接接入，加密网络需要密码。
+  连上并获得 DHCP 地址后显示「Wi-Fi 已连接」，也可在此断开。最近一次成功连接的凭据保存到 LittleFS，供下次启动回连。
+- **Bluetooth LE** 页扫描可连接设备，点选后发起连接。选择「允许发现」后，以
   `MicroPixel Orion` 广播并可被对端连接。连接后可在同一页断开。
   功能覆盖 BLE 链路建立与断开，GATT 应用协议和凭据传输由后续应用实现。
 

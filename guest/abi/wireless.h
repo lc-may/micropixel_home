@@ -3,10 +3,11 @@
 
 #include "abi/micropixel_abi.h"
 
-// Wireless 1.0 manages device-wide radio state. The Host grants access only
+// Wireless manages device-wide radio state. The Host grants access only
 // to its trusted settings application.
 #define MICROPIXEL_SERVICE_WIRELESS 29U
-#define MICROPIXEL_WIRELESS_VERSION MICROPIXEL_INTERFACE_VERSION(1U, 0U)
+#define MICROPIXEL_WIRELESS_MIN_VERSION MICROPIXEL_INTERFACE_VERSION(1U, 0U)
+#define MICROPIXEL_WIRELESS_VERSION MICROPIXEL_INTERFACE_VERSION(1U, 1U)
 
 enum {
     MICROPIXEL_WIRELESS_STATUS = 1,
@@ -43,6 +44,8 @@ enum {
     MPX_BLE_UNAVAILABLE
 };
 
+enum { MPX_WIFI_BAND_2_4_GHZ = 1U << 0, MPX_WIFI_BAND_5_GHZ = 1U << 1 };
+
 // IP address is ordered as on the wire, one octet per byte. Errors are
 // diagnostic values from the platform and are zero after acceptance.
 typedef struct {
@@ -64,7 +67,10 @@ typedef struct {
     uint8_t open;
     uint8_t supported;
     int8_t rssi;
-    uint8_t reserved[3];
+    // Added in Wireless 1.1. These bytes are zero on a 1.0 Host.
+    uint8_t channel;
+    uint8_t ssid_bands;         // MPX_WIFI_BAND_* mask for this SSID in the scan.
+    uint8_t preferred_channel;  // Channel the Host will try first when joining this item.
 } micropixel_wireless_wifi_item_t;
 
 typedef struct {

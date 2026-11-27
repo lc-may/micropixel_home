@@ -18,7 +18,8 @@ int32_t Reply(const T& value, uint8_t* response, uint32_t capacity, uint32_t& si
 
 runtime::ServiceDescriptor WirelessEndpoint::Describe() const {
     return {.service_id = MICROPIXEL_SERVICE_WIRELESS,
-            .interface_major = 1,
+            .interface_major = MICROPIXEL_WIRELESS_VERSION >> 16,
+            .interface_minor = MICROPIXEL_WIRELESS_VERSION & 0xffff,
             .flags = MICROPIXEL_SERVICE_FLAG_CALL,
             .max_request_bytes = sizeof(micropixel_wireless_join_t),
             .max_response_bytes = sizeof(micropixel_wireless_ble_item_t)};
@@ -48,9 +49,18 @@ int32_t WirelessEndpoint::Call(uint32_t method, const uint8_t* request, uint32_t
         std::memcpy(&index, request, sizeof(index));
         if (method == MICROPIXEL_WIRELESS_WIFI_ITEM) {
             if (index >= state_.wifi_count) return MICROPIXEL_STATUS_NOT_FOUND;
-            const auto& network = state_.networks[index];
-            micropixel_wireless_wifi_item_t item{
-                .length = network.length, .open = network.open, .supported = network.supported, .rssi = network.rssi};
+            mpx_wifi_network_t network{};
+            uint8_t preferred_channel{};
+            if (!mpx_wireless_read_wifi(state_.wifi_scan_revision, index, &network, &preferred_channel)) {
+                return MICROPIXEL_STATUS_NOT_FOUND;
+            }
+            micropixel_wireless_wifi_item_t item{.length = network.length,
+                                                 .open = network.open,
+                                                 .supported = network.supported,
+                                                 .rssi = network.rssi,
+                                                 .channel = network.channel,
+                                                 .ssid_bands = network.ssid_bands,
+                                                 .preferred_channel = preferred_channel};
             std::memcpy(item.ssid, network.ssid, sizeof(item.ssid));
             return Reply(item, response, capacity, size);
         }
@@ -79,8 +89,9 @@ int32_t WirelessEndpoint::Call(uint32_t method, const uint8_t* request, uint32_t
     if (method < MICROPIXEL_WIRELESS_WIFI_SCAN || method > MICROPIXEL_WIRELESS_BLE_DISCONNECT) {
         return MICROPIXEL_STATUS_UNSUPPORTED;
     }
-    return mpx_wireless_command(method, index, password, password_length) == 0 ? MICROPIXEL_STATUS_OK
-                                                                               : MICROPIXEL_STATUS_WOULD_BLOCK;
+    return mpx_wireless_command(method, index, state_.wifi_scan_revision, password, password_length) == 0
+               ? MICROPIXEL_STATUS_OK
+               : MICROPIXEL_STATUS_WOULD_BLOCK;
 }
 
 }  // namespace micropixel::bouffalo

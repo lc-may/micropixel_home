@@ -10,12 +10,14 @@
 
 #if defined(CONFIG_FHOST)
 #include "async_event.h"
+#include "bflb_core.h"
 #include "lfs_kv.h"
 #include "net_al.h"
 #include "net_al_ext.h"
 #include "platform/network/network_time.h"
 #include "platform/storage/file_store.h"
 #include "wifi_mgmr_ext.h"
+#include "wifi_scan_results.h"
 #endif
 #if defined(CONFIG_COEX)
 #include "wifi_mgmr_coex.h"
@@ -31,13 +33,20 @@
 static mpx_wireless_status_t status = {.revision = 1};
 
 #if defined(CONFIG_FHOST)
-static wifi_mgmr_scan_item_t wifi_scan_cache[MPX_WIFI_RESULTS * 2];
+static ATTR_NOINIT_PSRAM_SECTION wifi_mgmr_scan_item_t wifi_scan_cache[MPX_WIFI_RESULTS];
+static ATTR_NOINIT_PSRAM_SECTION mpx_wifi_network_t wifi_networks[MPX_WIFI_RESULTS];
 static bool wifi_scan_done;
 static bool wifi_join_pending;
 static bool wifi_restore_pending;
 static bool wifi_save_pending;
 static bool wifi_restore_static;
 static bool wifi_apply_static;
+static struct {
+    uint8_t index;
+    uint8_t length;
+    bool ready;
+    char password[64];
+} wifi_fallback = {.index = MPX_WIFI_NO_INDEX};
 static const char wifi_profile_file[] = "settings.wifi";
 enum { WIFI_PROFILE_VERSION = 1 };
 typedef struct {
@@ -56,6 +65,21 @@ static uint32_t next_profile_check_ms;
 static bool profile_exists;
 static void clear_credentials(void* value, size_t size) {
     for (volatile unsigned char* p = value; size; --size) *p++ = 0;
+}
+
+// These helpers run with the status critical section held.
+static void clear_wifi_fallback(void) {
+    clear_credentials(wifi_fallback.password, sizeof(wifi_fallback.password));
+    wifi_fallback.index = MPX_WIFI_NO_INDEX;
+    wifi_fallback.length = 0;
+    wifi_fallback.ready = false;
+}
+
+static bool schedule_wifi_fallback(void) {
+    if (status.wifi != MPX_WIFI_JOINING || wifi_fallback.index == MPX_WIFI_NO_INDEX) return false;
+    wifi_fallback.ready = true;
+    wifi_join_pending = false;
+    return true;
 }
 
 static bool credentials_valid(const wifi_profile_t* credentials) {
@@ -171,14 +195,15 @@ static void save_wifi_credentials(bool associated) {
 }
 
 static int mpx_wifi_join(const mpx_wifi_network_t* network, const char* password, size_t length,
-                         const wifi_profile_t* profile);
+                         const wifi_profile_t* profile, uint8_t fallback);
+static void retry_wifi_connection(void);
 
 static void restore_wifi_connection(void) {
     if (!saved_wifi.ssid[0]) return;
     const size_t password_length = strlen(saved_wifi.password);
     mpx_wifi_network_t network = {.length = strlen(saved_wifi.ssid), .open = !password_length, .supported = true};
     memcpy(network.ssid, saved_wifi.ssid, network.length);
-    if (mpx_wifi_join(&network, saved_wifi.password, password_length, &saved_wifi) == 0)
+    if (mpx_wifi_join(&network, saved_wifi.password, password_length, &saved_wifi, MPX_WIFI_NO_INDEX) == 0)
         puts("MicroPixel Wi-Fi reconnecting to saved profile");
 }
 
@@ -198,6 +223,7 @@ static struct bt_conn* ble_link;
 static struct {
     uint32_t method;
     uint32_t index;
+    uint32_t wifi_scan_revision;
     uint8_t length;
     char password[64];
 } command;
@@ -225,6 +251,7 @@ static void wifi_event(async_input_event_t event, void* unused) {
             status.wifi = MPX_WIFI_DHCP;
             wifi_apply_static = wifi_restore_static;
             wifi_restore_static = false;
+            clear_wifi_fallback();
             break;
         case CODE_WIFI_ON_GOT_IP:
             status.wifi = MPX_WIFI_ONLINE;
@@ -232,6 +259,7 @@ static void wifi_event(async_input_event_t event, void* unused) {
             status.wifi_error = 0;
             wifi_join_pending = false;
             wifi_save_pending = true;
+            clear_wifi_fallback();
             break;
         case CODE_WIFI_ON_LOST_IP:
             status.wifi = MPX_WIFI_DHCP;
@@ -240,12 +268,14 @@ static void wifi_event(async_input_event_t event, void* unused) {
         case CODE_WIFI_ON_GOT_IP_TIMEOUT:
         case CODE_WIFI_ON_PARAMS_ERROR:
         case CODE_WIFI_ON_DISCONNECT:
+            if (event->code != CODE_WIFI_ON_GOT_IP_TIMEOUT && schedule_wifi_fallback()) break;
             status.wifi = wifi_join_pending ? MPX_WIFI_FAILED : MPX_WIFI_IDLE;
             status.wifi_error = wifi_join_pending ? (int)event->code : 0;
             status.ipv4 = 0;
             wifi_join_pending = false;
             wifi_restore_static = false;
             wifi_apply_static = false;
+            clear_wifi_fallback();
             break;
         case CODE_WIFI_ON_SCAN_DONE:
             wifi_scan_done = status.wifi_scanning;
@@ -261,36 +291,31 @@ static void wifi_event(async_input_event_t event, void* unused) {
 }
 
 static void collect_wifi_results(void) {
-    unsigned count = wifi_mgmr_sta_scanlist_dump(wifi_scan_cache, sizeof(wifi_scan_cache) / sizeof(wifi_scan_cache[0]));
-    unsigned published = 0;
-    taskENTER_CRITICAL();
-    for (unsigned i = 0; i < count && published < MPX_WIFI_RESULTS; ++i) {
+    const unsigned count = wifi_mgmr_sta_scanlist_dump(wifi_scan_cache, MPX_WIFI_RESULTS);
+    // Readers see zero items until this scan has been sorted and published.
+    for (unsigned i = 0; i < count; ++i) {
         const wifi_mgmr_scan_item_t* item = &wifi_scan_cache[i];
+        mpx_wifi_network_t* network = &wifi_networks[i];
+        *network = (mpx_wifi_network_t){.rssi = item->rssi, .channel = item->channel};
+        memcpy(network->bssid, item->bssid, sizeof(network->bssid));
         if (item->ssid_len <= 0 || item->ssid_len > 32 || memchr(item->ssid, 0, item->ssid_len)) continue;
-        unsigned index = 0;
-        while (index < published && (status.networks[index].length != item->ssid_len ||
-                                     memcmp(status.networks[index].ssid, item->ssid, item->ssid_len))) {
-            ++index;
-        }
-        mpx_wifi_network_t* network = &status.networks[index];
-        if (index < published && network->rssi >= item->rssi) continue;
-        if (index == published) ++published;
         memcpy(network->ssid, item->ssid, item->ssid_len);
-        network->ssid[item->ssid_len] = 0;
         network->length = item->ssid_len;
-        network->rssi = item->rssi;
         network->open = item->auth == WIFI_EVENT_BEACON_IND_AUTH_OPEN;
-        network->supported = network->open ||
-                             (item->auth >= WIFI_EVENT_BEACON_IND_AUTH_WPA_PSK &&
-                              item->auth <= WIFI_EVENT_BEACON_IND_AUTH_WPA_WPA2_PSK) ||
-                             item->auth == WIFI_EVENT_BEACON_IND_AUTH_WPA2_PSK_WPA3_SAE ||
-                             item->auth == WIFI_EVENT_BEACON_IND_AUTH_WPA3_SAE;
+        network->supported =
+            unicast_bssid(network->bssid) && (network->open ||
+                                              (item->auth >= WIFI_EVENT_BEACON_IND_AUTH_WPA_PSK &&
+                                               item->auth <= WIFI_EVENT_BEACON_IND_AUTH_WPA_WPA2_PSK) ||
+                                              item->auth == WIFI_EVENT_BEACON_IND_AUTH_WPA2_PSK_WPA3_SAE ||
+                                              item->auth == WIFI_EVENT_BEACON_IND_AUTH_WPA3_SAE);
     }
-    status.wifi_count = published;
+    mpx_wifi_prepare_results(wifi_networks, count);
+    taskENTER_CRITICAL();
+    status.wifi_count = count;
     status.wifi_scanning = false;
     ++status.revision;
     taskEXIT_CRITICAL();
-    printf("MicroPixel Wi-Fi scan complete, %u networks\n", published);
+    printf("MicroPixel Wi-Fi scan complete, %u networks\n", count);
 }
 
 #endif
@@ -425,6 +450,7 @@ __attribute__((noinline)) void mpx_wireless_poll(uint32_t now_ms) {
     wifi_save_pending = false;
     const bool apply_static = wifi_apply_static;
     wifi_apply_static = false;
+    const bool retry = wifi_fallback.ready;
 #endif
 #if defined(CONFIG_BLUETOOTH)
     const bool initialize = start_ble;
@@ -463,6 +489,9 @@ __attribute__((noinline)) void mpx_wireless_poll(uint32_t now_ms) {
     }
 #endif
     if (command_pending) execute_command(now_ms);
+#if defined(CONFIG_FHOST)
+    if (retry) retry_wifi_connection();
+#endif
 }
 
 bool mpx_wireless_read(mpx_wireless_status_t* destination, uint32_t previous_revision) {
@@ -471,6 +500,26 @@ bool mpx_wireless_read(mpx_wireless_status_t* destination, uint32_t previous_rev
     if (changed) memcpy(destination, &status, sizeof(status));
     taskEXIT_CRITICAL();
     return changed;
+}
+
+bool mpx_wireless_read_wifi(uint32_t revision, uint32_t index, mpx_wifi_network_t* network,
+                            uint8_t* preferred_channel) {
+#if defined(CONFIG_FHOST)
+    taskENTER_CRITICAL();
+    const bool valid = revision == status.wifi_scan_revision && index < status.wifi_count;
+    if (valid) {
+        *network = wifi_networks[index];
+        *preferred_channel = wifi_networks[network->preferred].channel;
+    }
+    taskEXIT_CRITICAL();
+    return valid;
+#else
+    (void)revision;
+    (void)index;
+    (void)network;
+    (void)preferred_channel;
+    return false;
+#endif
 }
 
 bool mpx_wifi_online(void) {
@@ -489,6 +538,7 @@ static int mpx_wifi_scan(void) {
         status.wifi_scanning = true;
         status.wifi_count = 0;
         status.wifi_error = 0;
+        ++status.wifi_scan_revision;
         ++status.revision;
     }
     taskEXIT_CRITICAL();
@@ -505,8 +555,40 @@ static int mpx_wifi_scan(void) {
     return error;
 }
 
+static int start_wifi_connection(const mpx_wifi_network_t* network, const char* password, size_t length,
+                                 const wifi_profile_t* profile, bool restore_static) {
+    wifi_mgmr_sta_connect_params_t params = {0};
+    memcpy(params.ssid, network->ssid, network->length);
+    params.ssid_len = network->length;
+    if (length) memcpy(params.key, password, length);
+    params.key_len = length;
+    const uint8_t* bssid = profile ? profile->bssid : network->bssid;
+    if (unicast_bssid(bssid)) {
+        snprintf(params.bssid_str, sizeof(params.bssid_str), "%02X:%02X:%02X:%02X:%02X:%02X", bssid[0], bssid[1],
+                 bssid[2], bssid[3], bssid[4], bssid[5]);
+    }
+    params.use_dhcp = !restore_static;
+    params.dhcp_timeout_event_only = 1;
+    int error = wifi_mgmr_sta_connect(&params);
+    clear_credentials(params.key, sizeof(params.key));
+    if (error) {
+        taskENTER_CRITICAL();
+        if (schedule_wifi_fallback()) {
+            error = 0;
+        } else {
+            wifi_join_pending = false;
+            wifi_restore_static = false;
+            status.wifi = MPX_WIFI_FAILED;
+            status.wifi_error = error;
+            ++status.revision;
+        }
+        taskEXIT_CRITICAL();
+    }
+    return error;
+}
+
 static int mpx_wifi_join(const mpx_wifi_network_t* network, const char* password, size_t length,
-                         const wifi_profile_t* profile) {
+                         const wifi_profile_t* profile, uint8_t fallback) {
     if (!network->supported || network->length == 0 || network->length > 32 ||
         (network->open ? length != 0 : length < 8 || length > 63))
         return -EINVAL;
@@ -516,36 +598,34 @@ static int mpx_wifi_join(const mpx_wifi_network_t* network, const char* password
     if (allowed) {
         wifi_join_pending = true;
         wifi_restore_static = restore_static;
+        if (fallback != MPX_WIFI_NO_INDEX) {
+            wifi_fallback.index = fallback;
+            wifi_fallback.length = length;
+            if (length) memcpy(wifi_fallback.password, password, length);
+        }
         status.wifi = MPX_WIFI_JOINING;
         status.wifi_error = 0;
         ++status.revision;
     }
     taskEXIT_CRITICAL();
-    if (!allowed) return -EBUSY;
-    wifi_mgmr_sta_connect_params_t params = {0};
-    memcpy(params.ssid, network->ssid, network->length);
-    params.ssid_len = network->length;
-    if (length) memcpy(params.key, password, length);
-    params.key_len = length;
-    if (profile && unicast_bssid(profile->bssid)) {
-        const uint8_t* bssid = profile->bssid;
-        snprintf(params.bssid_str, sizeof(params.bssid_str), "%02X:%02X:%02X:%02X:%02X:%02X", bssid[0], bssid[1],
-                 bssid[2], bssid[3], bssid[4], bssid[5]);
-    }
-    params.use_dhcp = !restore_static;
-    params.dhcp_timeout_event_only = 1;
-    const int error = wifi_mgmr_sta_connect(&params);
-    for (volatile char* p = params.key; p < params.key + sizeof(params.key); ++p) *p = 0;
-    if (error) {
-        taskENTER_CRITICAL();
-        wifi_join_pending = false;
-        wifi_restore_static = false;
-        status.wifi = MPX_WIFI_FAILED;
-        status.wifi_error = error;
-        ++status.revision;
+    return allowed ? start_wifi_connection(network, password, length, profile, restore_static) : -EBUSY;
+}
+
+static void retry_wifi_connection(void) {
+    taskENTER_CRITICAL();
+    if (!wifi_fallback.ready) {
         taskEXIT_CRITICAL();
+        return;
     }
-    return error;
+    const uint8_t index = wifi_fallback.index;
+    const uint8_t length = wifi_fallback.length;
+    char password[sizeof(wifi_fallback.password)];
+    memcpy(password, wifi_fallback.password, length);
+    clear_wifi_fallback();
+    wifi_join_pending = true;
+    taskEXIT_CRITICAL();
+    (void)start_wifi_connection(&wifi_networks[index], password, length, NULL, false);
+    clear_credentials(password, sizeof(password));
 }
 
 static int mpx_wifi_leave(void) {
@@ -555,7 +635,14 @@ static int mpx_wifi_leave(void) {
     wifi_join_pending = false;
     wifi_restore_static = false;
     wifi_apply_static = false;
+    const bool cancel_retry = wifi_fallback.ready;
+    clear_wifi_fallback();
+    if (cancel_retry) {
+        status.wifi = MPX_WIFI_IDLE;
+        ++status.revision;
+    }
     taskEXIT_CRITICAL();
+    if (cancel_retry) return 0;
     return active ? wifi_sta_disconnect() : -EINVAL;
 }
 
@@ -634,7 +721,8 @@ static int mpx_ble_disconnect(void) {
 
 #endif
 
-int mpx_wireless_command(uint32_t method, uint32_t index, const char* password, uint8_t length) {
+int mpx_wireless_command(uint32_t method, uint32_t index, uint32_t wifi_scan_revision, const char* password,
+                         uint8_t length) {
     if (method < MICROPIXEL_WIRELESS_WIFI_SCAN || method > MICROPIXEL_WIRELESS_BLE_DISCONNECT ||
         length > sizeof(command.password) || (length && password == NULL))
         return -EINVAL;
@@ -643,6 +731,7 @@ int mpx_wireless_command(uint32_t method, uint32_t index, const char* password, 
     if (accepted) {
         command.method = method;
         command.index = index;
+        command.wifi_scan_revision = wifi_scan_revision;
         command.length = length;
         if (length) memcpy(command.password, password, length);
     }
@@ -661,11 +750,16 @@ static void execute_command(uint32_t now_ms) {
         case MICROPIXEL_WIRELESS_WIFI_SCAN:
             error = mpx_wifi_scan();
             break;
-        case MICROPIXEL_WIRELESS_WIFI_JOIN:
-            error = index < status.wifi_count
-                        ? mpx_wifi_join(&status.networks[index], command.password, command.length, NULL)
-                        : -EINVAL;
+        case MICROPIXEL_WIRELESS_WIFI_JOIN: {
+            if (command.wifi_scan_revision != status.wifi_scan_revision || index >= status.wifi_count) {
+                error = -EINVAL;
+                break;
+            }
+            const mpx_wifi_network_t* selected = &wifi_networks[index];
+            error = mpx_wifi_join(&wifi_networks[selected->preferred], command.password, command.length, NULL,
+                                  selected->fallback);
             break;
+        }
         case MICROPIXEL_WIRELESS_WIFI_LEAVE:
             error = mpx_wifi_leave();
             break;

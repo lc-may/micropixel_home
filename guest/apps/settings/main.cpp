@@ -5,23 +5,21 @@
 #include "abi/wireless.h"
 #include "sdk/fixed_string.hpp"
 #include "sdk/micropixel.hpp"
+#include "sdk/ui/panel.hpp"
 #include "sdk/ui/wrap_text.hpp"
 
 namespace {
 
 using namespace micropixel;
-constexpr auto kBackground = Color::Rgb(21, 38, 59);
-constexpr auto kPaper = Color::Rgb(246, 249, 255);
-constexpr auto kAccent = Color::Rgb(41, 104, 171);
-constexpr auto kMuted = Color::Rgb(105, 128, 155);
+namespace panel = ui::panel;
 constexpr int kPageSize = 5;
-constexpr Rect kBack{20, 18, 80, 42};
-constexpr Rect kWifiTab{20, 72, 214, 46};
-constexpr Rect kBleTab{246, 72, 214, 46};
-constexpr Rect kScan{20, 160, 210, 48};
-constexpr Rect kSecondary{242, 160, 218, 48};
-constexpr Rect kPrevious{20, 416, 108, 44};
-constexpr Rect kNext{352, 416, 108, 44};
+constexpr Rect kBack{12, 4, 44, 46};
+constexpr Rect kWifiTab{12, 52, 226, 44};
+constexpr Rect kBleTab{242, 52, 226, 44};
+constexpr Rect kScan{12, 104, 104, 44};
+constexpr Rect kSecondary{124, 104, 154, 44};
+constexpr Rect kPrevious{12, 420, 108, 44};
+constexpr Rect kNext{360, 420, 108, 44};
 constexpr Rect kShift{20, 414, 112, 46};
 constexpr Rect kSpace{140, 414, 102, 46};
 constexpr Rect kErase{250, 414, 84, 46};
@@ -38,40 +36,59 @@ bool Inside(Rect area, Point point) {
     return point.x >= area.x && point.y >= area.y && point.x < area.x + area.width && point.y < area.y + area.height;
 }
 
-Rect Row(int index) { return {20, 218 + 38 * index, 440, 34}; }
+Rect Row(int index) { return {12, 180 + 46 * index, 456, 46}; }
 Rect Key(int row, int column) { return {20 + 44 * column, 198 + row * 52, 40, 46}; }
 
-void Text(Scene& scene, Point point, const char* label, Color color = kPaper, SystemFont font = SystemFont::kMedium,
-          bool centered = false) {
+const char* BandLabel(uint8_t channel, uint8_t ssid_bands = 0) {
+    const bool dual = ssid_bands == (MPX_WIFI_BAND_2_4_GHZ | MPX_WIFI_BAND_5_GHZ);
+    if (channel >= 1 && channel <= 14) return dual ? "2.4G 双频" : "2.4G";
+    if (channel >= 32 && channel <= 196) return dual ? "5G 双频" : "5G";
+    return "";
+}
+
+void Text(Scene& scene, Point point, const char* label, Color color = panel::Text,
+          SystemFont font = SystemFont::kMedium, bool centered = false) {
     (void)scene.CreateLabel(point, label, color, font, centered);
 }
 
-void DeviceName(const Renderer& renderer, Scene& scene, Point point, const char* name, uint32_t max_width,
-                Color color) {
-    char label[37]{};
-    const std::string_view input{name};
-    if (!ui::ValidUtf8(input) || input.find_first_of("\r\n\t") != std::string_view::npos) {
-        Text(scene, point, "Unnamed device", color);
-        return;
+void DeviceName(const Renderer& renderer, Scene& scene, Rect bounds, const char* name, Color color) {
+    if (!ui::ValidUtf8(name) || std::string_view{name}.find_first_of("\r\n\t") != std::string_view::npos) {
+        name = "无法显示的名称";
     }
-    const auto length = ui::FittingTextPrefix(input, max_width - 20, [&](std::string_view prefix) {
-        std::memcpy(label, prefix.data(), prefix.size());
-        label[prefix.size()] = 0;
-        const auto dimensions = renderer.MeasureText(label, SystemFont::kMedium);
+    const auto width = static_cast<uint32_t>(bounds.width);
+    for (const auto font : {SystemFont::kMedium, SystemFont::kSmall}) {
+        const auto size = renderer.MeasureText(name, font);
+        if (size && size->width <= width) {
+            Text(scene, {bounds.x, bounds.y + (bounds.height - int(size->height)) / 2}, name, color, font);
+            return;
+        }
+    }
+    char line[33]{};
+    constexpr int kLineHeight = 21;
+    const auto split = ui::FittingTextPrefix(name, width, [&](std::string_view prefix) {
+        std::memcpy(line, prefix.data(), prefix.size());
+        line[prefix.size()] = 0;
+        const auto dimensions = renderer.MeasureText(line, SystemFont::kSmall);
         return dimensions ? dimensions->width : UINT32_MAX;
     });
-    std::memcpy(label, name, length);
-    if (length < input.size())
-        std::memcpy(label + length, "...", 4);
-    else
-        label[length] = 0;
-    Text(scene, point, label, color);
+    std::memcpy(line, name, split);
+    line[split] = 0;
+    const int top = bounds.y + (bounds.height - 2 * kLineHeight) / 2;
+    Text(scene, {bounds.x, top}, line, color, SystemFont::kSmall);
+    Text(scene, {bounds.x, top + kLineHeight}, name + split, color, SystemFont::kSmall);
 }
 
-void Button(Scene& scene, Rect bounds, const char* label, bool enabled = true) {
-    (void)scene.CreateRoundedRect(bounds, {.fill = enabled ? kAccent : kMuted, .radius = 8});
-    Text(scene, {bounds.x + bounds.width / 2, bounds.y + (bounds.height - 22) / 2}, label, kPaper, SystemFont::kMedium,
-         true);
+void Button(Scene& scene, Rect bounds, const char* label, bool enabled = true, bool primary = false) {
+    const auto style = panel::Style(enabled && primary);
+    (void)scene.CreateRoundedRect(bounds, {.fill = style.background, .radius = 10});
+    Text(scene, {bounds.x + bounds.width / 2, bounds.y + (bounds.height - 22) / 2}, label,
+         enabled ? style.text : panel::Disabled, style.font, true);
+}
+
+void Tab(Scene& scene, Rect bounds, const char* label, bool selected) {
+    const int center = bounds.x + bounds.width / 2;
+    Text(scene, {center, bounds.y + 9}, label, selected ? panel::Accent : panel::Text, SystemFont::kMedium, true);
+    if (selected) (void)scene.CreateShape({center - 20, bounds.y + bounds.height - 4, 40, 3}, panel::Accent);
 }
 
 class Settings final {
@@ -84,7 +101,7 @@ class Settings final {
         status_.ble_state = MPX_BLE_UNAVAILABLE;
         micropixel_service_info_t info{};
         const int status =
-            micropixel_service_open(MICROPIXEL_SERVICE_WIRELESS, MICROPIXEL_WIRELESS_VERSION, &info, sizeof(info));
+            micropixel_service_open(MICROPIXEL_SERVICE_WIRELESS, MICROPIXEL_WIRELESS_MIN_VERSION, &info, sizeof(info));
         if (status == MICROPIXEL_STATUS_OK) handle_ = info.service_handle;
         Refresh();
         if (!Draw()) return 1;
@@ -135,54 +152,46 @@ class Settings final {
     }
 
     const char* WirelessStatus() {
-        if (!handle_) return "Wireless service unavailable";
+        if (!handle_) return "无线服务不可用";
         if (page_ == Page::kWifi) {
-            if (status_.wifi_scanning) return "Scanning for Wi-Fi networks...";
-            if (status_.wifi_state == MPX_WIFI_ONLINE) {
-                line_.Clear();
-                line_.Append("Connected  ");
-                for (unsigned i = 0; i < 4; ++i) {
-                    if (i) line_.Append(".");
-                    line_.AppendUint(status_.ipv4[i]);
-                }
-                return line_.c_str();
-            }
+            if (status_.wifi_scanning) return "正在扫描…";
             if (status_.wifi_error) {
-                return ErrorText("Wi-Fi operation failed", status_.wifi_error);
+                return ErrorText("Wi-Fi 操作失败", status_.wifi_error);
             }
             switch (status_.wifi_state) {
                 case MPX_WIFI_STARTING:
-                    return "Starting Wi-Fi...";
+                    return "正在启动 Wi-Fi…";
                 case MPX_WIFI_JOINING:
-                    return "Connecting...";
+                    return "正在连接…";
                 case MPX_WIFI_DHCP:
-                    return "Obtaining IP address...";
+                    return "正在获取 IP 地址…";
+                case MPX_WIFI_ONLINE:
+                    return "Wi-Fi 已连接";
                 case MPX_WIFI_UNAVAILABLE:
-                    return "Wi-Fi unavailable";
+                    return "Wi-Fi 不可用";
                 default:
-                    return "Choose Scan to find networks";
+                    return status_.wifi_count ? "附近的网络" : "点击扫描查找网络";
             }
         }
         if (status_.ble_error) {
-            return ErrorText("BLE operation failed", status_.ble_error);
+            return ErrorText("蓝牙操作失败", status_.ble_error);
         }
         switch (status_.ble_state) {
             case MPX_BLE_STARTING:
-                return "Starting BLE...";
+                return "正在启动蓝牙…";
             case MPX_BLE_SCANNING:
-                return "Discovering nearby BLE devices...";
+                return "正在查找蓝牙设备…";
             case MPX_BLE_ADVERTISING:
-                return "Discoverable as MicroPixel Orion";
+                return "可发现名称 MicroPixel Orion";
             case MPX_BLE_CONNECTING:
-                return "Connecting to a BLE device...";
+                return "正在连接…";
             case MPX_BLE_OUTGOING:
-                return "Connected to a BLE device";
             case MPX_BLE_INCOMING:
-                return "A BLE device is connected";
+                return "蓝牙已连接";
             case MPX_BLE_UNAVAILABLE:
-                return "BLE unavailable";
+                return "蓝牙不可用";
             default:
-                return "Scan or make this board discoverable";
+                return status_.ble_count ? "附近的设备" : "点击扫描查找设备";
         }
     }
 
@@ -192,15 +201,6 @@ class Settings final {
         line_.Append(" (");
         line_.AppendInt(error);
         line_.Append(")");
-        return line_.c_str();
-    }
-
-    const char* SignalText(const char* name, int rssi) {
-        line_.Clear();
-        line_.Append(name);
-        line_.Append("  ");
-        line_.AppendInt(rssi);
-        line_.Append(" dBm");
         return line_.c_str();
     }
 
@@ -228,40 +228,50 @@ class Settings final {
         for (uint32_t row = 0; row < kPageSize && offset_ + row < count; ++row) {
             const uint32_t index = offset_ + row;
             const auto bounds = Row(static_cast<int>(row));
-            (void)scene.CreateRoundedRect(bounds, {.fill = kPaper, .radius = 7});
+            (void)scene.CreateShape({bounds.x, bounds.y + bounds.height - 1, bounds.width, 1}, panel::Line);
+            Rect name{bounds.x + 8, bounds.y, bounds.width - 16, bounds.height};
             if (page_ == Page::kWifi) {
                 micropixel_wireless_wifi_item_t network{};
                 if (Call(MICROPIXEL_WIRELESS_WIFI_ITEM, &index, sizeof(index), &network, sizeof(network))) continue;
-                DeviceName(app_.renderer(), scene, {bounds.x + 12, bounds.y + 6}, network.ssid, 280, kBackground);
-                const char* security = !network.supported ? "Unsupported" : network.open ? "Open" : "Secured";
-                Text(scene, {bounds.x + 292, bounds.y + 8}, SignalText(security, network.rssi), kBackground,
-                     SystemFont::kSmall);
+                const char* band = BandLabel(network.channel, network.ssid_bands);
+                if (*band) {
+                    const Rect badge{bounds.x + bounds.width - 100, bounds.y + 9, 92, 28};
+                    name.width = badge.x - name.x - 8;
+                    (void)scene.CreateRoundedRect(badge, {.fill = panel::Surface, .radius = 10});
+                    Text(scene, {badge.x + badge.width / 2, badge.y + 3}, band, panel::Muted, SystemFont::kSmall, true);
+                }
+                DeviceName(app_.renderer(), scene, name, network.length ? network.ssid : "隐藏网络",
+                           network.supported ? panel::Text : panel::Muted);
             } else {
                 micropixel_wireless_ble_item_t device{};
                 if (Call(MICROPIXEL_WIRELESS_BLE_ITEM, &index, sizeof(index), &device, sizeof(device))) continue;
-                DeviceName(app_.renderer(), scene, {bounds.x + 12, bounds.y + 6},
-                           device.name[0] ? device.name : device.address, 240, kBackground);
-                Text(scene, {bounds.x + 245, bounds.y + 8}, SignalText(device.address, device.rssi), kBackground,
-                     SystemFont::kSmall);
+                DeviceName(app_.renderer(), scene, name, device.name[0] ? device.name : device.address, panel::Text);
             }
         }
         if (count > kPageSize) {
-            Button(scene, kPrevious, "Previous", offset_ > 0);
-            Button(scene, kNext, "Next", offset_ + kPageSize < count);
+            Button(scene, kPrevious, "上一页", offset_ > 0);
+            Button(scene, kNext, "下一页", offset_ + kPageSize < count);
+            line_.Clear();
+            line_.AppendUint(offset_ / kPageSize + 1);
+            line_.Append(" / ");
+            line_.AppendUint((count + kPageSize - 1) / kPageSize);
+            Text(scene, {240, 431}, line_.c_str(), panel::Muted, SystemFont::kSmall, true);
         }
     }
 
     void DrawPassword(Scene& scene) {
-        DeviceName(app_.renderer(), scene, {20, 79}, selected_.ssid, 440, kPaper);
-        (void)scene.CreateRoundedRect({20, 113, 440, 49}, {.fill = kPaper, .radius = 8});
+        DeviceName(app_.renderer(), scene, {20, 56, 440, 48}, selected_.ssid, panel::Text);
+        (void)scene.CreateRoundedRect({20, 113, 440, 49}, {.fill = panel::Surface, .radius = 10});
         char masked[32]{};
         const auto visible = password_length_ < 27 ? password_length_ : 27;
         std::memset(masked, '*', visible);
-        Text(scene, {32, 125}, visible ? masked : "Wi-Fi password", kBackground);
+        Text(scene, {32, 126}, visible ? masked : "Wi-Fi 密码", visible ? panel::Text : panel::Muted);
         line_.Clear();
         line_.AppendUint(password_length_);
-        line_.Append(" / 63 characters");
-        Text(scene, {20, 168}, line_.c_str(), kPaper, SystemFont::kSmall);
+        line_.Append(" / 63");
+        Text(scene, {20, 168}, line_.c_str(), panel::Muted, SystemFont::kSmall);
+        if (selected_.preferred_channel)
+            Text(scene, {408, 168}, BandLabel(selected_.preferred_channel), panel::Muted, SystemFont::kSmall);
         for (int row = 0; row < 4; ++row) {
             for (int column = 0; column < 10; ++column) {
                 const char key = kKeys[keyboard_][row][column];
@@ -272,37 +282,39 @@ class Settings final {
             }
         }
         Button(scene, kShift, keyboard_ == 0 ? "ABC" : keyboard_ == 1 ? "#+=" : "abc");
-        Button(scene, kSpace, "Space");
-        Button(scene, kErase, "Delete");
-        Button(scene, kJoin, "Join", password_length_ >= 8);
+        Button(scene, kSpace, "空格");
+        Button(scene, kErase, "删除");
+        Button(scene, kJoin, "连接", password_length_ >= 8, true);
     }
 
     bool Draw() {
         auto created =
-            app_.renderer().CreateScene({.logical_width = 480, .logical_height = 480, .background = kBackground});
+            app_.renderer().CreateScene({.logical_width = 480, .logical_height = 480, .background = panel::Background});
         if (!created) {
             app_.log().Error("Settings scene creation failed");
             return false;
         }
         auto& scene = *created;
-        Button(scene, kBack, "Back");
-        Text(scene, {118, 24}, page_ == Page::kPassword ? "Join Wi-Fi" : "配置", kPaper, SystemFont::kTitle);
+        Text(scene, {kBack.x + kBack.width / 2, 13}, symbols::kLeft, panel::Text, SystemFont::kLarge, true);
+        Text(scene, {64, 13}, page_ == Page::kPassword ? "连接 Wi-Fi" : "配置", panel::Text, SystemFont::kTitle);
         if (page_ == Page::kPassword) {
             DrawPassword(scene);
         } else {
-            Button(scene, kWifiTab, "Wi-Fi", page_ == Page::kWifi);
-            Button(scene, kBleTab, "Bluetooth LE", page_ == Page::kBle);
-            Text(scene, {20, 130}, WirelessStatus());
+            Tab(scene, kWifiTab, "Wi-Fi", page_ == Page::kWifi);
+            Tab(scene, kBleTab, "蓝牙", page_ == Page::kBle);
+            Text(scene, {12, 155}, WirelessStatus(),
+                 (page_ == Page::kWifi ? status_.wifi_error : status_.ble_error) ? panel::Red : panel::Muted,
+                 SystemFont::kSmall);
             if (page_ == Page::kWifi) {
-                Button(scene, kScan, "Scan", WifiCanScan());
-                if (WifiCanLeave()) Button(scene, kSecondary, "Disconnect");
+                Button(scene, kScan, "扫描", WifiCanScan(), true);
+                if (WifiCanLeave()) Button(scene, kSecondary, "断开连接");
             } else {
                 const bool advertising = status_.ble_state == MPX_BLE_ADVERTISING;
-                Button(scene, kScan, "Scan", status_.ble_state == MPX_BLE_IDLE);
+                Button(scene, kScan, "扫描", status_.ble_state == MPX_BLE_IDLE, true);
                 Button(scene, kSecondary,
-                       BleConnected() ? "Disconnect"
-                       : advertising  ? "Stop advertising"
-                                      : "Make discoverable",
+                       BleConnected() ? "断开连接"
+                       : advertising  ? "停止广播"
+                                      : "允许发现",
                        BleConnected() || advertising || status_.ble_state == MPX_BLE_IDLE);
             }
             DrawList(scene);

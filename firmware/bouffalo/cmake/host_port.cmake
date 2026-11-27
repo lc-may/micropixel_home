@@ -93,7 +93,8 @@ if(CONFIG_FHOST)
         "${MPX_ROOT}/host/network/network.cpp"
         "${MPX_ROOT}/platform/audio/media.cpp"
         "${MPX_ROOT}/platform/network/https_get.c"
-        "${MPX_ROOT}/platform/network/network_time.c")
+        "${MPX_ROOT}/platform/network/network_time.c"
+        "${MPX_ROOT}/platform/wireless/wifi_scan_results.c")
 endif()
 if(CONFIG_LITTLEFS)
     list(APPEND _host_port_sources
