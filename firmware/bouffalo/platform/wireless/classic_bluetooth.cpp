@@ -7,6 +7,7 @@
 #include <cstring>
 #include <new>
 
+#include "avrcp_track.hpp"
 #include "bluetooth_scan.h"
 #include "platform/audio/audio_engine.hpp"
 #include "work/task_policy.hpp"
@@ -27,6 +28,10 @@ extern "C" {
 #include "a2dp.h"
 #if defined(CONFIG_BT_AVRCP)
 #include "avrcp.h"
+
+// This entry point is exported by the pinned AVCTP library. Using its
+// transaction counter keeps metadata requests on the same control channel.
+net_buf* bt_avctp_create_pdu(uint8_t* label, uint8_t fragment, uint8_t direction, uint16_t pid);
 #endif
 
 int mpx_classic_sdk_role(uint8_t role);
@@ -79,6 +84,9 @@ struct State {
     TickType_t remote_reply_at{};
     uint8_t remote_attempts{};
     bt_l2cap_chan* remote_channel{};
+    micropixel_bluetooth_remote_track_t remote_track{};
+    avrcp::TrackResponse track_response{};
+    TickType_t track_query_at{}, track_sent_at{}, track_reply_at{};
 #endif
     bool sending{};
     bool source_clock{};
@@ -144,6 +152,9 @@ void SetStream(uint8_t stream) {
 }
 
 #if defined(CONFIG_BT_AVRCP)
+constexpr auto kTrackInterval = pdMS_TO_TICKS(2000);
+constexpr auto kTrackTimeout = pdMS_TO_TICKS(1500);
+
 void ResetRemote(uint8_t link) {
     state->remote = {.session = state->remote.session + 1,
                      .position_ms = MPX_BT_REMOTE_UNKNOWN_TIME,
@@ -153,6 +164,9 @@ void ResetRemote(uint8_t link) {
     state->remote_action_at = xTaskGetTickCount();
     state->remote_reply_at = state->remote_action_at;
     state->remote_channel = nullptr;
+    state->remote_track = {};
+    state->track_response.Reset();
+    state->track_query_at = state->remote_action_at - kTrackInterval;
 }
 
 void RemoteLink(bt_conn* conn, uint8_t event) {
@@ -216,6 +230,45 @@ void ObserveRemoteChannel(bt_l2cap_chan* channel) {
     if (state->remote.link == MPX_BT_REMOTE_READY && state->peer == channel->conn) state->remote_channel = channel;
 }
 
+void ReceiveTrack(bt_l2cap_chan* channel, std::span<const uint8_t> frame) {
+    unsigned fields = 0;
+    {
+        Lock lock;
+        if (state->remote.link != MPX_BT_REMOTE_READY || state->remote_channel != channel) return;
+        micropixel_bluetooth_remote_track_t track{.session = state->remote.session};
+        const auto result = state->track_response.Accept(frame, track);
+        if (result == avrcp::TrackResult::kComplete) {
+            if (std::memcmp(&track, &state->remote_track, sizeof(track)) != 0)
+                fields = (track.title[0] != '\0') + (track.artist[0] != '\0') + (track.album[0] != '\0');
+            state->remote_track = track;
+            state->track_reply_at = xTaskGetTickCount();
+        }
+    }
+    if (fields) std::printf("MicroPixel AVRCP track metadata updated fields=%u\n", fields);
+}
+
+void SendTrack(bt_l2cap_chan* channel, uint32_t session, avrcp::TrackAction action) {
+    const auto command = avrcp::TrackCommand(action);
+    auto* packet = bt_avctp_create_pdu(nullptr, AVCTP_PKT_TYPE_SIGNLE, AVCTP_CR_CMD, AVCTP_PID);
+    bool current;
+    {
+        Lock lock;
+        current = state->remote.session == session && state->remote_channel == channel && channel->conn == state->peer;
+        if (current && packet) {
+            state->track_response.Expect(action, packet->data[0] >> 4);
+            state->track_sent_at = xTaskGetTickCount();
+        } else if (current) {
+            state->track_response.Reset();
+        }
+    }
+    if (!packet) return;
+    if (current && net_buf_tailroom(packet) >= command.size()) {
+        net_buf_add_mem(packet, command.data(), command.size());
+        if (bt_l2cap_chan_send(channel, packet) >= 0) return;
+    }
+    net_buf_unref(packet);
+}
+
 uint8_t RemoteOperation(uint32_t key) {
     switch (key) {
         case MPX_BT_REMOTE_PLAY:
@@ -233,6 +286,8 @@ uint8_t RemoteOperation(uint32_t key) {
 
 void PollRemote() {
     bt_conn* peer = nullptr;
+    bt_l2cap_chan* track_channel = nullptr;
+    auto track_action = avrcp::TrackAction::kNone;
     uint32_t session = 0;
     uint8_t operation = 0;
     bool query = false;
@@ -251,7 +306,20 @@ void PollRemote() {
                 remote.playback = MPX_BT_REMOTE_UNKNOWN;
                 remote.position_ms = remote.duration_ms = MPX_BT_REMOTE_UNKNOWN_TIME;
             }
-            if (!operation && now - state->remote_action_at >= pdMS_TO_TICKS(2000)) {
+            if (state->remote_track.session && now - state->track_reply_at >= pdMS_TO_TICKS(8000))
+                state->remote_track = {};
+            if (!operation && state->remote_channel) {
+                auto& response = state->track_response;
+                if (response.waiting() && now - state->track_sent_at >= kTrackTimeout) response.Expire();
+                track_action = response.next();
+                if (!response.waiting() && track_action == avrcp::TrackAction::kNone &&
+                    now - state->track_query_at >= kTrackInterval) {
+                    state->track_query_at = now;
+                    track_action = avrcp::TrackAction::kRead;
+                }
+                if (track_action != avrcp::TrackAction::kNone) track_channel = state->remote_channel;
+            }
+            if (!operation && !track_channel && now - state->remote_action_at >= pdMS_TO_TICKS(2000)) {
                 state->remote_action_at = now;
                 query = true;
             }
@@ -279,6 +347,7 @@ void PollRemote() {
         (void)bt_avrcp_connect(peer);
         bt_conn_unref(peer);
     }
+    if (track_channel) SendTrack(track_channel, session, track_action);
     if (query) (void)avrcp_get_play_status_cmd(nullptr);
     if (!operation) return;
     int error = avrcp_pasthr_cmd(nullptr, PASTHR_STATE_PRESSED, operation);
@@ -813,6 +882,11 @@ micropixel_bluetooth_remote_status_t RemoteStatus() {
                                                         .duration_ms = MPX_BT_REMOTE_UNKNOWN_TIME};
 }
 
+micropixel_bluetooth_remote_track_t RemoteTrack() {
+    Lock lock;
+    return state ? state->remote_track : micropixel_bluetooth_remote_track_t{};
+}
+
 int32_t RemoteKey(const micropixel_bluetooth_remote_key_t& request) {
     if (!RemoteOperation(request.key)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
     Lock lock;
@@ -907,6 +981,13 @@ extern "C" int __wrap_avrcp_recv(bt_l2cap_chan* channel, net_buf* packet) {
     // The pinned SDK's inbound AVCTP connected callback is a no-op. Its
     // receive callback still supplies the established channel and ACL peer.
     ObserveRemoteChannel(channel);
+    if (state && packet) {
+        const std::span<const uint8_t> frame{packet->data, packet->len};
+        if (avrcp::IsTrackResponse(frame)) {
+            ReceiveTrack(channel, frame);
+            return 0;
+        }
+    }
     return __real_avrcp_recv(channel, packet);
 }
 #endif

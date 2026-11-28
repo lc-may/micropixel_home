@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "app_id": "micropixel.bluetooth-speaker",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "threading": "none",
   "title": {
     "default": "zh-CN",

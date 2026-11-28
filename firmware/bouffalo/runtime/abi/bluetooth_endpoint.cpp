@@ -40,8 +40,8 @@ runtime::ServiceDescriptor BluetoothEndpoint::Describe() const {
 int32_t BluetoothEndpoint::Call(uint32_t method, const uint8_t* request, uint32_t length, uint8_t* response,
                                 uint32_t capacity, uint32_t& size) {
     size = 0;
-    const bool speaker_method =
-        method == MICROPIXEL_BT_STATUS || method == MICROPIXEL_BT_REMOTE_STATUS || method == MICROPIXEL_BT_REMOTE_KEY;
+    const bool speaker_method = method == MICROPIXEL_BT_STATUS || method == MICROPIXEL_BT_REMOTE_STATUS ||
+                                method == MICROPIXEL_BT_REMOTE_KEY || method == MICROPIXEL_BT_REMOTE_TRACK;
     if (!settings_ && !(speaker_ && speaker_method)) return MICROPIXEL_STATUS_PERMISSION_DENIED;
     switch (method) {
         case MICROPIXEL_BT_STATUS:
@@ -97,6 +97,9 @@ int32_t BluetoothEndpoint::Call(uint32_t method, const uint8_t* request, uint32_
         case MICROPIXEL_BT_REMOTE_STATUS:
             if (length) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
             return Reply(classic::RemoteStatus(), response, capacity, size);
+        case MICROPIXEL_BT_REMOTE_TRACK:
+            if (length) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+            return Reply(classic::RemoteTrack(), response, capacity, size);
         case MICROPIXEL_BT_REMOTE_KEY: {
             micropixel_bluetooth_remote_key_t key{};
             if (!Request(key, request, length)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;

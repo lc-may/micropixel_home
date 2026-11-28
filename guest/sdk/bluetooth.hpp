@@ -51,6 +51,9 @@ class Bluetooth final {
         const micropixel_bluetooth_remote_key_t request{session, key};
         return Control(MICROPIXEL_BT_REMOTE_KEY, &request, sizeof(request));
     }
+    int RemoteTrack(micropixel_bluetooth_remote_track_t& track) const {
+        return Read(MICROPIXEL_BT_REMOTE_TRACK, nullptr, 0, track);
+    }
 
     int ReadPcm(uint32_t revision, std::span<int16_t> output, uint32_t& samples) const {
         const micropixel_bluetooth_pcm_t request{revision};

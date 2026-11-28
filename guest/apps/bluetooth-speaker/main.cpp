@@ -4,10 +4,12 @@
 #include <cstring>
 #include <memory>
 #include <optional>
+#include <string>
 
 #include "sdk/bluetooth.hpp"
 #include "sdk/micropixel.hpp"
 #include "sdk/ui/icon_button.hpp"
+#include "sdk/ui/wrap_text.hpp"
 
 namespace bluetooth_speaker {
 namespace {
@@ -28,6 +30,7 @@ struct Playback final {
     mp::Bluetooth bluetooth;
     micropixel_bluetooth_status_t audio{};
     micropixel_bluetooth_remote_status_t remote{};
+    micropixel_bluetooth_remote_track_t track{};
     int audio_result{MICROPIXEL_STATUS_UNSUPPORTED};
     int remote_result{MICROPIXEL_STATUS_UNSUPPORTED};
     int key_result{};
@@ -36,15 +39,22 @@ struct Playback final {
     void Refresh() {
         micropixel_bluetooth_status_t next_audio{};
         micropixel_bluetooth_remote_status_t next_remote{};
+        micropixel_bluetooth_remote_track_t next_track{};
         const int next_audio_result = bluetooth.Status(next_audio);
         const int next_remote_result = next_audio_result == MICROPIXEL_STATUS_OK ? bluetooth.RemoteStatus(next_remote)
                                                                                  : MICROPIXEL_STATUS_UNSUPPORTED;
+        if (next_remote_result == MICROPIXEL_STATUS_OK && next_remote.link == MPX_BT_REMOTE_READY) {
+            if (bluetooth.RemoteTrack(next_track) != MICROPIXEL_STATUS_OK || next_track.session != next_remote.session)
+                next_track = {};
+        }
         if (next_audio_result == audio_result && next_remote_result == remote_result &&
-            next_audio.revision == audio.revision && std::memcmp(&next_remote, &remote, sizeof(remote)) == 0)
+            next_audio.revision == audio.revision && std::memcmp(&next_remote, &remote, sizeof(remote)) == 0 &&
+            std::memcmp(&next_track, &track, sizeof(track)) == 0)
             return;
         if (next_remote.session != remote.session) key_result = 0;
         audio = next_audio;
         remote = next_remote;
+        track = next_track;
         audio_result = next_audio_result;
         remote_result = next_remote_result;
         ++revision;
@@ -97,12 +107,13 @@ void AppendTime(mp::FixedString<40>& text, uint32_t milliseconds) {
 
 class PlayerView final {
    public:
-    explicit PlayerView(const mp::Application& app) : scene(app.renderer().CreateScene(kBackground).value()) {
+    explicit PlayerView(const mp::Application& app)
+        : scene(app.renderer().CreateScene(kBackground).value()), renderer_(app.renderer()) {
         (void)scene.CreateLabel({24, 16}, "蓝牙音箱", kWhite, mp::SystemFont::kLarge).value();
         (void)scene.CreateLabel({428, 23}, "A2DP", kMuted, mp::SystemFont::kSmall, true).value();
         auto circle = [&](int32_t diameter, mp::Color fill) {
             return scene
-                .CreateRoundedRect({(480 - diameter) / 2, 152 - diameter / 2, diameter, diameter},
+                .CreateRoundedRect({(480 - diameter) / 2, 136 - diameter / 2, diameter, diameter},
                                    {.fill = fill, .radius = static_cast<uint32_t>(diameter / 2)})
                 .value();
         };
@@ -113,9 +124,10 @@ class PlayerView final {
         (void)circle(116, kGroove);
         (void)circle(114, kDisc);
         disc_label_ = circle(76, kSurface);
-        (void)scene.CreateLabel({240, 135}, mp::symbols::kBluetooth, kWhite, mp::SystemFont::kLarge, true).value();
-        state_ = scene.CreateLabel({240, 253}, "等待音源连接", kWhite, mp::SystemFont::kLarge, true).value();
-        source_ = scene.CreateLabel({240, 283}, " ", kMuted, mp::SystemFont::kSmall, true).value();
+        (void)scene.CreateLabel({240, 119}, mp::symbols::kBluetooth, kWhite, mp::SystemFont::kLarge, true).value();
+        state_ = scene.CreateLabel({240, 234}, "等待音源连接", kWhite, mp::SystemFont::kLarge, true).value();
+        source_ = scene.CreateLabel({240, 267}, " ", kMuted, mp::SystemFont::kSmall, true).value();
+        album_ = scene.CreateLabel({240, 289}, " ", kMuted, mp::SystemFont::kSmall, true).value();
         bar_ = scene.CreateShape(kProgressBar, kGroove).value();
         progress_ = scene.CreateShape(kProgressBar, kPink).value();
         time_ = scene.CreateLabel({240, 318}, " ", kMuted, mp::SystemFont::kSmall, true).value();
@@ -166,7 +178,14 @@ class PlayerView final {
             else
                 hint = "返回桌面后继续播放";
         }
-        state_.SetText(state);
+        if (std::memcmp(&displayed_track_, &model.track, sizeof(displayed_track_)) != 0) {
+            displayed_track_ = model.track;
+            track_lines_[0] = Fit(displayed_track_.title, mp::SystemFont::kLarge);
+            track_lines_[1] = Fit(displayed_track_.artist, mp::SystemFont::kSmall);
+            track_lines_[2] = Fit(displayed_track_.album, mp::SystemFont::kSmall);
+        }
+        const bool has_track = !track_lines_[0].empty() || !track_lines_[1].empty() || !track_lines_[2].empty();
+        state_.SetText(track_lines_[0].empty() ? state : track_lines_[0].c_str());
         hint_.SetText(hint);
         mp::FixedString<64> source;
         if (connected) {
@@ -179,7 +198,9 @@ class PlayerView final {
         } else {
             source.Append("在手机或电脑上选择 MicroPixel Orion");
         }
-        source_.SetText(source.c_str());
+        source_.SetText(has_track ? (track_lines_[1].empty() ? " " : track_lines_[1].c_str()) : source.c_str());
+        album_.SetVisible(!track_lines_[2].empty());
+        if (!track_lines_[2].empty()) album_.SetText(track_lines_[2].c_str());
         disc_label_.SetFillColor(playing ? kRed : kSurface);
         toggle.SetIcon(playing ? mp::symbols::kPause : mp::symbols::kPlay).value();
         for (auto* button : {&previous, &toggle, &next}) button->SetEnabled(ready && !remote.pending);
@@ -206,9 +227,21 @@ class PlayerView final {
     ui::IconButton previous, toggle, next;
 
    private:
+    std::string Fit(const char* text, mp::SystemFont font) const {
+        if (!*text) return {};
+        return ui::WrapText<1>(text, 432, [&](std::string_view value) {
+            const std::string terminated{value};
+            const auto metrics = renderer_.MeasureText(terminated.c_str(), font);
+            return metrics ? metrics->width : UINT32_MAX;
+        })[0];
+    }
+
+    mp::Renderer renderer_;
+    micropixel_bluetooth_remote_track_t displayed_track_{};
+    std::array<std::string, 3> track_lines_;
     mp::RoundedRectNode disc_label_;
     mp::ShapeNode bar_, progress_;
-    mp::LabelNode state_, source_, time_, hint_;
+    mp::LabelNode state_, source_, album_, time_, hint_;
 };
 
 class PlayerActivity final : public mp::Activity {

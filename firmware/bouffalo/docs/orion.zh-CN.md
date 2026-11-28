@@ -364,7 +364,8 @@ Sink 可通过 `ReadPcm` 取出已解码音频，Source 可通过 `WritePcm` 提
 单次最多 1024 字节，按完整采样帧读写。队列暂时为空或写满时返回 `WOULD_BLOCK`，应在 Guest 事件循环中重试。
 音频编解码使用 SBC。 [Guest ABI](../../../guest/abi/bluetooth.h) [C++ SDK](../../../guest/sdk/bluetooth.hpp)
 
-出厂「蓝牙音箱」使用 Bluetooth 1.2 读取经典蓝牙状态和控制 AVRCP，支持从「全部应用」启动和后台播放。 [蓝牙音箱 Guest](../../../guest/apps/bluetooth-speaker/README.zh-CN.md)
+出厂「蓝牙音箱」通过 Bluetooth Service 读取经典蓝牙状态和控制 AVRCP，支持从「全部应用」启动和后台播放。
+Bluetooth 1.3 新增 `RemoteTrack()`，返回当前 AVRCP 会话的曲名、歌手和专辑。各字段为 UTF-8，音源未提供的字段为空。 [蓝牙音箱 Guest](../../../guest/apps/bluetooth-speaker/README.zh-CN.md)
 
 ### 用 PC 验证 BLE
 

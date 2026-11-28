@@ -8,8 +8,9 @@
 #define MICROPIXEL_SERVICE_BLUETOOTH 30U
 #define MICROPIXEL_BLUETOOTH_MIN_VERSION MICROPIXEL_INTERFACE_VERSION(1U, 0U)
 #define MICROPIXEL_BLUETOOTH_GROUPS_VERSION MICROPIXEL_INTERFACE_VERSION(1U, 1U)
-#define MICROPIXEL_BLUETOOTH_VERSION MICROPIXEL_INTERFACE_VERSION(1U, 2U)
+#define MICROPIXEL_BLUETOOTH_VERSION MICROPIXEL_INTERFACE_VERSION(1U, 3U)
 #define MICROPIXEL_BLUETOOTH_PCM_BYTES 1024U
+#define MICROPIXEL_BLUETOOTH_TRACK_TEXT_BYTES 128U
 
 enum {
     MICROPIXEL_BT_STATUS = 1,
@@ -31,6 +32,7 @@ enum {
     MICROPIXEL_BT_WRITE_PCM,
     MICROPIXEL_BT_REMOTE_STATUS,
     MICROPIXEL_BT_REMOTE_KEY,
+    MICROPIXEL_BT_REMOTE_TRACK,
 };
 
 enum { MPX_BT_UNAVAILABLE, MPX_BT_IDLE, MPX_BT_SCANNING, MPX_BT_CONNECTING, MPX_BT_CONNECTED };
@@ -66,6 +68,15 @@ typedef struct {
     uint32_t session;
     uint32_t key;
 } micropixel_bluetooth_remote_key_t;
+
+// AVRCP metadata from the current session. Text is NUL-terminated UTF-8.
+// Empty fields are unavailable. Session zero means no current track snapshot.
+typedef struct {
+    uint32_t session;
+    char title[MICROPIXEL_BLUETOOTH_TRACK_TEXT_BYTES];
+    char artist[MICROPIXEL_BLUETOOTH_TRACK_TEXT_BYTES];
+    char album[MICROPIXEL_BLUETOOTH_TRACK_TEXT_BYTES];
+} micropixel_bluetooth_remote_track_t;
 
 typedef struct {
     uint32_t revision;
@@ -123,4 +134,5 @@ static_assert(sizeof(micropixel_bluetooth_address_t) == 18);
 static_assert(sizeof(micropixel_bluetooth_pcm_t) == 4);
 static_assert(sizeof(micropixel_bluetooth_remote_status_t) == 20);
 static_assert(sizeof(micropixel_bluetooth_remote_key_t) == 8);
+static_assert(sizeof(micropixel_bluetooth_remote_track_t) == 388);
 #endif

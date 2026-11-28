@@ -73,7 +73,9 @@ if [[ "${MICROPIXEL_HOST_TEST_PLATFORM:-espressif}" == "bouffalo" ]]; then
         -std=c++2b -Wall -Wextra -Werror -DCONFIG_BT_AVRCP=1 \
         -I "$workspace_root/firmware/bouffalo" -I "$workspace_root/firmware/common" -I "$workspace_root/guest" \
         "$workspace_root/firmware/bouffalo/tools/tests/bluetooth_endpoint_test.cpp" \
+        "$workspace_root/firmware/bouffalo/platform/wireless/avrcp_track.cpp" \
         "$workspace_root/firmware/bouffalo/runtime/abi/bluetooth_endpoint.cpp" \
+        "$workspace_root/firmware/common/device/text.cpp" \
         "$workspace_root/firmware/common/runtime/abi/service_registry.cpp" \
         -o "$workspace_root/build/host-tests/bluetooth_endpoint_test"
     "$workspace_root/build/host-tests/bluetooth_endpoint_test"

@@ -25,6 +25,7 @@ int32_t ReadPcm(uint32_t revision, uint8_t* output, uint32_t capacity, uint32_t&
 int32_t WritePcm(uint32_t revision, const uint8_t* input, uint32_t bytes);
 #if defined(CONFIG_BT_AVRCP)
 micropixel_bluetooth_remote_status_t RemoteStatus();
+micropixel_bluetooth_remote_track_t RemoteTrack();
 int32_t RemoteKey(const micropixel_bluetooth_remote_key_t& request);
 #endif
 }  // namespace micropixel::bouffalo::classic
