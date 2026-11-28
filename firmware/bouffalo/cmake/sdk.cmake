@@ -22,11 +22,7 @@ if(BOARD STREQUAL "bl618dg_orion" AND CPU_MODEL STREQUAL "b1")
     # The pinned SDK links the C++ standard library only for the b0 model.
     sdk_add_link_libraries(stdc++)
     if(MPX_HOST_PORT OR MPX_NATIVE_VIDEO_TEST)
-        # The SDK's unsuffixed BL618DG multimedia and PKA archives are ILP32F.
-        # Use its ILP32D archives for the Orion AP while keeping CPU_MODEL=b1.
-        get_property(_libraries GLOBAL PROPERTY SDK_LIBS)
-        list(TRANSFORM _libraries REPLACE "(/lib(multimedia|pka)_bl618dg)[.]a$" "\\1_b0.a")
-        set_property(GLOBAL PROPERTY SDK_LIBS ${_libraries})
+        include("${CMAKE_CURRENT_LIST_DIR}/orion_ilp32d.cmake")
     endif()
 endif()
 

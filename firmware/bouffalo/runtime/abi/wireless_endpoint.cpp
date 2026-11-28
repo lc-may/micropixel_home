@@ -22,7 +22,7 @@ runtime::ServiceDescriptor WirelessEndpoint::Describe() const {
             .interface_minor = MICROPIXEL_WIRELESS_VERSION & 0xffff,
             .flags = MICROPIXEL_SERVICE_FLAG_CALL,
             .max_request_bytes = sizeof(micropixel_wireless_join_t),
-            .max_response_bytes = sizeof(micropixel_wireless_ble_item_t)};
+            .max_response_bytes = sizeof(micropixel_wireless_ble_info_t)};
 }
 
 int32_t WirelessEndpoint::Call(uint32_t method, const uint8_t* request, uint32_t length, uint8_t* response,
@@ -41,36 +41,50 @@ int32_t WirelessEndpoint::Call(uint32_t method, const uint8_t* request, uint32_t
         std::memcpy(value.ipv4, &state_.ipv4, sizeof(value.ipv4));
         return Reply(value, response, capacity, size);
     }
+    if (method == MICROPIXEL_WIRELESS_BLE_INFO) {
+        if (length != 0) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        return Reply(state_.ble_info, response, capacity, size);
+    }
 
     uint32_t index = 0;
-    if (method == MICROPIXEL_WIRELESS_WIFI_ITEM || method == MICROPIXEL_WIRELESS_BLE_ITEM ||
-        method == MICROPIXEL_WIRELESS_BLE_CONNECT) {
+    uint32_t scan_revision = state_.wifi_scan_revision;
+    if (method == MICROPIXEL_WIRELESS_WIFI_ITEM) {
         if (length != sizeof(index)) return MICROPIXEL_STATUS_INVALID_ARGUMENT;
         std::memcpy(&index, request, sizeof(index));
-        if (method == MICROPIXEL_WIRELESS_WIFI_ITEM) {
-            if (index >= state_.wifi_count) return MICROPIXEL_STATUS_NOT_FOUND;
-            mpx_wifi_network_t network{};
-            uint8_t preferred_channel{};
-            if (!mpx_wireless_read_wifi(state_.wifi_scan_revision, index, &network, &preferred_channel)) {
-                return MICROPIXEL_STATUS_NOT_FOUND;
-            }
-            micropixel_wireless_wifi_item_t item{.length = network.length,
-                                                 .open = network.open,
-                                                 .supported = network.supported,
-                                                 .rssi = network.rssi,
-                                                 .channel = network.channel,
-                                                 .ssid_bands = network.ssid_bands,
-                                                 .preferred_channel = preferred_channel};
-            std::memcpy(item.ssid, network.ssid, sizeof(item.ssid));
-            return Reply(item, response, capacity, size);
+        if (index >= state_.wifi_count) return MICROPIXEL_STATUS_NOT_FOUND;
+        mpx_wifi_network_t network{};
+        uint8_t preferred_channel{};
+        if (!mpx_wireless_read_wifi(state_.wifi_scan_revision, index, &network, &preferred_channel)) {
+            return MICROPIXEL_STATUS_NOT_FOUND;
         }
-        if (method == MICROPIXEL_WIRELESS_BLE_ITEM) {
-            if (index >= state_.ble_count) return MICROPIXEL_STATUS_NOT_FOUND;
+        micropixel_wireless_wifi_item_t item{.length = network.length,
+                                             .open = network.open,
+                                             .supported = network.supported,
+                                             .rssi = network.rssi,
+                                             .channel = network.channel,
+                                             .ssid_bands = network.ssid_bands,
+                                             .preferred_channel = preferred_channel};
+        std::memcpy(item.ssid, network.ssid, sizeof(item.ssid));
+        return Reply(item, response, capacity, size);
+    }
+    const bool item_details = method == MICROPIXEL_WIRELESS_BLE_ITEM_DETAILS;
+    if (item_details || method == MICROPIXEL_WIRELESS_BLE_ITEM || method == MICROPIXEL_WIRELESS_BLE_CONNECT) {
+        micropixel_wireless_ble_selection_t selection{.scan_revision = state_.ble_info.scan_revision};
+        if (length != sizeof(selection) && (item_details || length != sizeof(index)))
+            return MICROPIXEL_STATUS_INVALID_ARGUMENT;
+        std::memcpy(&selection, request, length);
+        index = selection.index;
+        scan_revision = selection.scan_revision;
+        if (scan_revision != state_.ble_info.scan_revision || index >= state_.ble_count) {
+            return MICROPIXEL_STATUS_NOT_FOUND;
+        }
+        if (item_details || method == MICROPIXEL_WIRELESS_BLE_ITEM) {
             const auto& device = state_.devices[index];
-            micropixel_wireless_ble_item_t item{.rssi = device.rssi};
-            std::memcpy(item.name, device.name, sizeof(item.name));
-            std::memcpy(item.address, device.address, sizeof(item.address));
-            return Reply(item, response, capacity, size);
+            micropixel_wireless_ble_item_details_t value{
+                .item = {.rssi = device.rssi}, .appearance = device.scan.appearance, .group = device.group};
+            std::memcpy(value.item.name, device.scan.name, sizeof(value.item.name));
+            std::memcpy(value.item.address, device.address, sizeof(value.item.address));
+            return item_details ? Reply(value, response, capacity, size) : Reply(value.item, response, capacity, size);
         }
     }
 
@@ -86,10 +100,10 @@ int32_t WirelessEndpoint::Call(uint32_t method, const uint8_t* request, uint32_t
         return MICROPIXEL_STATUS_INVALID_ARGUMENT;
     }
 
-    if (method < MICROPIXEL_WIRELESS_WIFI_SCAN || method > MICROPIXEL_WIRELESS_BLE_DISCONNECT) {
+    if (method < MICROPIXEL_WIRELESS_WIFI_SCAN || method > MICROPIXEL_WIRELESS_BLE_STOP_SCAN) {
         return MICROPIXEL_STATUS_UNSUPPORTED;
     }
-    return mpx_wireless_command(method, index, state_.wifi_scan_revision, password, password_length) == 0
+    return mpx_wireless_command(method, index, scan_revision, password, password_length) == 0
                ? MICROPIXEL_STATUS_OK
                : MICROPIXEL_STATUS_WOULD_BLOCK;
 }

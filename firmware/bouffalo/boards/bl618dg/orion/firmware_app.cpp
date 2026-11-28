@@ -3,6 +3,7 @@
 #include <charconv>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <string_view>
 
@@ -16,6 +17,8 @@
 #include "platform/audio/audio_engine.hpp"
 #include "platform/audio/media.hpp"
 #include "platform/network/network_time.h"
+#include "platform/storage/file_store.h"
+#include "platform/wireless/classic_bluetooth.h"
 #include "platform/wireless/wireless.h"
 #include "runtime/abi/alarm_endpoint.hpp"
 #include "runtime/abi/weather_endpoint.hpp"
@@ -27,11 +30,13 @@
 #include "work/task_stack.h"
 
 #if WASM_ENABLE_AOT
-#include "mbedtls/sha256.h"
-#include "orion_aot_catalog.h"
+#include "runtime/bundle/app_store.hpp"
 #else
 #include "audio_pcm_stream.h"
 #include "main_failure.h"
+#if defined(CONFIG_BT_A2DP)
+#include "mpx_guest_bluetooth-speaker.h"
+#endif
 #include "mpx_guest_clock-alarm.h"
 #include "mpx_guest_netease-music.h"
 #include "mpx_guest_news.h"
@@ -42,9 +47,6 @@
 #endif
 
 extern "C" {
-#if WASM_ENABLE_AOT
-#include "bflb_mtd.h"
-#endif
 #include "board_gpio.h"
 #include "mm.h"
 #include "shell.h"
@@ -68,62 +70,65 @@ constexpr uint32_t kWeatherApp = 2;
 constexpr uint32_t kMusicApp = 3;
 constexpr uint16_t kActivity = MICROPIXEL_COMPONENT_FLAG_ACTIVITY;
 constexpr uint16_t kActivityAndService = kActivity | MICROPIXEL_COMPONENT_FLAG_SERVICE;
+constexpr uint8_t kSettingsGrowthPages = 2;
+constexpr uint8_t kClockGrowthPages = 18;
+constexpr uint8_t kAtlasAppGrowthPages = 12;
+constexpr uint8_t kMusicGrowthPages = 15;
 #if WASM_ENABLE_AOT
 #define ORION_CATALOG_IMAGE(symbol) .wasm = {}, .unpacked_size = 0
 #else
 #define ORION_CATALOG_IMAGE(symbol) .wasm = symbol, .unpacked_size = symbol##_wasm_size
 #endif
 constexpr EmbeddedApp kApps[] = {
-    {.name = "settings", ORION_CATALOG_IMAGE(settings), .activity = true, .wireless_settings = true},
+    {.name = "settings",
+     ORION_CATALOG_IMAGE(settings),
+     .activity = true,
+     .wireless_settings = true,
+     .linear_growth_pages = kSettingsGrowthPages,
+     .bundle_id = "micropixel.settings"},
     {.name = "clock-alarm",
      ORION_CATALOG_IMAGE(clock_alarm),
      .activity = true,
      .component_flags = kActivityAndService,
-     .clock = true},
+     .clock = true,
+     .linear_growth_pages = kClockGrowthPages,
+     .bundle_id = MPX_CLOCK_APP_ID},
     {.name = "weather",
      ORION_CATALOG_IMAGE(weather),
      .activity = true,
      .component_flags = kActivityAndService,
-     .weather = true},
+     .weather = true,
+     .linear_growth_pages = kAtlasAppGrowthPages,
+     .bundle_id = "micropixel.weather"},
     {.name = "netease-music",
      ORION_CATALOG_IMAGE(netease_music),
      .activity = true,
      .component_flags = kActivityAndService,
-     .music = true},
-    {.name = "news", ORION_CATALOG_IMAGE(news), .activity = true, .component_flags = kActivity},
-    {.name = "sdk_hello", ORION_CATALOG_IMAGE(sdk_hello)},
-    {.name = "timer_counter", ORION_CATALOG_IMAGE(timer_counter)},
-    {.name = "audio_pcm_stream", ORION_CATALOG_IMAGE(audio_pcm_stream)},
-    {.name = "main_failure", ORION_CATALOG_IMAGE(main_failure)},
+     .music = true,
+     .linear_growth_pages = kMusicGrowthPages,
+     .bundle_id = "micropixel.netease-music"},
+    {.name = "news",
+     ORION_CATALOG_IMAGE(news),
+     .activity = true,
+     .component_flags = kActivity,
+     .linear_growth_pages = kAtlasAppGrowthPages,
+     .bundle_id = "micropixel.news"},
+#if defined(CONFIG_BT_A2DP)
+    {.name = "bluetooth-speaker",
+     ORION_CATALOG_IMAGE(bluetooth_speaker),
+     .activity = true,
+     .component_flags = kActivityAndService | MICROPIXEL_COMPONENT_FLAG_BACKGROUND,
+     .bluetooth_speaker = true,
+     .linear_growth_pages = kAtlasAppGrowthPages,
+     .bundle_id = "micropixel.bluetooth-speaker"},
+#endif
+    {.name = "sdk_hello", ORION_CATALOG_IMAGE(sdk_hello), .bundle_id = "micropixel.sdk_hello"},
+    {.name = "timer_counter", ORION_CATALOG_IMAGE(timer_counter), .bundle_id = "micropixel.timer_counter"},
+    {.name = "audio_pcm_stream", ORION_CATALOG_IMAGE(audio_pcm_stream), .bundle_id = "micropixel.audio_pcm_stream"},
+    {.name = "main_failure", ORION_CATALOG_IMAGE(main_failure), .bundle_id = "micropixel.main_failure"},
 };
 #undef ORION_CATALOG_IMAGE
 
-#if WASM_ENABLE_AOT
-bool BindAotCatalog(std::span<EmbeddedApp> apps) {
-    static_assert(std::size(kApps) == std::size(kOrionAotCatalog));
-    bflb_mtd_handle_t handle{};
-    if (bflb_mtd_open("apps", &handle, BFLB_MTD_OPEN_FLAG_BUSADDR) != 0) return false;
-    bflb_mtd_info_t info{};
-    const auto result = bflb_mtd_info(handle, &info);
-    bflb_mtd_close(handle);
-    if (result != 0 || !info.xip_addr || info.size < kOrionAotCatalogSize) return false;
-    const auto* image = static_cast<const uint8_t*>(info.xip_addr);
-    uint8_t digest[sizeof(kOrionAotCatalogSha256)];
-    if (mbedtls_sha256_ret(image, kOrionAotCatalogSize, digest, 0) != 0 ||
-        std::memcmp(digest, kOrionAotCatalogSha256, sizeof(digest)) != 0)
-        return false;
-    for (auto& app : apps) {
-        const auto* entry = std::find_if(
-            std::begin(kOrionAotCatalog), std::end(kOrionAotCatalog),
-            [&](const OrionAotCatalogEntry& candidate) { return std::string_view{app.name} == candidate.name; });
-        if (entry == std::end(kOrionAotCatalog)) return false;
-        app.wasm = {image + entry->offset, entry->size};
-        app.unpacked_size = entry->unpacked_size;
-    }
-    std::printf("MPX AOT catalog verified: %lu bytes\n", static_cast<unsigned long>(kOrionAotCatalogSize));
-    return true;
-}
-#endif
 struct HomeTile {
     const char* title;
     HomeAppRole role;
@@ -134,6 +139,9 @@ constexpr HomeTile kHomeTiles[]{
     {"天气", HomeAppRole::kWeather},
     {"网易云音乐", HomeAppRole::kMusic},
     {"新闻", HomeAppRole::kNews},
+#if defined(CONFIG_BT_A2DP)
+    {"蓝牙音箱", HomeAppRole::kDiagnostic},
+#endif
     {"SDK Hello", HomeAppRole::kDiagnostic},
     {"定时器测试", HomeAppRole::kDiagnostic},
     {"音频测试", HomeAppRole::kDiagnostic},
@@ -148,14 +156,87 @@ constexpr const char* AppStateName(host::AppState state) {
     return kStates[static_cast<unsigned>(state)];
 }
 
-enum class Action : uint8_t { kList, kStatus, kPerf, kRun, kStop, kTime, kHome, kBack, kScreenshot };
+enum class Action : uint8_t {
+    kList,
+    kStatus,
+    kPerf,
+    kRun,
+    kStop,
+    kTime,
+    kHome,
+    kBack,
+    kScreenshot,
+    kBundleBegin,
+    kBundleChunk,
+    kBundleReady,
+    kBundleApply,
+    kBundleCancel,
+    kBundleRemove,
+    kBundleList
+};
 struct Command final {
     Action action;
-    uint32_t app;
+    char id[65];
     uint64_t utc;
+    uint32_t offset, size;
+    std::array<uint8_t, 44> bytes;
     GuestLaunchOptions options;
 };
 QueueHandle_t command_queue;
+
+template <typename T>
+bool ParseNumber(std::string_view text, T& result, int base = 10) {
+    const auto end = text.data() + text.size();
+    const auto parsed = std::from_chars(text.data(), end, result, base);
+    return parsed.ec == std::errc{} && parsed.ptr == end;
+}
+
+bool CopyId(std::string_view id, Command& command) {
+    if (id.empty() || id.size() >= sizeof(command.id)) return false;
+    std::memcpy(command.id, id.data(), id.size());
+    return true;
+}
+
+#if WASM_ENABLE_AOT
+bool ParseBundleCommand(int argc, char** argv, Command& command) {
+    if (argc < 3) return false;
+    const std::string_view operation = argv[2];
+    if (operation == "begin" && argc == 5) {
+        command.action = Action::kBundleBegin;
+        return ParseNumber(argv[3], command.offset) && ParseNumber(argv[4], command.size);
+    }
+    if (operation == "chunk" && argc == 5) {
+        command.action = Action::kBundleChunk;
+        const std::string_view bytes = argv[4];
+        if (bytes.empty() || bytes.size() % 2 != 0 || bytes.size() / 2 > command.bytes.size() ||
+            !ParseNumber(argv[3], command.offset))
+            return false;
+        command.size = bytes.size() / 2;
+        for (uint32_t i = 0; i < command.size; ++i) {
+            unsigned number{};
+            if (!ParseNumber(bytes.substr(2 * i, 2), number, 16)) return false;
+            command.bytes[i] = number;
+        }
+        return true;
+    }
+    if (operation == "remove" && argc == 4) {
+        command.action = Action::kBundleRemove;
+        return CopyId(argv[3], command);
+    }
+    if (argc != 3) return false;
+    if (operation == "ready")
+        command.action = Action::kBundleReady;
+    else if (operation == "apply")
+        command.action = Action::kBundleApply;
+    else if (operation == "cancel")
+        command.action = Action::kBundleCancel;
+    else if (operation == "list")
+        command.action = Action::kBundleList;
+    else
+        return false;
+    return true;
+}
+#endif
 
 void Shell(int argc, char** argv) {
     const std::string_view action = argc > 1 ? argv[1] : "";
@@ -181,22 +262,23 @@ void Shell(int argc, char** argv) {
             std::puts("Expected UTC epoch seconds");
             return;
         }
-    } else if ((action == "run" && (argc == 3 || argc == 4)) || (action == "stop" && argc == 3)) {
-        command.action = action == "run" ? Action::kRun : Action::kStop;
-        while (command.app < std::size(kApps) && std::string_view(argv[2]) != kApps[command.app].name) ++command.app;
-        if (command.app == std::size(kApps)) {
-            std::puts("Unknown MicroPixel app");
+#if WASM_ENABLE_AOT
+    } else if (action == "bundle") {
+        if (!ParseBundleCommand(argc, argv, command)) {
+            std::puts("MPX STORE syntax invalid");
             return;
         }
+#endif
+    } else if ((action == "run" && (argc == 3 || argc == 4)) || (action == "stop" && argc == 3)) {
+        command.action = action == "run" ? Action::kRun : Action::kStop;
+        if (!CopyId(argv[2], command)) return;
         if (argc == 4) {
             std::string_view option = argv[3];
-            command.options.alarm_test = kApps[command.app].clock && option == "--alarm-test";
-            command.options.music_login = kApps[command.app].music && option == "--login";
-            if (kApps[command.app].music && option.starts_with("--song=")) {
-                option.remove_prefix(sizeof("--song=") - 1);
-                const auto end = option.data() + option.size();
-                const auto parsed = std::from_chars(option.data(), end, command.options.song);
-                if (parsed.ec != std::errc{} || parsed.ptr != end || command.options.song > 9007199254740991ULL)
+            command.options.alarm_test = option == "--alarm-test";
+            command.options.music_login = option == "--login";
+            if (option.starts_with("--song=")) {
+                if (!ParseNumber(option.substr(sizeof("--song=") - 1), command.options.song) ||
+                    command.options.song > 9007199254740991ULL)
                     command.options.song = 0;
             }
             if (!command.options.alarm_test && !command.options.song && !command.options.music_login) {
@@ -210,7 +292,7 @@ void Shell(int argc, char** argv) {
             "mpx run "
             "<app> "
             "[--alarm-test|--song=ID|--login] | mpx "
-            "stop <app>");
+            "stop <app> | mpx bundle <list|begin|chunk|ready|apply|cancel|remove>");
         return;
     }
     if (xQueueSend(command_queue, &command, 0) != pdTRUE) std::puts("MicroPixel command queue is full");
@@ -224,30 +306,40 @@ class FirmwareApp final {
         command_queue = xQueueCreate(8, sizeof(Command));
         if (command_queue == nullptr || board_shared_i2c_init() != 0 || !InitializeGuestRuntime()) return false;
 #if WASM_ENABLE_AOT
-        if (!BindAotCatalog(apps_)) {
-            apps_ = std::to_array(kApps);
-            std::puts("MPX AOT catalog missing or invalid in apps partition");
-        }
+        static_assert(kCatalogSlots <= AppManager::kMaxApps);
+        auto* storage = kmalloc(sizeof(Records), MM_FLAG_HEAP_PSRAM_0 | MM_FLAG_ALIGN_8BYTE);
+        if (!storage) return false;
+        records_ = std::construct_at(static_cast<Records*>(storage));
 #endif
         if (!InitializeOrionFont()) std::puts("Orion expanded font unavailable");
         GuestPanel::SetFontFallback(OrionFontFallback());
         if (audio_.Initialize(output_, output_.SampleRate()) != micropixel::platform::audio::kAudioOk) return false;
+#if defined(CONFIG_BT_A2DP)
+        if (!classic::Initialize(audio_, output_.SampleRate()))
+            std::puts("MicroPixel Bluetooth Classic audio unavailable");
+#endif
 #if defined(CONFIG_FHOST)
         if (!InitializeNetwork())
             std::puts("MicroPixel HTTPS worker initialization failed");
         else if (!InitializeMedia(audio_, output_.SampleRate()))
             std::puts("MicroPixel URL media initialization failed");
 #endif
+#if WASM_ENABLE_AOT
+        (void)store_.Mount();
+#endif
+#if defined(CONFIG_LITTLEFS)
+        if (!mpx_app_data_migrate()) std::puts("MPX DATA migration incomplete");
+#if !WASM_ENABLE_AOT
+        for (const auto& app : apps_) EnsureAppData(app.bundle_id);
+#endif
+#endif
         if (!alarms_.Initialize(kClockApp)) return false;
         media_widgets_ = MediaWidgets::Create(kMusicApp, "micropixel.netease-music", boot_);
         if (!media_widgets_) return false;
         for (auto& runner : runners_)
             if (!runner.Initialize(*media_widgets_)) return false;
-        for (uint32_t i = 0; i < std::size(kApps); ++i) {
-            if (!manager_.Register(i, {.background = kApps[i].KeepService() || !kApps[i].activity,
-                                       .activity = kApps[i].activity,
-                                       .messages = kApps[i].weather}))
-                return false;
+        for (uint32_t i = 0; i < apps_.size(); ++i) {
+            if (!Register(i)) return false;
         }
         return mpx_create_task(Controller, "mpx_host", kControllerStackBytes, this, task_policy::kHostPriority,
                                nullptr) == pdPASS;
@@ -259,6 +351,19 @@ class FirmwareApp final {
     void Run() {
         const auto start_us = bflb_mtimer_get_time_us();
         shell_init_with_task(bflb_device_get_by_name("uart0"));
+#if WASM_ENABLE_AOT
+        if (!store_.Visit(
+                [](void* context, const AppRecord& app) {
+                    auto& self = *static_cast<FirmwareApp*>(context);
+                    if (self.AppCount() >= kMaxInstalledApps) return false;
+                    const auto index = self.InstallIndex(app.id.data());
+                    return index && self.SetInstalled(*index, app);
+                },
+                this))
+            std::puts("MPX STORE mount failed");
+        for (const auto& app : apps_)
+            if (app.Available()) EnsureAppData(app.bundle_id);
+#endif
         std::puts("MicroPixel Orion Host ready. Type mpx list.");
         const bool has_display = ConfigureHome();
         if (has_display)
@@ -297,16 +402,16 @@ class FirmwareApp final {
                 [](void* context, uint8_t percent) {
                     static_cast<FirmwareApp*>(context)->audio_.SetMasterVolumePercent(percent);
                 },
+#if WASM_ENABLE_AOT
+            .manage = [](void* context, ManageAction action,
+                         uint32_t app) { static_cast<FirmwareApp*>(context)->Manage(action, app); },
+#endif
             .media_action =
                 [](void* context, const host::WidgetSnapshot& snapshot, uint16_t type, uint32_t value) {
                     static_cast<FirmwareApp*>(context)->media_widgets_->Action(snapshot, type, value);
                 },
         });
-        if (has_display) {
-            for (uint32_t index = 0; index < std::size(kApps); ++index) {
-                home_.AddApp(index, kHomeTiles[index].title, kHomeTiles[index].role);
-            }
-        }
+        if (has_display) RefreshCatalog();
         return has_display;
     }
 
@@ -329,12 +434,23 @@ class FirmwareApp final {
                 if (!has_display || !home_.CaptureFrame()) std::puts("MPXFB capture failed");
                 break;
             case Action::kRun:
-                QueueLaunch(command.app, command.options);
+            case Action::kStop: {
+                const auto app = Find(command.id);
+                if (!app) {
+                    std::puts("Unknown MicroPixel app");
+                } else if (command.action == Action::kRun) {
+                    if ((command.options.alarm_test && !apps_[*app].clock) ||
+                        ((command.options.song || command.options.music_login) && !apps_[*app].music)) {
+                        std::puts("Unknown launch argument");
+                    } else {
+                        QueueLaunch(*app, command.options);
+                    }
+                } else {
+                    if (launch_ && launch_->app == *app) launch_.reset();
+                    ReportCommand(manager_.Stop(*app));
+                }
                 break;
-            case Action::kStop:
-                if (launch_ && launch_->app == command.app) launch_.reset();
-                ReportCommand(manager_.Stop(command.app));
-                break;
+            }
             case Action::kHome:
                 ShowHome();
                 break;
@@ -348,25 +464,30 @@ class FirmwareApp final {
                     std::puts("MicroPixel UTC out of range");
                 }
                 break;
+            default:
+#if WASM_ENABLE_AOT
+                HandleBundleCommand(command);
+#endif
+                break;
         }
     }
 
     [[gnu::noinline]] void UpdateSessions(uint64_t now_ms) {
         ProcessLaunch();
         manager_.Process(now_ms);
+#if WASM_ENABLE_AOT
+        UpdateStore(now_ms);
+#endif
         KeepWeatherRunning(now_ms);
         for (auto& runner : runners_) runner.SetLaunchOptions({});
-        alarms_.Process(now_ms, audio_);
+        if (apps_[kClockApp].Available()) alarms_.Process(now_ms, audio_);
     }
 
     [[gnu::noinline]] void Draw(uint64_t now_ms) {
         auto* foreground = Foreground();
         if (auto* surface = home_.GuestSurface(foreground != nullptr)) foreground->Panel().Render(surface);
         home_.ShowKeyboard(foreground && foreground->WantsText());
-        micropixel_wall_time_t wall{};
-        uint64_t next_alarm;
-        alarms_.ReadClock(now_ms, kClockApp, wall, next_alarm);
-        home_.Update(wall, next_alarm);
+        home_.Update(alarms_.ReadClock(now_ms));
         home_.UpdateWeather(weather_state_);
         home_.UpdateMusic(*media_widgets_);
         home_.Refresh();
@@ -378,11 +499,14 @@ class FirmwareApp final {
     };
 
     void OpenFromHome(uint32_t app) {
-        std::printf("Orion Home open %s\n", kApps[app].name);
+        std::printf("Orion Home open %s\n", apps_[app].name);
         QueueLaunch(app, {});
     }
 
     void QueueLaunch(uint32_t app, GuestLaunchOptions options) {
+#if WASM_ENABLE_AOT
+        if (mutation_ && mutation_->app == app) return;
+#endif
         launch_ = Launch{app, options};
         home_.LaunchStatus("正在打开应用");
     }
@@ -404,7 +528,10 @@ class FirmwareApp final {
 
     void KeepWeatherRunning(uint64_t now_ms) {
         const auto& weather = manager_.Snapshot().apps[kWeatherApp];
-        if (apps_[kWeatherApp].wasm.empty() || launch_ || now_ms < weather_retry_ms_ || weather.user_stopped ||
+#if WASM_ENABLE_AOT
+        if (mutation_ && mutation_->app == kWeatherApp) return;
+#endif
+        if (!apps_[kWeatherApp].Available() || launch_ || now_ms < weather_retry_ms_ || weather.user_stopped ||
             weather.state != host::AppState::kStopped)
             return;
         weather_retry_ms_ = now_ms + 5000;
@@ -453,10 +580,308 @@ class FirmwareApp final {
     void List() const {
         const auto& snapshot = manager_.Snapshot();
         for (uint32_t i = 0; i < snapshot.count; ++i) {
+            if (!apps_[i].Available()) continue;
             const auto& app = snapshot.apps[i];
-            std::printf("%s %s exit=%ld\n", kApps[i].name, AppStateName(app.state), static_cast<long>(app.result));
+            std::printf("%s %s exit=%ld", apps_[i].name, AppStateName(app.state), static_cast<long>(app.result));
+#if WASM_ENABLE_AOT
+            std::printf(" id=%s version=%s", apps_[i].bundle_id, (*records_)[i].version.data());
+#endif
+            std::puts("");
         }
     }
+
+    bool Register(uint32_t index) {
+        const auto& app = apps_[index];
+        return manager_.Register(index, {.background = app.KeepService() || !app.activity,
+                                         .activity = app.activity,
+                                         .messages = app.weather,
+                                         .available = app.Available()});
+    }
+
+#if defined(CONFIG_LITTLEFS)
+    static void EnsureAppData(const char* id) {
+        if (mpx_app_data_ensure(id) != 0) std::printf("MPX DATA directory unavailable for %s\n", id);
+    }
+#endif
+
+    std::optional<uint32_t> Find(std::string_view id, bool aliases = true) const {
+        for (uint32_t i = 0; i < apps_.size(); ++i)
+            if (apps_[i].bundle_id && id == apps_[i].bundle_id) return i;
+        if (aliases) {
+            for (uint32_t i = 0; i < apps_.size(); ++i)
+                if (apps_[i].Available() && id == apps_[i].name) return i;
+        }
+        return std::nullopt;
+    }
+
+    void RefreshCatalog() {
+        home_.ClearApps();
+        for (uint32_t i = 0; i < apps_.size(); ++i) {
+            if (!apps_[i].Available()) continue;
+            auto role = i < std::size(kHomeTiles) ? kHomeTiles[i].role : HomeAppRole::kDiagnostic;
+#if WASM_ENABLE_AOT
+            const auto& app = (*records_)[i];
+            const std::string_view id = app.id.data();
+            if (id == "micropixel.light-sequence")
+                role = HomeAppRole::kLightSequence;
+            else if (id == "micropixel.central-ac")
+                role = HomeAppRole::kCentralAc;
+            home_.AddApp(i, app.title.data(), role);
+            home_.AddManagedApp(i, app.title.data(), app.version.data());
+#else
+            home_.AddApp(i, kHomeTiles[i].title, role);
+#endif
+        }
+#if WASM_ENABLE_AOT
+        home_.ManageSpace(AppCount(), kMaxInstalledApps, store_.FreeBytes());
+        if (!store_.available()) home_.ManageStatus("应用存储不可用", false, false);
+#endif
+    }
+
+#if WASM_ENABLE_AOT
+    uint32_t AppCount() const {
+        return std::count_if(apps_.begin(), apps_.end(), [](const auto& app) { return app.Available(); });
+    }
+
+    std::optional<uint32_t> InstallIndex(std::string_view id) const {
+        if (const auto existing = Find(id, false)) return existing;
+        auto short_id = id;
+        if (short_id.starts_with("micropixel.")) {
+            short_id.remove_prefix(sizeof("micropixel.") - 1);
+            for (uint32_t i = 0; i < std::size(kApps); ++i)
+                if (short_id == kApps[i].name) return i;
+        }
+        for (uint32_t i = std::size(kApps); i < apps_.size(); ++i)
+            if (!apps_[i].Available()) return i;
+        return std::nullopt;
+    }
+
+    bool SetInstalled(uint32_t index, const AppRecord& app) {
+        const bool existed = apps_[index].Available();
+        auto& record = (*records_)[index];
+        record = app;
+        auto& target = apps_[index];
+        target = index < std::size(kApps)
+                     ? kApps[index]
+                     : EmbeddedApp{
+                           .name = record.id.data(),
+                           .activity = record.component_flags == 0 ||
+                                       (record.component_flags & MICROPIXEL_COMPONENT_FLAG_ACTIVITY) != 0,
+                           .component_flags = record.component_flags,
+                           .linear_growth_pages = 12,
+                       };
+        target.bundle_id = record.id.data();
+        if (!existed) manager_.RestoreUserStopped(index, false);
+        return Register(index);
+    }
+
+    void StoreReply(const char* operation, StoreResult result) {
+        std::printf("MPX STORE %s %s\n", operation, StoreResultName(result));
+    }
+
+    void StoreStatus(StoreResult result, const char* success) {
+        const char* message = success;
+        switch (result) {
+            case StoreResult::kOk:
+                break;
+            case StoreResult::kUnavailable:
+                message = "应用存储不可用";
+                break;
+            case StoreResult::kInvalidPackage:
+                message = "应用包无效或目标不匹配";
+                break;
+            case StoreResult::kNoSpace:
+                message = "空间不足";
+                break;
+            case StoreResult::kIo:
+                message = "应用存储操作失败";
+                break;
+            case StoreResult::kBusy:
+                message = "应用管理正在处理操作";
+                break;
+            case StoreResult::kVersion:
+                message = "升级需要更高的版本";
+                break;
+            case StoreResult::kFull:
+                message = "已达到应用数量上限";
+                break;
+            case StoreResult::kNotFound:
+                message = "应用未安装";
+                break;
+        }
+        home_.ManageStatus(message, false, false);
+    }
+
+    StoreResult StageRemove(uint32_t index) {
+        if (mutation_ || store_.Receiving() || store_.Pending() || remove_) return StoreResult::kBusy;
+        if (!apps_[index].Available()) return StoreResult::kNotFound;
+        remove_ = index;
+        char text[128];
+        std::snprintf(text, sizeof(text), "卸载 %s？", (*records_)[index].title.data());
+        home_.ManageStatus(text, true, true);
+        return StoreResult::kOk;
+    }
+
+    StoreResult StageInstall() {
+        const auto result = store_.Prepare();
+        if (result != StoreResult::kOk) return result;
+        const auto& candidate = *store_.Pending();
+        const auto existing = Find(candidate.id.data(), false);
+        if (existing) {
+            const auto& current = (*records_)[*existing];
+            if (!micropixel_app_version_update(current.version.data(), candidate.version.data(), false))
+                return StoreResult::kVersion;
+        } else if (AppCount() >= kMaxInstalledApps || !InstallIndex(candidate.id.data())) {
+            return StoreResult::kFull;
+        }
+        char message[152];
+        std::snprintf(message, sizeof(message), "%s %s  v%s", existing ? "升级" : "安装", candidate.title.data(),
+                      candidate.version.data());
+        home_.ManageStatus(message, true, true);
+        return StoreResult::kOk;
+    }
+
+    StoreResult StartMutation() {
+        if (mutation_) return StoreResult::kBusy;
+        const auto* pending = store_.Pending();
+        const auto index = remove_ ? remove_ : pending ? InstallIndex(pending->id.data()) : std::nullopt;
+        if (!index) return StoreResult::kInvalidPackage;
+        const auto app = *index;
+        if (manager_.Snapshot().apps[app].state != host::AppState::kStopped &&
+            manager_.Stop(app, false) != ManagerResult::kAccepted)
+            return StoreResult::kBusy;
+        if (launch_ && launch_->app == app) launch_.reset();
+        mutation_ = Mutation{app, bflb_mtimer_get_time_us() / 1000U + 8000U, remove_.has_value()};
+        remove_.reset();
+        home_.ManageStatus("正在等待应用退出并提交", false, false);
+        return StoreResult::kOk;
+    }
+
+    void UpdateStore(uint64_t now_ms) {
+        if (!mutation_) {
+            if (store_.Receiving() && now_ms >= upload_deadline_) {
+                store_.Cancel();
+                StoreStatus(StoreResult::kInvalidPackage, "");
+                std::puts("MPX STORE upload timeout");
+            }
+            return;
+        }
+        const auto pending = *mutation_;
+        if (manager_.Snapshot().apps[pending.app].state != host::AppState::kStopped) {
+            if (now_ms < pending.deadline) return;
+            mutation_.reset();
+            store_.Cancel();
+            home_.ManageStatus("应用退出超时，已保留现有版本", false, false);
+            std::puts("MPX STORE apply stop_timeout");
+            return;
+        }
+        StoreResult result;
+        if (pending.remove) {
+            result = store_.Remove(apps_[pending.app].bundle_id);
+            if (result == StoreResult::kOk) {
+                (void)manager_.Deactivate(pending.app);
+                apps_[pending.app] = {};
+                if (pending.app == kWeatherApp) {
+                    micropixel_widget_snapshot_t empty{};
+                    weather_state_.Update(empty);
+                }
+            }
+        } else {
+            const auto candidate = *store_.Pending();
+            result = store_.Commit();
+            if (result == StoreResult::kOk && !SetInstalled(pending.app, candidate)) result = StoreResult::kIo;
+        }
+        mutation_.reset();
+        store_.Cancel();
+        RefreshCatalog();
+        StoreStatus(result, pending.remove ? "已卸载" : "应用已安装");
+        StoreReply("apply", result);
+        std::printf("MPX STORE controller stack min free=%lu bytes\n",
+                    static_cast<unsigned long>(mpx_stack_free_bytes(nullptr)));
+    }
+
+    void Manage(ManageAction action, uint32_t index) {
+        switch (action) {
+            case ManageAction::kOpen:
+                home_.ManageSpace(AppCount(), kMaxInstalledApps, store_.FreeBytes());
+                break;
+            case ManageAction::kRemove:
+                (void)StageRemove(index);
+                break;
+            case ManageAction::kConfirm: {
+                const auto result = StartMutation();
+                if (result == StoreResult::kOk)
+                    std::puts("MPX STORE apply pending");
+                else
+                    StoreReply("apply", result);
+                break;
+            }
+            case ManageAction::kCancel:
+                if (mutation_) break;
+                remove_.reset();
+                store_.Cancel();
+                home_.ManageStatus("通过 UART 导入 Bundle 以安装或升级", false, false);
+                StoreReply("cancel", StoreResult::kOk);
+                break;
+        }
+    }
+
+    [[gnu::noinline]] void HandleBundleCommand(const Command& command) {
+        switch (command.action) {
+            case Action::kBundleBegin: {
+                const auto result =
+                    (mutation_ || remove_) ? StoreResult::kBusy : store_.Begin(command.offset, command.size);
+                if (result == StoreResult::kOk) {
+                    upload_deadline_ = bflb_mtimer_get_time_us() / 1000U + 15000U;
+                    home_.ManageStatus("正在接收应用包", false, true);
+                }
+                StoreReply("begin", result);
+                break;
+            }
+            case Action::kBundleChunk: {
+                const auto result = store_.Append(command.offset, {command.bytes.data(), command.size});
+                if (result == StoreResult::kOk) upload_deadline_ = bflb_mtimer_get_time_us() / 1000U + 15000U;
+                std::printf("MPX STORE chunk %s %lu\n", StoreResultName(result),
+                            static_cast<unsigned long>(command.offset));
+                break;
+            }
+            case Action::kBundleReady: {
+                const auto result = mutation_ ? StoreResult::kBusy : StageInstall();
+                if (result != StoreResult::kOk && result != StoreResult::kBusy) {
+                    store_.Cancel();
+                    StoreStatus(result, "");
+                }
+                StoreReply("ready", result);
+                break;
+            }
+            case Action::kBundleRemove: {
+                const auto app = Find(command.id, false);
+                StoreReply("remove", app ? StageRemove(*app) : StoreResult::kNotFound);
+                break;
+            }
+            case Action::kBundleApply:
+                Manage(ManageAction::kConfirm, 0);
+                break;
+            case Action::kBundleCancel:
+                if (mutation_)
+                    StoreReply("cancel", StoreResult::kBusy);
+                else
+                    Manage(ManageAction::kCancel, 0);
+                break;
+            case Action::kBundleList:
+                for (uint32_t i = 0; i < apps_.size(); ++i) {
+                    if (apps_[i].Available())
+                        std::printf("MPX APP %s %s %s\n", apps_[i].bundle_id, (*records_)[i].version.data(),
+                                    AppStateName(manager_.Snapshot().apps[i].state));
+                }
+                std::printf("MPX STORE list %s %lu %lu\n", store_.available() ? "ok" : "store_unavailable",
+                            static_cast<unsigned long>(AppCount()), static_cast<unsigned long>(store_.FreeBytes()));
+                break;
+            default:
+                break;
+        }
+    }
+#endif
 
     [[gnu::noinline]] void PrintMusicStatus() {
         host::WidgetSnapshot snapshot{};
@@ -523,7 +948,23 @@ class FirmwareApp final {
     WeatherState weather_state_;
     MediaWidgets* media_widgets_{};
     static uint32_t SignalWrites() { return output_.NonzeroWrites(); }
+#if WASM_ENABLE_AOT
+    static constexpr size_t kCatalogSlots = std::size(kApps) + kMaxInstalledApps;
+    using Records = std::array<AppRecord, kCatalogSlots>;
+    struct Mutation {
+        uint32_t app;
+        uint64_t deadline;
+        bool remove;
+    };
+    Records* records_{};
+    OrionAppStore store_;
+    std::optional<Mutation> mutation_;
+    std::optional<uint32_t> remove_;
+    uint64_t upload_deadline_{};
+    std::array<EmbeddedApp, kCatalogSlots> apps_{};
+#else
     std::array<EmbeddedApp, std::size(kApps)> apps_{std::to_array(kApps)};
+#endif
     std::array<GuestRunner, AppManager::kMaxInstances> runners_{{
         {apps_, audio_, panels_[0], alarms_, weather_state_, SignalWrites},
         {apps_, audio_, panels_[1], alarms_, weather_state_, SignalWrites},
@@ -543,6 +984,8 @@ class FirmwareApp final {
 
 int main() {
     const auto start_us = bflb_mtimer_get_time_us();
+    constexpr uint32_t general_heap[] = {MM_HEAP_PSRAM_0};
+    if (mm_heap_set_any_alloc_order(general_heap, std::size(general_heap)) != 0) return 1;
     mpx_wireless_init();
     static micropixel::bouffalo::FirmwareApp app;
     if (app.Initialize()) {

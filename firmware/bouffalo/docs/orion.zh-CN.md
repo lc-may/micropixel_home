@@ -7,11 +7,12 @@
 应用和 conformance Guest 通过与 PC 相同的 `tools/pc.py` 构建，默认用固定版本的 `wamrc`
 编译为 RISC-V ILP32D AOT v6。
 WAMR 沿用 Core ABI、`ServiceRegistry`、`EventQueue` 和 `AppManager`，固件提供四个 Guest 槽。
-Guest 线性内存上限为 4 MiB，支持时钟、日志、事件等待、硬件随机数、语言和启动参数，
+Guest 在实例化时按应用上限预留 PSRAM，支持时钟、日志、事件等待、硬件随机数、语言和启动参数，
 以及定时器、合成音效和 PCM 流。定时器支持一次触发、周期、取消和销毁，Guest 在
 `event_wait` 取走到期事件，周期跨过多次截止时间时合并为一次事件。
-构建时将应用压缩到 `orion_apps.bin`。Host 用固件内的 SHA-256 校验 `apps` 分区，再将
-各应用在 PSRAM 中解压、重定位并执行。AOT 应用停止采用协作事件。`ORION_AOT=0` 构建带指令预算的
+配置、日历与提醒、天气、网易云音乐、新闻，以及支持 A2DP 时的蓝牙音箱各自打包为 Bundle v1，
+压缩后写进出厂 `orion_app_store.bin`。Host 从 LittleFS
+应用卷读取安装记录，在 PSRAM 中解压、校验、重定位并执行。AOT 应用停止采用协作事件。`ORION_AOT=0` 构建带指令预算的
 解释器固件，应用字节码随固件嵌入。
 
 ```sh
@@ -23,24 +24,22 @@ make -C firmware/bouffalo/boards/bl618dg BOARD=bl618dg_orion HOST_PORT=1 \
 把固定版本的 WAMR `wamrc 2.4.3` 加入 `PATH`，或通过环境变量 `WAMRC` 指定。
 Orion Host 的云端文字字库在构建时使用 Pillow 和 fontTools 生成，构建会下载并校验固定版本的思源黑体。
 离线构建可通过 `ORION_FONT_SOURCE=/path/to/SourceHanSansSC-Regular.otf` 指定同一版本的本地文件。
-默认 `RADIO=wifi`，构建产物在 `build-orion-host-wifi/build_out/micropixel_orion_host_bl618dg_ap.bin`。
-烧录前对副本执行 SDK 后处理，将 Orion BSP 继承的 RF 参数表加入应用镜像。
-`BL_SDK_BASE` 指向构建使用的 SDK 绝对路径。
+默认 `RADIO=dual`，构建产物在 `build-orion-host-dual/build_out/micropixel_orion_host_bl618dg_ap.bin`。
+烧录前用仓库工具准备固件镜像。它会补齐仅执行 `cmake --build` 时缺少的 SDK 证书包步骤，
+并在加入 Orion 的 RF 参数后校验证书包。`BL_SDK_BASE` 指向构建使用的 SDK 绝对路径。
 
 ```sh
-cp firmware/bouffalo/boards/bl618dg/build-orion-host-wifi/build_out/micropixel_orion_host_bl618dg_ap.bin \
-    /tmp/micropixel_orion_host.bin
-"$BL_SDK_BASE/tools/bflb_tools/bflb_fw_post_proc/bflb_fw_post_proc-ubuntu" \
-    --chipname=bl618dg --imgfile=/tmp/micropixel_orion_host.bin --appkeys=shared \
-    --ptfile="$PWD/firmware/bouffalo/boards/bl618dg/orion/config/partition_cfg_8M.toml" \
-    --dtsfile="$BL_SDK_BASE/bsp/board/bl618dgdk/config/bl_factory_params_IoTKitA_auto.dts"
+python3 firmware/bouffalo/tools/prepare_orion_firmware.py \
+    firmware/bouffalo/boards/bl618dg/build-orion-host-dual /tmp/micropixel_orion_host.bin
 ```
 
 按 [SDK 烧录流程](runtime.md#validation-executable) 检查设备、分区表与容量。
-默认 8 MiB 布局将同一构建目录下的 `orion_apps.bin` 写入 `apps`（`0x700000`），并将
-处理后的固件写入选中的 `FW` 槽。通过串口的 `MPX AOT catalog verified` 和
-`MPX LOAD ... backend=aot` 确认板端运行。AOT 应用包和固件通过摘要绑定，需要配套烧录。
-启动后，在 LCD 首页点天气、闹钟、网易云音乐或新闻，也可从「全部应用」打开。
+首次部署时，将同一构建目录下的 `orion_app_store.bin` 写入 `mp_apps`（`0x400000`），
+处理后的固件写入 `FW` 主槽。日常更新 Host 保留 `mp_apps`。通过串口的
+`mpx bundle list` 和 `MPX LOAD ... backend=aot` 确认应用已安装和启动。
+[应用管理与导入命令](app-store.zh-CN.md)
+首页中排左侧是「全屋灯光」，右侧是「中央空调控制器」。对应应用安装后即可从卡片启动，未安装时卡片显示「未安装」。
+点击首页时间仍可打开日历与提醒，应用也可从「全部应用」打开。
 应用和子页面的底部常驻「返回上一页」按钮。每次点击返回一层，在应用入口页点击会回到 Home。
 从底部中央上滑可直接回到 Home。
 Orion 只向前台 Session 发送触控并显示其画面。切换应用时，已有 Session 保留在各自的槽中。
@@ -76,8 +75,8 @@ mpx stop audio_pcm_stream
 
 闹钟使用原版 Guest 的 Activity 和 Service 入口。可用串口命令 `mpx time <UTC 秒数>`
 设置本次开机的墙钟，再用 `mpx run clock-alarm --alarm-test` 运行 Guest 的五秒响铃测试。
-主闹钟与各事项的提醒时间、重复规则、启用状态和上次触发记录保存在 `mp_kv` 的 `clock.alarms.v1` 文件中。
-文件同时保存时区和时钟设置，开机恢复记录，校时后重新计算下次触发。事项完成状态保存在 `clock.notes`。
+主闹钟与各事项的提醒时间、重复规则、启用状态和上次触发记录保存在 `/.data/micropixel.clock-alarm/@alarms.v1` 中。
+文件同时保存时区和时钟设置，开机恢复记录，校时后重新计算下次触发。事项完成状态保存在同一目录的 `notes.done`。
 
 `boards/bl618dg/orion/` 定义 LCD、触控、音频引脚和 Host 组合入口。
 `runtime/` 提供 FreeRTOS Guest Runner、标准 Core imports 及服务端点，复用共享的
@@ -85,10 +84,10 @@ mpx stop audio_pcm_stream
 
 | PC 功能 | Orion 接入 |
 | --- | --- |
-| 原生 Wasm、应用目录与生命周期 | 触控和串口操作内置目录，复用 `AppManager` 管理四个 Session。首页可启动配置、闹钟、天气、网易云音乐和新闻。媒体 Widget 和点对点播放控制复用 `AppHub`。 |
+| 原生 Wasm、应用目录与生命周期 | 触控和串口操作已安装目录，复用 `AppManager` 管理四个 Session。首页可启动配置、闹钟、天气、网易云音乐和新闻。媒体 Widget 和点对点播放控制复用 `AppHub`。 |
 | SDL 显示和触控、Home 与应用 UI | Orion 和 PC 共享 Home 的布局、配色和 Material 图标，480×480 LVGL 对接 ST7102 与 ST7123。前台 Guest 支持逻辑画布缩放、文字、裁剪、动态纹理和 JPEG/PNG 解码。天气和音乐 Widget 接收各自后台 Session 的最新快照。 |
-| 文件和 SQLite、资源包、本地安装 | Wi-Fi 配置和天气缓存分别保存为 `mp_kv` 上的 LittleFS 文件。Guest 通用 KV、BundleFS 和资源安装待接入。 |
-| POSIX 网络、HTTPS/MQTT、市场及联网 Guest | 配置 Guest 管理 Wi-Fi STA。Network 1.3 提供活动和后台 Service 两条 HTTPS 通道，支持 GET、POST、响应头和接收超时。明文 HTTP、MQTT、市场待接入。 |
+| 文件和 SQLite、资源包、本地安装 | `mp_kv` 保存 Wi-Fi 等系统配置。`mp_apps` 保存已安装的 Bundle 和按 AppId 隔离的 Guest KV。详见[应用私有数据](app-store.zh-CN.md#应用私有数据)。 |
+| POSIX 网络、HTTPS/MQTT、市场及联网 Guest | 配置 Guest 管理 Wi-Fi STA。Network 1.3 提供活动和后台 Service 两条 HTTPS 通道，支持 GET、POST、响应头和接收超时。明文 HTTP、MQTT 和联网市场待接入。 |
 | 音效、PCM、压缩音频和 URL 媒体 | 音效与 PCM 输出和 LCD 可共用同一固件。网易云音乐的 HTTPS MP3 走 Host 混音器，支持暂停、进度跳转和后台播放。录音及其他 URL 音频格式待接入。 |
 | RV32 AOT | Orion 生产目录使用 SDK 的 ILP32D。公共 ILP32F Bundle 在独立验证固件运行。 |
 
@@ -97,11 +96,25 @@ mpx stop audio_pcm_stream
 Orion 默认开启 `CONFIG_PSRAM_COPY_CODE`。SDK 启动阶段从 Flash 复制常规 Host 指令和只读数据，
 完成搬运后才启动 Host。启动、时钟切换和 Flash 操作所需的专用代码段按芯片要求链接。
 Guest 镜像在 PSRAM 中解压、装载和执行，模块、实例与线性内存也分配在 PSRAM。
+AOT 装载完成并确认运行时已接管所需数据后，释放临时解压镜像。
 
-OCRAM 存放 Host、Guest、音频等热路径的任务栈、控制结构及片内驱动数据。HTTPS 和媒体任务
-优先用 WRAM 的空闲堆，并为无线保留 64 KiB。帧缓冲、字库、场景和应用数据分配在 PSRAM。
-后台 Session 首次可见且提交场景时才分配像素缓冲。XZ 解码在 OCRAM 有余量时使用片内工作区，
-否则回退到 PSRAM。
+OCRAM 存放 FreeRTOS 任务栈和片内全局变量。WRAM 供 lwIP 内存池、Wi-Fi 数据和无线 SDK 堆使用。
+Orion Host 的通用堆与 FreeRTOS 动态对象走 PSRAM。帧缓冲、字库、场景、XZ 工作区和应用数据也在 PSRAM。
+Session 进入后台时释放像素缓冲，回到前台后用保留的场景重新绘制。
+
+每个启动的应用按模块实际初始页数加上增长额度预留连续 PSRAM。Wasm 静态数据，包括大型全局变量，
+由编译器计入初始页数。线性内存按 64 KiB 一页增长，增长不搬动基址，应用停止后释放其预留区。
+模块声明的最大页数也会限制增长。Host 图形资源和网络工作区从共享 PSRAM 分配。
+
+| 应用 | 当前初始线性内存 | 增长额度 | 当前预留上限 |
+| --- | ---: | ---: | ---: |
+| 网易云音乐 | 192 KiB | 960 KiB | 1152 KiB |
+| 闹钟 | 256 KiB | 1152 KiB | 1408 KiB |
+| 天气、新闻 | 256 KiB | 768 KiB | 1024 KiB |
+| 配置 | 192 KiB | 128 KiB | 320 KiB |
+| 诊断应用 | 64 KiB | 0 KiB | 64 KiB |
+
+`MPX LOAD` 的 `linear`、`limit` 和 `reserved` 分别报告初始大小、有效上限和 PSRAM 分配大小。
 
 | Orion 栈 | 容量 |
 | --- | ---: |
@@ -119,39 +132,42 @@ OCRAM 存放 Host、Guest、音频等热路径的任务栈、控制结构及片�
 比较编译选项时使用独立的 `BUILD_DIR`。可通过 `ORION_RUNTIME_OPT=-Os|-O2|-O3` 选择
 部分 Host 和软件图形合成的优化级别。`ORION_AOT=0` 下可用 `ORION_INTERPRETER_OPT` 单独设置解释器编译级别。
 通过 `ORION_GUEST_PROFILE=release|performance`
-选择内置 Guest 的优化级别。Orion 的 FW 槽为 3 MiB，烧录前检查 SDK 后处理后的完整镜像容量。
+选择内置 Guest 的优化级别。烧录前核对 SDK 后处理后的完整镜像能否装入目标 FW 槽。
 
 ## 8 MiB Flash 分区
 
 Orion Host 指定 [partition_cfg_8M.toml](../boards/bl618dg/orion/config/partition_cfg_8M.toml)。
-它适用于 JEDEC 容量为 8 MiB 的设备。原 `mfg` 和 `media` 区间用于扩展主固件槽和存放图片，
-Boot2、系统配置与工厂数据沿用原地址。
+它适用于 JEDEC 容量为 8 MiB 的设备。主固件槽、设置和工厂数据沿用原地址，
+上半区用于应用卷。
 
 | 区域 | 起始地址 | 容量 |
 | --- | --- | --- |
 | Boot2 和双份分区表 | `0x000000` | 64 KiB |
-| FW 主槽 | `0x010000` | 3 MiB |
-| imgres | `0x310000` | 868 KiB |
+| FW 主槽 | `0x010000` | 3812 KiB |
+| mp_kv（LittleFS） | `0x3c9000` | 128 KiB |
 | PSM、KEY、DATA、factory | `0x3e9000` | 92 KiB |
-| FW 备用槽 | `0x400000` | 3 MiB |
-| apps | `0x700000` | 896 KiB |
-| mp_kv（LittleFS） | `0x7e0000` | 128 KiB |
+| mp_apps（LittleFS） | `0x400000` | 4096 KiB |
 
-从旧版迁移时，先备份要重新分配的区间与双份分区表。写入并读回校验固件槽后，再切换分区表。
-默认固件从 `apps` 装载已校验的 AOT 目录，`imgres` 保留给图片。
-两个 FW 槽共用 `apps` 分区。切换到摘要不同的 AOT 固件时，需要写入它配套的应用包。
+此布局将以前的 FW 备用槽、`imgres` 和只读 `apps` 区域合并为 `mp_apps`。
+迁移前备份整片 Flash，确认主槽为启动槽。采用上一版 8 MiB 布局时可保留
+`mp_kv` 及系统和工厂数据。使用旧版 `0x7e0000` 的设置分区时，先从备份迁移设置到
+`0x3c9000`。烧录并读回校验新的主固件与出厂应用卷后，更新双份分区表。
+从出厂镜像开始，应用升级和卸载由设备端应用管理完成。
 
 ## Wi-Fi 回连与天气刷新
 
-Orion 从 `mp_kv` 挂载 LittleFS。Wi-Fi 保存最近一次成功连接的 SSID、BSSID 和密码到 `settings.wifi`。
-DHCP 模式在每次连接后重新取得地址。静态模式额外保存 IPv4、掩码、网关和 DNS，并在回连时恢复。
+Orion 从 `mp_kv` 挂载 LittleFS。Wi-Fi 获得 IPv4 后，Host 将 SSID、密码、BSSID 和信道写入
+`settings.wifi.v2`，同一 SSID 和 BSSID 的记录会更新并移到首位。开机及掉线时，Host 在后台扫描，按最近
+成功连接的顺序尝试扫到的历史 AP。一条候选关联或获取 IPv4 失败后，继续尝试同一次扫描的下一条候选。
+没有可用候选时，每隔 120 秒重扫。手动扫描、连接或断开后，自动回连最多等待 60 秒，给用户留出配网时间。
+DHCP 模式在每次连接后重新取得地址。静态模式按 AP 保存 IPv4、掩码、网关和 DNS，并在回连时恢复。
 配置应用的连接入口使用 DHCP。现有 SDK 串口命令 `set_ipv4 <ip> <dns> <gateway> <netmask>` 可为已连接的 STA 设置静态值。
-写入先关闭临时文件，再重命名提交。已有 Timebox 配置可在首次成功连接后迁移到文件。
+写入先关闭临时文件，再重命名提交。已有 `settings.wifi` 单条记录会自动导入，已有 Timebox 配置在首次成功连接后迁移。
 
 拿到 IP 后，Host 通过 SNTP 校时，成功后每 15 分钟重校。每次校时成功都会更新 TLS、Home 和闹钟的 UTC 基准。
 网络中断期间，Home 和闹钟继续使用最近一次 UTC 基准与单调时钟走时。串口手动设置的 UTC 基准在下一次成功校时时更新。
 天气应用通过 Network Service 请求 Open-Meteo，应用启动、切换城市及点击刷新时发起更新。
-天气 Service 在开机后占用独立 Session。首次启动先从 LittleFS 的 `weather.v1` 加载最近一次天气，
+天气 Service 在开机后占用独立 Session。首次启动先从 LittleFS 的 `/.data/micropixel.weather/weather.v1` 加载城市与最近一次天气，
 再刷新并发布给 Home。退出天气页面时刷新一次，随后每 15 分钟更新，网络暂不可用时会重试。
 天气 Session 在其他应用显示时继续运行。
 
@@ -294,18 +310,20 @@ DMA TX/RX 分别使用 `dma0_ch0` 和 `dma0_ch1`，显示配置应核对 DMA 分
 再释放板级数据接口。 [Orion 录放示例](https://github.com/bouffalolab/bouffalo_sdk/tree/9e34f621e6e3b0acef296fc5cedd0ed8c33d4464/examples/audio/xcodec_io)
 [Xcodec 接口](https://github.com/bouffalolab/bouffalo_sdk/tree/9e34f621e6e3b0acef296fc5cedd0ed8c33d4464/components/multimedia/xcodec)
 
-## Wi-Fi 与 BLE
+## Wi-Fi、BLE 与经典蓝牙
 
-从首页打开「配置」应用。该应用独立编译成 Wasm，通过 Wireless 1.1 Service 管理 Host 的无线状态。
-只有内置配置应用有权提交无线命令。 [配置 Guest 源码](../../../guest/apps/settings/)
+从首页打开「配置」应用。该应用通过 Wireless 1.4 Service 管理 Host 的无线状态。
+经典蓝牙使用独立的 Bluetooth Service。内置 `micropixel.settings` 应用拥有这两个服务的无线控制权限。 [配置 Guest 源码](../../../guest/apps/settings/)
 
 - **Wi-Fi** 页最多列出 SDK 返回的 100 个 AP，按 RSSI 从大到小排列。长网络名称可换行显示，每个 AP 标记各自的频段，
   同时扫到 2.4 GHz 和 5 GHz 的 SSID 标记为「双频」。点选网络后优先尝试同名、同为开放或加密的最强
   5 GHz AP，关联失败时尝试兼容的 2.4 GHz AP。开放网络可直接接入，加密网络需要密码。
-  连上并获得 DHCP 地址后显示「Wi-Fi 已连接」，也可在此断开。最近一次成功连接的凭据保存到 LittleFS，供下次启动回连。
-- **Bluetooth LE** 页扫描可连接设备，点选后发起连接。选择「允许发现」后，以
-  `MicroPixel Orion` 广播并可被对端连接。连接后可在同一页断开。
-  功能覆盖 BLE 链路建立与断开，GATT 应用协议和凭据传输由后续应用实现。
+  连上并获得 IPv4 地址后显示「Wi-Fi 已连接」，也可在此断开。Host 会记住成功连接过的 AP，退出配置应用后仍可自动回连。
+- **BLE** 页扫描最多 16 台可连接的 BLE 设备，并显示名称、地址和信号强度。扫描最多 6 秒，也可提前结束。
+  点选设备可连接或取消连接。选择「允许发现」后，Orion 以 `MicroPixel Orion` 广播并接受一条对端连接。
+  对端断开后会恢复广播。「停止广播」在连接期间也可用，关闭发现并保留当前连接。「断开连接」有独立按钮。
+  PC 连接后可从 GATT Device Information Service（`0x180A`）
+  的 Model Number（`0x2A24`）读到 `BL618DG Orion`。
 
 启动沿用 Timebox 的 Wi-Fi FHOST、lwIP 与 SYSINIT，由 SDK 事件向 Host 报告扫描结果和连接状态。
 Orion BSP 复用 BL618DG DK 的 `board_rf.c` 和工厂 RF 参数。在 Wi-Fi 单无线构建中，
@@ -315,12 +333,135 @@ Orion BSP 复用 BL618DG DK 的 `board_rf.c` 和工厂 RF 参数。在 Wi-Fi 单
 
 | 配置 | 无线接口 |
 | --- | --- |
-| `RADIO=wifi` | 默认，启用 Wi-Fi STA 和 lwIP。 |
-| `RADIO=ble` | 保留的 BLE 单无线构建，移植暂停。 |
-| `RADIO=dual` | 保留的共存实验构建，需验证共享天线配置。 |
+| `RADIO=wifi` | 启用 Wi-Fi STA 和 lwIP。 |
+| `RADIO=ble` | BLE 单无线构建。GPIO16 拉高选择 BT 路径，沿用 BL618DG DK 的 standalone PHY 校准。 |
+| `RADIO=dual` | 默认，启用 Wi-Fi STA、经典蓝牙 BR/EDR 和 BLE。采用 standalone 单天线 SPDT 拓扑，GPIO16 由硬件 PTA 控制。 |
 
 单无线固件的配置 Guest 会显示另一接口不可用。
 
 Host 固件使用 SDK 原生 ILP32D，无线库、显示和音频在同一个 AP 核上运行。
-ILP32F AOT 测试使用独立验证固件。默认 Wi-Fi 构建为天气、新闻和网易云音乐提供 HTTPS，
+ILP32F AOT 测试使用独立验证固件。默认构建为天气、新闻和网易云音乐提供 HTTPS，
 支持 JPEG/PNG 解码和 MP3 流式播放。天气更新由常驻 Service 发起。
+
+BLE 和经典蓝牙的扫描结果按「鼠标、键盘和笔」「音频」「其他设备」分组。BLE 使用广播和扫描响应中的
+Appearance 与服务 UUID，经典蓝牙使用 Class of Device 和扩展查询响应中的服务 UUID。
+信息不足的设备归到「其他设备」。 [Bluetooth SIG Assigned Numbers](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/index-en.html)
+
+### 经典蓝牙与 A2DP
+
+默认的 `RADIO=dual` 固件提供经典蓝牙页面。使用「配置」0.1.6，页面可扫描和连接设备、开启发现、配对和取消配对。
+需要更换角色时，先断开经典蓝牙连接并关闭发现，然后点击页面右侧的角色按钮。一台 Orion 同一时间运行一个 A2DP 角色。
+
+- **接收 · Sink** 是上电默认角色。在 Orion 打开「允许发现」，从 Android 或 Windows 配对并将音频输出选为 `MicroPixel Orion`。在对端控制播放，Orion 扬声器播放接收到的 SBC 音频，并显示协商采样率。
+- **发送 · Source** 可连接处于配对模式的蓝牙音箱或耳机。扫描后点选设备，连接 ACL 后点「连接音频」。音频开始传输后，Orion 上通过系统音频服务播放的声音会送到对端。「暂停音频」和「开始音频」控制 A2DP stream。
+
+授权 Guest 使用 `sdk/bluetooth.hpp` 打开 Bluetooth Service。控制方法入队后通过 `Status` 读取完成状态和 SDK 错误码。
+扫描结果按 `scan_revision` 读取。配对、查看绑定和取消配对使用经典蓝牙地址。当前 SDK 配置将经典蓝牙绑定保存在运行内存中。
+
+默认音频路由 `MPX_BT_AUDIO_SYSTEM` 连接 Host 混音器。切换到 `MPX_BT_AUDIO_GUEST` 后，
+Sink 可通过 `ReadPcm` 取出已解码音频，Source 可通过 `WritePcm` 提供待编码音频。
+使用 `Status` 返回的 `stream_revision`、采样率和声道数传输交错的有符号 16 位 PCM。
+单次最多 1024 字节，按完整采样帧读写。队列暂时为空或写满时返回 `WOULD_BLOCK`，应在 Guest 事件循环中重试。
+音频编解码使用 SBC。 [Guest ABI](../../../guest/abi/bluetooth.h) [C++ SDK](../../../guest/sdk/bluetooth.hpp)
+
+出厂「蓝牙音箱」使用 Bluetooth 1.2 读取经典蓝牙状态和控制 AVRCP，支持从「全部应用」启动和后台播放。 [蓝牙音箱 Guest](../../../guest/apps/bluetooth-speaker/README.zh-CN.md)
+
+### 用 PC 验证 BLE
+
+`ORION_BLE_PROFILES=1` 在 Orion Host 上启用 Battery Service（`0x180F`）、Heart Rate Service（`0x180D`）
+和 Orion GATT 回环。Battery Level（`0x2A19`）支持读和通知，Heart Rate Measurement（`0x2A37`）支持通知。
+服务使用模拟数据，供 Windows Orion BLE 测试台执行 Profile 自检。回环支持写请求、写命令、通知和回读。
+Windows 工具位于工作区的 `orion_ble_tester`，打开 `dist/OrionBleTester.exe` 即可扫描和连接。
+
+```sh
+make -C firmware/bouffalo/boards/bl618dg BOARD=bl618dg_orion HOST_PORT=1 \
+  RADIO=dual ORION_BLE_PROFILES=1
+```
+
+用本页开头的镜像准备工具处理 `build-orion-host-dual-profiles`。烧录后在「配置 → 蓝牙」开启发现，
+也可通过 UART 使用 `orion_ble advertise`。广播包含 Device Information、Battery 和 Heart Rate UUID。
+5 GHz Wi-Fi 与 BLE 使用同一共存配置，GPIO16 由硬件控制。
+
+在 Linux 或 WSL 中设置 `BL_SDK_BASE`，指向按 [SDK 说明](sdk.md) 准备的 Orion SDK。
+其中的 [Orion BSP 补丁](../patches/orion-bt-standalone-spdt.patch) 为 BLE 单无线构建配置 GPIO16。
+SDK `peripheral` 示例和 Orion BLE 单无线 Host 共用这一初始化。
+
+在 MicroPixel 仓库根目录先构建 SDK `peripheral` 示例。
+
+```sh
+repo="$PWD"
+test_build="$repo/build/orion-ble-smoke"
+cmake_definition="-DCMAKE_PROJECT_INCLUDE=$repo/firmware/bouffalo/cmake/orion_ilp32d.cmake" \
+make -C "$BL_SDK_BASE/examples/btble/peripheral" ninja \
+  CHIP=bl618dg BOARD=bl618dg_orion CPU_ID=ap CPU_MODEL=b1 \
+  CROSS_COMPILE=riscv64-zephyr-elf- CONFIG_DUALCORE_DISABLE=y CONFIG_PSRAM=y \
+  CONFIG_BTBLE_USE_STANDALONE_PATH=y CONFIG_CONSOLE_UART_BAUDRATE=2000000 \
+  CONFIG_SKIP_COMBINE=y BUILD_DIR="$test_build/sdk-peripheral"
+```
+
+为 `sdk-peripheral/build_out/peripheral_bl618dg_ap.bin` 的副本运行 SDK 的 `bflb_fw_post_proc`。
+指定 `--chipname=bl618dg --appkeys=shared`，`--dtsfile` 使用 SDK 的
+`bsp/board/bl618dgdk/config/bl_factory_params_IoTKitA_auto.dts`。读取并备份板上主 FW 槽，核对芯片 MAC 和分区表后，
+只将测试镜像写入已确认的主 FW 槽 `0x10000`。串口以 2000000 波特率查看
+`BT standalone RF switch on GPIO16 selected`、`BD_ADDR` 和 `Start advertising success.`。
+
+使用 `RADIO=ble ORION_BLE_SMOKE=1` 构建 MicroPixel 诊断固件。
+
+```sh
+make -C firmware/bouffalo/boards/bl618dg ninja BOARD=bl618dg_orion HOST_PORT=1 \
+  RADIO=ble ORION_BLE_SMOKE=1 BUILD_DIR="$test_build/micropixel"
+python3 firmware/bouffalo/tools/prepare_orion_firmware.py \
+  "$test_build/micropixel" "$test_build/micropixel-ble.bin"
+```
+
+诊断固件启动后，在设置中选择 Make discoverable，或在串口执行 `orion_ble advertise`。
+`orion_ble hide` 停止广播，`orion_ble scan` 扫描附近可连接设备，`orion_ble disconnect` 主动断链。
+这些命令复用 Host 的 Wireless 命令队列。诊断构建还注册一条最大 20 字节的 GATT 特征值，支持读取、写入和通知。
+
+在有蓝牙适配器的 PC 上安装 `bleak`，从仓库根目录运行 [对端测试脚本](../../../tools/test_orion_ble.py)。
+使用 WSL 时在 Windows 原生 Python 中运行脚本，访问 Windows 管理的蓝牙控制器。
+
+```sh
+python -m pip install bleak
+python tools/test_orion_ble.py sdk --address "$ORION_BLE_ADDR"
+python tools/test_orion_ble.py micropixel
+```
+
+将 `ORION_BLE_ADDR` 设为示例串口打印的 `BD_ADDR`。
+示例验证广播、GAP 连接和断开、GATT 发现、读、写、通知、指示。MicroPixel 验证同一条特征值的写入、通知和回读。
+从 PC 断开后，MicroPixel 可再次执行 `orion_ble advertise` 测试重连。测试结束后可将备份写回主 FW 槽并读回校验。
+
+### 5 GHz Wi-Fi 与 BLE 共存
+
+`RADIO=dual` 选择 `CONFIG_COEX_BOARD_TOPOLOGY_STANDALONE_SINGLE_ANT_SPDT` 和
+`CONFIG_COEX_BOARD_SPDT_GPIO=16`。BL-M65P-32S 的 SPDT 在 2.4 GHz Wi-Fi 和 BT RF 之间切换。
+5 GHz Wi-Fi 通过 diplexer 接到同一根天线。共存时 GPIO16 复用为 `GPIO_FUNC_SPDT`，由 PTA 决定输出。
+SDK 切换到 5 GHz 共存配置时，Orion BSP 保持这项硬件复用。
+
+```sh
+test_build="$PWD/build/orion-coex-smoke"
+make -C firmware/bouffalo/boards/bl618dg ninja BOARD=bl618dg_orion HOST_PORT=1 \
+  RADIO=dual ORION_BLE_SMOKE=1 BUILD_DIR="$test_build/micropixel"
+cmake --build "$test_build/micropixel" --target post_build
+python3 firmware/bouffalo/tools/prepare_orion_firmware.py \
+  "$test_build/micropixel" "$test_build/micropixel-coex.bin"
+```
+
+板端连到 5 GHz AP 后，串口用 `wifi_sta_info` 确认信道和 IP，用 `wifi_coex_status` 查看 5 GHz hardware-only 状态。
+`memtrace 0x20000904` 可读回 GPIO16 的复用配置。寄存器值与 `0xc0001f40` 按位与后应得到 `0x40001900`。
+运行 `orion_ble advertise`，在 PC 持续 ping Orion 的同时执行 `python tools/test_orion_ble.py micropixel --rounds 30`。
+检查 BLE 连接期间的 Wi-Fi 回包、GATT 写入通知与回读，以及连接前后的 GPIO16 复用和 Wi-Fi 信道。
+
+需要在 15 路 TCP 满载时测 GATT 吞吐，可同时启用 `ORION_BLE_SMOKE=1` 和 `ORION_RX_BENCHMARK=1`。
+诊断服务 `79180b9c-f9dc-47b2-a71b-4cd98f201203` 支持连续 Write Command 和 Notification，
+每帧上限为协商 ATT MTU 减 3 字节，最多 244 字节。每帧前 4 字节是小端序号，余下字节为 `0xa5`。
+
+| 特征值 UUID 后四位 | 操作 |
+| --- | --- |
+| `1204` | PC 向 Orion 发 Write Command |
+| `1205` | Orion 向已订阅的 PC 发 Notification |
+| `1206` | 写单字节控制值。`1` 启动上行，`2` 启动通知，`3` 启动双向，`0` 停止，`4` 请求较短连接间隔、251 字节数据长度和 LE 2M PHY |
+
+每轮序号从 0 开始。串口 `gatt_bench_stats` 记录板端收包、序号缺口、无效载荷和通知提交计数。
+读取 `1206` 会返回 4 字节小端已收帧数，PC 可据此限制无响应写入的在途队列。
+上行以板端有效收字节计，下行以 PC 实收且通过序号和载荷校验的通知字节计。

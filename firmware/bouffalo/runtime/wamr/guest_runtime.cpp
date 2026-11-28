@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "guest_runtime.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
 #include "bflb_mtimer.h"
+#include "mm.h"
 #include "platform_api_vmcore.h"
 #include "runtime/abi/timer_endpoint.hpp"
 #include "runtime/components.hpp"
@@ -20,6 +22,21 @@ using runtime::EventWaitResult;
 
 #if defined(MICROPIXEL_ORION_HOST)
 constexpr uint32_t kWasmStackBytes = 16U * 1024U;
+
+uint32_t LinearMemoryLimit(wasm_module_t module, uint32_t growth_pages) {
+    const auto exports = wasm_runtime_get_export_count(module);
+    for (int32_t i = 0; i < exports; ++i) {
+        wasm_export_t item{};
+        wasm_runtime_get_export_type(module, i, &item);
+        if (item.kind != WASM_IMPORT_EXPORT_KIND_MEMORY || !item.u.memory_type) continue;
+        const auto initial = wasm_memory_type_get_init_page_count(item.u.memory_type);
+        const auto maximum = wasm_memory_type_get_max_page_count(item.u.memory_type);
+        if (initial > maximum) return 0;
+        const auto limit = initial + std::min(growth_pages, maximum - initial);
+        return limit;
+    }
+    return 0;
+}
 #else
 constexpr uint32_t kWasmStackBytes = 8192U;
 #endif
@@ -154,11 +171,22 @@ bool InitializeGuestRuntime() {
     args.native_module_name = "micropixel";
     args.native_symbols = symbols;
     args.n_native_symbols = sizeof(symbols) / sizeof(symbols[0]);
-    return wasm_runtime_full_init(&args);
+    if (!wasm_runtime_full_init(&args)) return false;
+#if defined(MICROPIXEL_ORION_HOST)
+    wasm_runtime_set_linear_memory_reserve_max(true);
+    wasm_runtime_set_enlarge_mem_error_callback(
+        [](uint32_t pages, uint64_t size, uint32_t, enlarge_memory_error_reason_t reason, wasm_module_inst_t,
+           wasm_exec_env_t, void*) {
+            std::printf("MPX GROW failed linear=%lu additional_pages=%lu reason=%s\n", static_cast<unsigned long>(size),
+                        static_cast<unsigned long>(pages), reason == MAX_SIZE_REACHED ? "limit" : "allocation");
+        },
+        nullptr);
+#endif
+    return true;
 }
 
 int32_t RunGuest(GuestContext& context, std::span<const uint8_t> binary, uint32_t unpacked_size,
-                 const char* launch_name) {
+                 const char* launch_name, [[maybe_unused]] uint32_t linear_growth_pages) {
     const auto start_us = bflb_mtimer_get_time_us();
     // The loader may rewrite the input, and some sections remain backed by it.
     const uint32_t size = unpacked_size ? unpacked_size : binary.size();
@@ -178,16 +206,72 @@ int32_t RunGuest(GuestContext& context, std::span<const uint8_t> binary, uint32_
     } else {
         std::memcpy(image, binary.data(), size);
     }
+    return RunGuestImage(context, {image, size}, launch_name, linear_growth_pages, start_us);
+}
+
+#if WASM_ENABLE_AOT && defined(MICROPIXEL_ORION_HOST)
+bool ValidateGuestAot(std::span<uint8_t> image) {
+    constexpr uint8_t magic[]{0, 'a', 'o', 't', 6, 0, 0, 0};
+    if (image.size() < sizeof(magic) || std::memcmp(image.data(), magic, sizeof(magic)) != 0) return false;
+    char error[128]{};
+    const LoadArgs args{.wasm_binary_freeable = true};
+    const auto module = wasm_runtime_load_ex(image.data(), image.size(), &args, error, sizeof(error));
+    if (!module) {
+        std::printf("MPX STORE AOT rejected: %s\n", error);
+        return false;
+    }
+    bool valid = false;
+    const auto initial_pages = LinearMemoryLimit(module, 0);
+    if (initial_pages != 0 && initial_pages <= 64U) {
+        for (int32_t i = 0; i < wasm_runtime_get_export_count(module); ++i) {
+            wasm_export_t item{};
+            wasm_runtime_get_export_type(module, i, &item);
+            if (item.kind == WASM_IMPORT_EXPORT_KIND_FUNC && item.name &&
+                std::strcmp(item.name, "__micropixel_start") == 0 && item.u.func_type &&
+                wasm_func_type_get_param_count(item.u.func_type) == 0 &&
+                wasm_func_type_get_result_count(item.u.func_type) == 1 &&
+                wasm_func_type_get_result_valkind(item.u.func_type, 0) == WASM_I32) {
+                valid = true;
+                break;
+            }
+        }
+    }
+    wasm_runtime_unload(module);
+    return valid;
+}
+#endif
+
+int32_t RunGuestImage(GuestContext& context, std::span<uint8_t> binary, const char* launch_name,
+                      [[maybe_unused]] uint32_t linear_growth_pages, uint64_t start_us) {
+    auto* image = binary.data();
+    const uint32_t size = binary.size();
     const auto image_us = bflb_mtimer_get_time_us();
     char error[128]{};
     constexpr const char* backend = WASM_ENABLE_AOT ? "aot" : "wasm";
+#if WASM_ENABLE_AOT && defined(MICROPIXEL_ORION_HOST)
+    // Keep relocated code in PSRAM and release the temporary decompressed file.
+    const LoadArgs load_args{.wasm_binary_freeable = true};
+    wasm_module_t module = wasm_runtime_load_ex(image, size, &load_args, error, sizeof(error));
+    if (module && wasm_runtime_is_underlying_binary_freeable(module)) {
+        os_free(image);
+        image = nullptr;
+    }
+#else
     wasm_module_t module = wasm_runtime_load(image, size, error, sizeof(error));
+#endif
     const auto loaded_us = bflb_mtimer_get_time_us();
+#if defined(MICROPIXEL_ORION_HOST)
+    const uint32_t maximum = module ? LinearMemoryLimit(module, linear_growth_pages) : 0;
+    if (module && !maximum) std::snprintf(error, sizeof(error), "missing Guest linear memory budget");
+#else
+    constexpr uint32_t maximum = 64U;
+#endif
     const InstantiationArgs args{
         .default_stack_size = kWasmStackBytes,
-        .max_memory_pages = 64U,
+        .max_memory_pages = maximum,
     };
-    wasm_module_inst_t instance = module ? wasm_runtime_instantiate_ex(module, &args, error, sizeof(error)) : nullptr;
+    wasm_module_inst_t instance =
+        module && maximum ? wasm_runtime_instantiate_ex(module, &args, error, sizeof(error)) : nullptr;
     wasm_exec_env_t exec = instance ? wasm_runtime_create_exec_env(instance, kWasmStackBytes) : nullptr;
     wasm_function_inst_t entry = instance ? wasm_runtime_lookup_function(instance, "__micropixel_start") : nullptr;
     uint32_t result[1]{};
@@ -198,12 +282,16 @@ int32_t RunGuest(GuestContext& context, std::span<const uint8_t> binary, uint32_
             const auto page_bytes = memory ? wasm_memory_get_bytes_per_page(memory) : 0;
             const auto pages = memory ? wasm_memory_get_cur_page_count(memory) : 0;
             const auto max_pages = memory ? wasm_memory_get_max_page_count(memory) : 0;
-            std::printf("MPX LOAD %s image=%lu load=%lu instantiate=%lu bytes=%lu backend=%s linear=%lu limit=%lu\n",
-                        launch_name, static_cast<unsigned long>(image_us - start_us),
-                        static_cast<unsigned long>(loaded_us - image_us),
-                        static_cast<unsigned long>(bflb_mtimer_get_time_us() - loaded_us),
-                        static_cast<unsigned long>(size), backend, static_cast<unsigned long>(pages * page_bytes),
-                        static_cast<unsigned long>(max_pages * page_bytes));
+            const auto base = memory ? wasm_memory_get_base_address(memory) : nullptr;
+            const auto reserved = base ? kmalloc_size(base) : 0;
+            std::printf(
+                "MPX LOAD %s image=%lu load=%lu instantiate=%lu bytes=%lu backend=%s linear=%lu limit=%lu "
+                "reserved=%lu\n",
+                launch_name, static_cast<unsigned long>(image_us - start_us),
+                static_cast<unsigned long>(loaded_us - image_us),
+                static_cast<unsigned long>(bflb_mtimer_get_time_us() - loaded_us), static_cast<unsigned long>(size),
+                backend, static_cast<unsigned long>(pages * page_bytes),
+                static_cast<unsigned long>(max_pages * page_bytes), static_cast<unsigned long>(reserved));
         }
         wasm_runtime_set_custom_data(instance, &context);
         if (context.memory) context.memory->module = instance;

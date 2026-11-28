@@ -61,10 +61,9 @@ uint64_t AlarmHost::Utc(uint64_t now_ms) const {
     return (sync_utc_ms_ + (now_ms - sync_ms_)) / 1000U;
 }
 
-void AlarmHost::ReadClock(uint64_t now_ms, uint32_t app, micropixel_wall_time_t& wall, uint64_t& next_alarm) {
+micropixel_wall_time_t AlarmHost::ReadClock(uint64_t now_ms) {
     Lock lock(lock_);
-    wall = clock_.Now(Utc(now_ms));
-    next_alarm = alarms_.NextOccurrence(app, 1);
+    return clock_.Now(Utc(now_ms));
 }
 
 void AlarmHost::Process(uint64_t now_ms, platform::audio::AudioEngine& audio) {

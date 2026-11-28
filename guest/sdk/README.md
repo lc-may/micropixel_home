@@ -155,6 +155,7 @@ already covers the need; apps must not re-implement these locally.
 | Persistent scores and settings | `KVStore::GetU32Or/SetU32/GetBytes` | `storage.hpp` |
 | Launch flags and numeric options | `LaunchArguments::HasFlag/GetUnsigned/FindValue` | `launch_arguments.hpp` |
 | Locale-aware strings | `Localization::CurrentLocale` + generated string tables | `localization.hpp` |
+| Orion Bluetooth Classic and A2DP | `Bluetooth` | `bluetooth.hpp` |
 | Haptics, GPIO, power, device discovery | `Haptics`, `Gpio`, `PowerInfo`, `Devices` | `haptics.hpp`, `gpio.hpp`, `power_info.hpp`, `devices.hpp` |
 
 ## Retained UI widgets

@@ -29,8 +29,12 @@ struct EmbeddedApp final {
     bool clock{};
     bool weather{};
     bool music{};
+    bool bluetooth_speaker{};
     uint16_t canvas_extent{};
-    bool KeepService() const { return weather || music; }
+    uint8_t linear_growth_pages{};
+    const char* bundle_id{};
+    bool Available() const { return bundle_id || !wasm.empty(); }
+    bool KeepService() const { return weather || music || bluetooth_speaker; }
 };
 
 struct GuestLaunchOptions final {

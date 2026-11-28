@@ -1,0 +1,14 @@
+diff --git a/drivers/soc/bl618dg/std/startup/mn/vector.S b/drivers/soc/bl618dg/std/startup/mn/vector.S
+index 75265900..6e02c3e3 100644
+--- a/drivers/soc/bl618dg/std/startup/mn/vector.S
++++ b/drivers/soc/bl618dg/std/startup/mn/vector.S
+@@ -349,7 +349,8 @@ trap:
+     mv      sp, a0
+     sw      t0, REG_X5(sp)
+ 
+-    jal     exception_entry
++    /* The exception handler can be outside JAL range in large AP images. */
++    call    exception_entry
+ 
+     lw      t0, REG_INT_CTX(sp)
+     csrw    mstatus, t0

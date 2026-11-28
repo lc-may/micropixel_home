@@ -3,6 +3,7 @@
 
 #include <cstdio>
 
+#include "platform/wireless/classic_bluetooth.h"
 #include "xcodec_dev_types.h"
 
 namespace micropixel::bouffalo {
@@ -46,11 +47,16 @@ platform::audio::AudioStatus OrionAudioOutput::Write(const int32_t* frames, uint
     if (frames == nullptr || frame_count > kChunkFrames || frame_count == 0U) {
         return XCODEC_DEV_INVALID_ARG;
     }
+#if defined(CONFIG_BT_A2DP)
+    const bool routed = classic::RouteOutput(frames, frame_count);
+#else
+    constexpr bool routed = false;
+#endif
     bool nonzero = false;
     for (uint32_t i = 0; i < frame_count; ++i) {
         const int32_t left = frames[2U * i] >> 16;
         const int32_t right = frames[2U * i + 1U] >> 16;
-        mono_[i] = static_cast<int16_t>((left + right) / 2);
+        mono_[i] = routed ? 0 : static_cast<int16_t>((left + right) / 2);
         nonzero |= mono_[i] != 0;
     }
     const int status = xcodec_dev_write(output_, mono_, static_cast<int>(frame_count * sizeof(mono_[0])));

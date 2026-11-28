@@ -50,6 +50,7 @@ typedef enum micropixel_bundle_aot_target_mask {
     MICROPIXEL_BUNDLE_AOT_TARGET_MASK_NONE = 0,
     MICROPIXEL_BUNDLE_AOT_TARGET_MASK_RISCV32_ILP32F = 1U << 0U,
     MICROPIXEL_BUNDLE_AOT_TARGET_MASK_XTENSA_ESP32S3 = 1U << 1U,
+    MICROPIXEL_BUNDLE_AOT_TARGET_MASK_RISCV32_ILP32D = 1U << 2U,
 } micropixel_bundle_aot_target_mask_t;
 
 typedef enum micropixel_bundle_aot_flag {

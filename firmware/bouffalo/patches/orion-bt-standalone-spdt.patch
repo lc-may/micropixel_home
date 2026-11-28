@@ -1,0 +1,120 @@
+diff --git a/bsp/board/bl618dg_orion/CMakeLists.txt b/bsp/board/bl618dg_orion/CMakeLists.txt
+index fa850515..cc349e37 100644
+--- a/bsp/board/bl618dg_orion/CMakeLists.txt
++++ b/bsp/board/bl618dg_orion/CMakeLists.txt
+@@ -15,6 +15,13 @@ if(CONFIG_BSP_AUDIO_CODEC)
+     sdk_add_compile_options("SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/board_config.h")
+ endif()
+ add_subdirectory(${BOARD_BASE_PATH} bl618dgdk)
++if(CONFIG_RF AND CONFIG_COEX)
++    set_property(SOURCE "${BOARD_BASE_PATH}/board_rf.c" TARGET_DIRECTORY app
++        APPEND PROPERTY COMPILE_DEFINITIONS BOARD_COEX_SPDT_PTA_GPIO=GPIO_PIN_16)
++elseif(CONFIG_RF)
++    set_property(SOURCE "${BOARD_BASE_PATH}/board_rf.c" TARGET_DIRECTORY app
++        APPEND PROPERTY COMPILE_DEFINITIONS BOARD_BT_STANDALONE_SPDT_GPIO=GPIO_PIN_16)
++endif()
+ # GPIO belongs to Orion; only reuse the DK startup, storage and RF sources.
+ get_target_property(board_sources app SOURCES)
+ list(REMOVE_ITEM board_sources "${BOARD_BASE_PATH}/board_gpio.c")
+diff --git a/bsp/board/bl618dgdk/board_rf.c b/bsp/board/bl618dgdk/board_rf.c
+index 08837b4f..d8965d8e 100644
+--- a/bsp/board/bl618dgdk/board_rf.c
++++ b/bsp/board/bl618dgdk/board_rf.c
+@@ -136,6 +136,16 @@ int board_rf_init_status_get(void)
+ /* Bound once before stack startup; runtime callbacks never query FHOST. */
+ static int board_rf_spdt_gpio = -1;
+ 
++static bool board_rf_spdt_pta_owned(int pin)
++{
++#ifdef BOARD_COEX_SPDT_PTA_GPIO
++    return pin == BOARD_COEX_SPDT_PTA_GPIO;
++#else
++    (void)pin;
++    return false;
++#endif
++}
++
+ static int board_rf_spdt_fixed(int pin, bool bt)
+ {
+     struct bflb_device_s *gpio;
+@@ -227,6 +237,15 @@ int board_rf_spdt_mode_apply(enum board_rf_spdt_mode mode)
+     if (board_rf_init_status_get() != 0) {
+         return -EAGAIN;
+     }
++    if (board_rf_spdt_pta_owned(board_rf_spdt_gpio)) {
++        if (mode == BOARD_RF_SPDT_FIXED_2G) {
++            return -ENOTSUP;
++        }
++        /* Keep the pin on the PTA peripheral across both MACSW recipes. */
++        if (mode == BOARD_RF_SPDT_FIXED_BT) {
++            mode = BOARD_RF_SPDT_DYNAMIC_PTA;
++        }
++    }
+     return board_rf_spdt_apply(board_rf_spdt_gpio, mode);
+ }
+ 
+@@ -235,6 +254,9 @@ int board_rf_spdt_mode_verify(enum board_rf_spdt_mode mode)
+     if (board_rf_init_status_get() != 0) {
+         return -EAGAIN;
+     }
++    if (board_rf_spdt_pta_owned(board_rf_spdt_gpio) && mode == BOARD_RF_SPDT_FIXED_BT) {
++        mode = BOARD_RF_SPDT_DYNAMIC_PTA;
++    }
+     return board_rf_spdt_verify(board_rf_spdt_gpio, mode);
+ }
+ 
+@@ -272,9 +294,11 @@ static int board_rf_initialize(bool standalone, int spdt_gpio)
+ 
+     if (spdt_gpio >= 0) {
+         board_rf_spdt_gpio = spdt_gpio;
+-        ret = board_rf_spdt_fixed(spdt_gpio, false);
+-        if (ret != 0) {
+-            goto done;
++        if (!board_rf_spdt_pta_owned(spdt_gpio)) {
++            ret = board_rf_spdt_fixed(spdt_gpio, false);
++            if (ret != 0) {
++                goto done;
++            }
+         }
+     }
+ 
+@@ -287,7 +311,7 @@ static int board_rf_initialize(bool standalone, int spdt_gpio)
+     }
+ 
+     if (standalone) {
+-        if (spdt_gpio >= 0) {
++        if (spdt_gpio >= 0 && !board_rf_spdt_pta_owned(spdt_gpio)) {
+             ret = board_rf_spdt_fixed(spdt_gpio, true);
+             if (ret != 0) {
+                 goto done;
+@@ -296,6 +320,8 @@ static int board_rf_initialize(bool standalone, int spdt_gpio)
+         cmd_set_btble_standalone(0, NULL);
+         if (_rfparam_init(0, NULL, 0) != 0) {
+             ret = -EIO;
++        } else if (board_rf_spdt_pta_owned(spdt_gpio)) {
++            ret = board_rf_spdt_apply(spdt_gpio, BOARD_RF_SPDT_DYNAMIC_PTA);
+         }
+     } else {
+         cmd_set_btble_combo(0, NULL);
+@@ -428,11 +454,21 @@ static void board_rf_btble_sysinit(const void *arg)
+     (void)arg;
+ 
+ #if IS_ENABLED(CONFIG_BTBLE_USE_STANDALONE_PATH)
++#ifdef BOARD_BT_STANDALONE_SPDT_GPIO
++    if (board_rf_spdt_fixed(BOARD_BT_STANDALONE_SPDT_GPIO, true) != 0 ||
++        board_rf_spdt_verify(BOARD_BT_STANDALONE_SPDT_GPIO, BOARD_RF_SPDT_FIXED_BT) != 0) {
++        printf("BT standalone RF switch setup failed!\r\n");
++        abort();
++    }
++#endif
+     cmd_set_btble_standalone(0, NULL);
+     if (_rfparam_init(0, NULL, 0) != 0) {
+         printf("standalone PHY RF init failed!\r\n");
+         abort();
+     }
++#ifdef BOARD_BT_STANDALONE_SPDT_GPIO
++    printf("BT standalone RF switch on GPIO%u selected\r\n", (unsigned)BOARD_BT_STANDALONE_SPDT_GPIO);
++#endif
+ #else
+     /* Keep the pre-SYSINIT behaviour: confirm the combo/shared RF path. */
+     cmd_set_btble_combo(0, NULL);

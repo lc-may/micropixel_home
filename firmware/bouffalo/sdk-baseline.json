@@ -1,5 +1,5 @@
 {
-  "description": "Critical fingerprints for the unmodified public SDK revision in sdk-source.json.",
+  "description": "Critical fingerprints for the pinned SDK revisions and declared patches in sdk-source.json.",
   "sha256": {
     "cmake/bouffalo_sdk-config.cmake": "f3cc77c605a8f49ace487bac7fc4aa9fad461fd0fed3ac156378d3f7dca5f8b0",
     "cmake/compiler_flags.cmake": "20e92450834bbfe004bed5b1f6e0d2c22d4ba048ca4c186d485beb8140c62534",
@@ -19,7 +19,7 @@
       "bsp/Kconfig": "b6aa2678a679ce1eeaaabe731aadda6b53dc87166f152b056d92c58d1bbdb753",
       "bsp/board/CMakeLists.txt": "0cb6131a1e0596631f2469c998b7eedcc156012cd6b417f2a367d522a4be0db0",
       "bsp/board/Kconfig": "9e03f88b6a6368d3eeb9f4b55695dec3d92901d50f3542d56f14f95239f1d5b4",
-      "bsp/board/bl618dg_orion/CMakeLists.txt": "ef9a585a065fe816a1dd1c40419cf46babdc17570737510b12f2535e1dc8e6bb",
+      "bsp/board/bl618dg_orion/CMakeLists.txt": "a15c705b8091b483a7f929cec9fc5d31f28b9cbb9d84c625a1fc569e4dd17ba3",
       "bsp/board/bl618dg_orion/Kconfig.defconfig": "f9239d0f9744444b079140e895d913685f9c2a56e28346c99a56be46ac56a249",
       "bsp/board/bl618dg_orion/board.h": "dced57db6fbd1e9e5f9c88d7d4ddbd7d1271e3fd3807638c7b59a2d447cc8439",
       "bsp/board/bl618dg_orion/board_config.h": "9d6246e9bd6adeb7f9d2999f8d29a9bbdfde04daf089970d8299d569ccf8fab0",
@@ -35,7 +35,11 @@
       "components/libc/picolibc/port_tls.c": "bf5d72b83146d55a2af8010ffec860db5c516a3d102fd81623f71ad5f42cecae",
       "components/os/freertos/tasks.c": "5b4339da77b89550974a0d9fc1e799fce5a205ba0d8514fd4a7ba3c517183b60",
       "project.build": "e1138954812a5cfdc20db3170b42910437ca95da740c78597aee02ccacb45040",
-      "tools/byai/toolchain.py": "23e57ae2c3f0f5a8aa5479431ee85d8b225cfac7b2af9833cf838492ab354f4b"
+      "tools/byai/toolchain.py": "23e57ae2c3f0f5a8aa5479431ee85d8b225cfac7b2af9833cf838492ab354f4b",
+      "bsp/board/bl618dgdk/board_rf.c": "8e3e758e7e3893d0334d5c57a3629e900d9232befc7b27f7d155618e7a3d080b",
+      "components/wireless/bluetooth/blestack/src/host/l2cap_br.c": "c70738e1d1fbb468db481243e6a4b6ebba8fd65e5978d1bfd9fd75c685d00f09",
+      "components/wireless/bluetooth/blestack/src/host/l2cap_internal.h": "89e67ec2d613a58cf925cb8735e4135e4358217161ea150187ae9e6b64e1bedf",
+      "drivers/soc/bl618dg/std/startup/mn/vector.S": "858f0a67880b3587d399137e4e8da60756855948f0a42ab6c07074af48b03f42"
     }
   }
 }

@@ -86,6 +86,7 @@ set(COMMON_SOURCES
     platform/graphics/guest_scene.cpp
     platform/graphics/pixel_compositor.cpp
     platform/lvgl/fonts/bitmap_font_rasterizer.cpp)
+list(APPEND COMMON_SOURCES runtime/bundle/bundle_reader.c runtime/bundle/memory_bundle_source.c)
 list(TRANSFORM COMMON_SOURCES PREPEND "${COMMON_HOST}/")
 set(HOST_SOURCES
     host/controller/job_scheduler.cpp
@@ -95,9 +96,7 @@ set(HOST_SOURCES
     runtime/abi/guest_abi.cpp
     runtime/abi/native_symbols.c
     runtime/abi/service_endpoints.cpp
-    runtime/bundle/bundle_reader.c
     runtime/bundle/bundle_section_reader.cpp
-    runtime/bundle/memory_bundle_source.c
     runtime/guest_context.cpp
     runtime/key_event_bridge.cpp
     runtime/touch_event_bridge.cpp

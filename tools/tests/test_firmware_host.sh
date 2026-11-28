@@ -48,6 +48,11 @@ if [[ "${1:-}" == "--app-framework" ]]; then
     exec "$framework_root/build/host-tests/news_data_test" "${@:2}"
 fi
 
+if [[ "${1:-}" == "--bundle-reader" ]]; then
+    shift
+    exec bash "$(dirname "$0")/test_bundle_reader.sh" "$@"
+fi
+
 if [[ "${1:-}" == "--pc" ]]; then
     shift
     exec bash "$(dirname "$0")/test_pc_host.sh" "$@"
@@ -55,6 +60,23 @@ fi
 
 workspace_root="$(cd "$(dirname "$0")/../.." && pwd)"
 if [[ "${MICROPIXEL_HOST_TEST_PLATFORM:-espressif}" == "bouffalo" ]]; then
+    mkdir -p "$workspace_root/build/host-tests"
+    python3 "$workspace_root/tools/tests/build_host_test.py" "${CXX:-/usr/bin/clang++}" \
+        -std=c++2b -Wall -Wextra -Werror \
+        -I "$workspace_root/firmware/bouffalo" -I "$workspace_root/firmware/common" -I "$workspace_root/guest" \
+        "$workspace_root/firmware/bouffalo/tools/tests/wireless_endpoint_test.cpp" \
+        "$workspace_root/firmware/bouffalo/runtime/abi/wireless_endpoint.cpp" \
+        "$workspace_root/firmware/common/runtime/abi/service_registry.cpp" \
+        -o "$workspace_root/build/host-tests/wireless_endpoint_test"
+    "$workspace_root/build/host-tests/wireless_endpoint_test"
+    python3 "$workspace_root/tools/tests/build_host_test.py" "${CXX:-/usr/bin/clang++}" \
+        -std=c++2b -Wall -Wextra -Werror -DCONFIG_BT_AVRCP=1 \
+        -I "$workspace_root/firmware/bouffalo" -I "$workspace_root/firmware/common" -I "$workspace_root/guest" \
+        "$workspace_root/firmware/bouffalo/tools/tests/bluetooth_endpoint_test.cpp" \
+        "$workspace_root/firmware/bouffalo/runtime/abi/bluetooth_endpoint.cpp" \
+        "$workspace_root/firmware/common/runtime/abi/service_registry.cpp" \
+        -o "$workspace_root/build/host-tests/bluetooth_endpoint_test"
+    "$workspace_root/build/host-tests/bluetooth_endpoint_test"
     exec python3 -m unittest discover -s "$workspace_root/firmware/bouffalo/tools/tests" -v
 fi
 test_output_dir="$workspace_root/build/host-tests"
@@ -424,7 +446,7 @@ build_and_run language_packs \
     "$workspace_root/firmware/espressif/main/runtime/services/app_storage.cpp" \
     "$workspace_root/tools/tests/fake_nvs.cpp" \
     "$workspace_root/firmware/espressif/main/runtime/bundlefs/bundle_store_source.cpp" \
-    -x c++ "$workspace_root/firmware/espressif/main/runtime/bundle/memory_bundle_source.c"
+    -x c++ "$workspace_root/firmware/common/runtime/bundle/memory_bundle_source.c"
 
 build_and_run bounded_ttf_font \
     -DMICROPIXEL_TEST_TRACK_HEAP \
@@ -579,7 +601,7 @@ app_store_sources=(
     "$workspace_root/firmware/espressif/main/runtime/services/app_storage.cpp"
     "$workspace_root/tools/tests/fake_nvs.cpp"
     "$workspace_root/firmware/espressif/main/runtime/bundlefs/bundle_store_source.cpp"
-    -x c++ "$workspace_root/firmware/espressif/main/runtime/bundle/memory_bundle_source.c"
+    -x c++ "$workspace_root/firmware/common/runtime/bundle/memory_bundle_source.c"
 )
 
 build_and_run app_store -DMICROPIXEL_TEST_TRACK_HEAP "${app_store_sources[@]}"

@@ -14,13 +14,18 @@
 #include "platform/audio/audio_engine.hpp"
 #include "platform/audio/media.hpp"
 #include "runtime/abi/alarm_endpoint.hpp"
+#include "runtime/abi/app_storage_endpoint.hpp"
 #include "runtime/abi/audio_endpoint.hpp"
+#include "runtime/abi/bluetooth_endpoint.hpp"
 #include "runtime/abi/network_endpoint.hpp"
 #include "runtime/abi/resource_endpoint.hpp"
 #include "runtime/abi/timer_endpoint.hpp"
 #include "runtime/abi/weather_endpoint.hpp"
 #include "runtime/abi/wireless_endpoint.hpp"
 #include "runtime/components.hpp"
+#if WASM_ENABLE_AOT
+#include "runtime/bundle/app_store.hpp"
+#endif
 #include "runtime/graphics/guest_panel.hpp"
 #include "runtime/wamr/guest_runtime.hpp"
 #include "work/task_policy.hpp"
@@ -158,6 +163,7 @@ struct GuestRunner::Session final {
           media_widgets(app.music ? media : nullptr, {app_id, key, 0}),
           widget(app.weather ? &weather : nullptr, media_widgets),
           messages(media_widgets),
+          storage(app.bundle_id),
           components(events, services, app.component_flags,
                      {.context = this,
                       .now =
@@ -183,16 +189,22 @@ struct GuestRunner::Session final {
                                        uint32_t token) { static_cast<Session*>(raw)->audio.StopComponent(token); }}),
 #if defined(CONFIG_FHOST)
           network(NetworkBackend(owner.slot)),
-          services(system, random, timers, output, panel, touch, wireless, resources, lifecycle, alarm, network, widget,
-                   messages, storage) {
-#else
-          services(system, random, timers, output, panel, touch, wireless, resources, lifecycle, alarm, widget,
-                   messages, storage) {
 #endif
+          services(system, random, timers, output, panel, touch, wireless,
+#if defined(CONFIG_BT_A2DP)
+                   bluetooth,
+#endif
+                   resources, lifecycle, alarm,
+#if defined(CONFIG_FHOST)
+                   network,
+#endif
+                   widget, messages, storage) {
         wireless.Authorize(app.wireless_settings);
-        storage.Authorize(app.weather, app.music, app.clock);
+#if defined(CONFIG_BT_A2DP)
+        bluetooth.Authorize(app.wireless_settings, app.bluetooth_speaker);
+#endif
         if (app.component_flags) {
-            if (!app.weather) components.SetVisible(app.activity);
+            if (!app.weather && !app.bluetooth_speaker) components.SetVisible(app.activity);
             guest.components = &components;
         }
     }
@@ -207,6 +219,9 @@ struct GuestRunner::Session final {
         return events.RequestStop(event);
     }
 
+#if WASM_ENABLE_AOT
+    PackedApp packed_app;
+#endif
     const InstanceKey owner;
     const int64_t origin_us{static_cast<int64_t>(bflb_mtimer_get_time_us())};
     EventQueue events;
@@ -218,6 +233,9 @@ struct GuestRunner::Session final {
     AudioEndpoint output;
     TouchEndpoint touch;
     WirelessEndpoint wireless;
+#if defined(CONFIG_BT_A2DP)
+    BluetoothEndpoint bluetooth;
+#endif
     GuestMemory memory;
     ResourceEndpoint resources;
     AlarmEndpoint alarm;
@@ -245,7 +263,7 @@ bool GuestRunner::Initialize(MediaWidgets& media_widgets) {
 }
 
 bool GuestRunner::BeginStart(uint32_t app, InstanceKey owner) {
-    if (worker_ == nullptr || session_ != nullptr || app >= apps_.size() || apps_[app].wasm.empty()) return false;
+    if (worker_ == nullptr || session_ != nullptr || app >= apps_.size() || !apps_[app].Available()) return false;
     auto* memory = static_cast<Session*>(kmalloc(sizeof(Session), MM_FLAG_HEAP_PSRAM_0 | MM_FLAG_ALIGN_8BYTE));
     if (memory == nullptr) return false;
     if (!panel_.Initialize(apps_[app].canvas_extent)) {
@@ -256,6 +274,15 @@ bool GuestRunner::BeginStart(uint32_t app, InstanceKey owner) {
     session_ =
         std::construct_at(memory, owner, audio_, panel_, alarms_, weather_, media_widgets_, apps_[app], app, options_);
     options_ = {};
+#if WASM_ENABLE_AOT
+    if (apps_[app].bundle_id) {
+        session_->packed_app = OrionAppStore::Read(apps_[app].bundle_id);
+        if (!session_->packed_app) {
+            ReapSession();
+            return false;
+        }
+    }
+#endif
     if (!session_->events.valid() || !session_->pcm.valid()) {
         ReapSession();
         return false;
@@ -334,6 +361,9 @@ SessionObservation GuestRunner::Observe() {
     SessionObservation observation{.owner = session_->owner,
                                    .frame_ready = apps_[app_].activity && panel_.HasFrame(),
                                    .activity_available = apps_[app_].activity};
+    if (phase == Phase::kRunning && apps_[app_].bluetooth_speaker) {
+        observation.background_eligible = session_->components.Info().service_state != 0;
+    }
     if (phase == Phase::kRunning && apps_[app_].KeepService() && !session_->components.Info().activity_state) {
         observation.activity_available = false;
         if (observation.frame_ready) panel_.Reset();
@@ -368,7 +398,21 @@ void GuestRunner::Work() {
         const uint32_t previous_writes = signal_writes_();
         phase_.store(Phase::kRunning, std::memory_order_release);
         std::printf("MicroPixel app %s started\n", app.name);
-        result_ = RunGuest(session.guest, app.wasm, app.unpacked_size, app.name);
+#if WASM_ENABLE_AOT
+        const auto started = bflb_mtimer_get_time_us();
+        LoadedApp bundle;
+        result_ = -1;
+        if (bundle.Open(session.packed_app)) {
+            const auto size = bundle.Bundle().payload_size;
+            auto image = bundle.TakeImage();
+            session.resources.BindBundle(bundle.Bundle());
+            result_ = RunGuestImage(session.guest, {image.release(), size}, app.name, app.linear_growth_pages, started);
+        } else {
+            std::puts("MicroPixel Guest Bundle could not be opened");
+        }
+#else
+        result_ = RunGuest(session.guest, app.wasm, app.unpacked_size, app.name, app.linear_growth_pages);
+#endif
         (void)session.output.Stop();
         std::printf("MicroPixel app %s exit=%ld, nonzero DMA writes=%lu, stack free=%lu bytes\n", app.name,
                     static_cast<long>(result_), static_cast<unsigned long>(signal_writes_() - previous_writes),

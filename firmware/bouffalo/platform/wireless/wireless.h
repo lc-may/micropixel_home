@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "abi/wireless.h"
+#include "bluetooth_scan.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,11 +28,12 @@ typedef struct {
 } mpx_wifi_network_t;
 
 typedef struct {
-    char name[33];
+    mpx_bt_scan_data_t scan;
     char address[18];
     uint8_t mac[6];
     uint8_t address_type;
     int8_t rssi;
+    uint8_t group;
 } mpx_ble_device_t;
 
 typedef struct {
@@ -45,6 +47,7 @@ typedef struct {
     uint8_t ble;
     int ble_error;
     unsigned ble_count;
+    micropixel_wireless_ble_info_t ble_info;
     mpx_ble_device_t devices[MPX_BLE_RESULTS];
 } mpx_wireless_status_t;
 
@@ -54,8 +57,7 @@ void mpx_wireless_poll(uint32_t now_ms);
 bool mpx_wireless_read(mpx_wireless_status_t* destination, uint32_t previous_revision);
 bool mpx_wireless_read_wifi(uint32_t revision, uint32_t index, mpx_wifi_network_t* network, uint8_t* preferred_channel);
 bool mpx_wifi_online(void);
-int mpx_wireless_command(uint32_t method, uint32_t index, uint32_t wifi_scan_revision, const char* password,
-                         uint8_t length);
+int mpx_wireless_command(uint32_t method, uint32_t index, uint32_t scan_revision, const char* password, uint8_t length);
 #ifdef __cplusplus
 }
 #endif

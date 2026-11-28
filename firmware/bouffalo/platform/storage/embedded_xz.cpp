@@ -15,13 +15,7 @@ bool DecodeEmbeddedXz(std::span<const uint8_t> input, std::span<uint8_t> output)
     static const auto lock = xSemaphoreCreateMutexStatic(&lock_storage);
     if (!lock || xSemaphoreTake(lock, portMAX_DELAY) != pdTRUE) return false;
     constexpr uint32_t kScratchBytes = 32U * 1024U;
-    // Probability tables are accessed for every decoded symbol. Use OCRAM
-    // when it can also retain room for the radio and network allocations.
-    constexpr uint32_t kInternalReserve = 48U * 1024U;
-    uint8_t* scratch = nullptr;
-    if (kfree_size(MM_HEAP_OCRAM_0) >= kInternalReserve + kScratchBytes)
-        scratch = static_cast<uint8_t*>(kmalloc(kScratchBytes, MM_FLAG_HEAP_OCRAM_0 | MM_FLAG_ALIGN_8BYTE));
-    if (!scratch) scratch = static_cast<uint8_t*>(kmalloc(kScratchBytes, MM_FLAG_HEAP_PSRAM_0 | MM_FLAG_ALIGN_8BYTE));
+    auto* scratch = static_cast<uint8_t*>(kmalloc(kScratchBytes, MM_FLAG_HEAP_PSRAM_0 | MM_FLAG_ALIGN_8BYTE));
     if (!scratch) {
         (void)xSemaphoreGive(lock);
         return false;

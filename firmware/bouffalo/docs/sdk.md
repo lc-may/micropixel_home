@@ -33,6 +33,15 @@ The `bl618dg_orion` board uses the Gitee SDK revision
 This revision includes Orion's BSP under `bsp/board/bl618dg_orion`, including its
 console GPIO and 16 MiB PSRAM configuration. The SDK lock and fingerprints
 are recorded under `bl618dg_orion` in the same manifests.
+The pinned [Orion Bluetooth RF patch](../patches/orion-bt-standalone-spdt.patch)
+selects GPIO16 for standalone Bluetooth and keeps the pin on hardware SPDT
+in Wi-Fi/Bluetooth coexistence builds. The [BR/EDR L2CAP patch](../patches/orion-bredr-flush-timeout.patch)
+accepts the peer's Flush Timeout option during AVDTP media channel setup.
+The [AP exception entry patch](../patches/orion-exception-entry-long-call.patch)
+uses a long call from the trap vector so the full Host can link with Classic Bluetooth enabled.
+`prepare_sdk.py` applies the declared patches to a new checkout. Apply the missing
+patches with `git apply` to an existing checkout of the pinned revision before
+running the exact check.
 
 Orion selects `CPU_MODEL=b1` and generates `CPU_MODEL_B1`. In the pinned SDK,
 both B0 and B1 use the non-A0 AP compiler path with RV32D and ILP32D. The SDK
@@ -41,7 +50,7 @@ changes its link inputs according to the model selector.
 | Link input | SDK behavior for B0 | SDK behavior for B1 |
 | --- | --- | --- |
 | PHY/RF | `libbl618dg_phyrf_b0.a` | `libbl618dg_phyrf.a`. These two AP archives are byte-identical at this SDK revision. |
-| Multimedia and PKA | `*_b0.a` archives using ILP32D | Unsuffixed archives using ILP32F. The Orion Host and DSI video validation explicitly select the ILP32D archives. |
+| Multimedia and PKA | `*_b0.a` archives using ILP32D | Unsuffixed archives using ILP32F. The Orion Host, DSI video validation and BLE peripheral test select the ILP32D archives. |
 | C++ standard library | The SDK adds `stdc++` | The MicroPixel build adds `stdc++` explicitly. |
 
 Both AP profiles use `bl618dg_common.ld.in`. The SDK's B0-specific linker

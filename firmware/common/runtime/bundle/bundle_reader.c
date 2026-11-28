@@ -8,15 +8,34 @@
 #include <string.h>
 
 #include "cJSON.h"
+#include "wasm_export.h"
+
+#if defined(MICROPIXEL_ORION_HOST)
+#include "mm.h"
+#define BUNDLE_ERROR(...)    \
+    do {                     \
+        printf(__VA_ARGS__); \
+        puts("");            \
+    } while (0)
+#define BUNDLE_INFO(...)     \
+    do {                     \
+        printf(__VA_ARGS__); \
+        puts("");            \
+    } while (0)
+static void* bundle_alloc(size_t size) { return kmalloc(size, MM_FLAG_HEAP_PSRAM_0 | MM_FLAG_ALIGN_8BYTE); }
+static void bundle_free(void* memory) {
+    if (memory != NULL) kfree(memory);
+}
+#else
 #include "device/font_cbin_format.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
-#include "esp_memory_utils.h"
 #include "psa/crypto.h"
-#include "sdkconfig.h"
-#include "wasm_export.h"
-
-static const char* TAG = "micropixel_package";
+#define BUNDLE_ERROR(...) ESP_LOGE("micropixel_package", __VA_ARGS__)
+#define BUNDLE_INFO(...) ESP_LOGI("micropixel_package", __VA_ARGS__)
+static void* bundle_alloc(size_t size) { return heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); }
+static void bundle_free(void* memory) { heap_caps_free(memory); }
+#endif
 
 static uint32_t fnv1a32(const uint8_t* data, size_t size) {
     uint32_t hash = 2166136261U;
@@ -703,7 +722,7 @@ static bool read_logical(const micropixel_bundle_source_t* source, uint32_t logi
 
 static void release_ram_view(micropixel_bundle_mapping_t* mapping) {
     /* `base` is the Host-owned copy; `data` aliases it. */
-    heap_caps_free((void*)mapping->base);
+    bundle_free((void*)mapping->base);
     memset(mapping, 0, sizeof(*mapping));
 }
 
@@ -728,13 +747,13 @@ static bool acquire_view(const micropixel_bundle_source_t* source, uint32_t offs
         micropixel_bundle_source_map(source, offset, size, view_out)) {
         return true;
     }
-    uint8_t* copy = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    uint8_t* copy = bundle_alloc(size);
     if (copy == NULL) {
-        ESP_LOGE(TAG, "Bundle section copy failed: PSRAM allocation of %" PRIu32 " bytes", size);
+        BUNDLE_ERROR("Bundle section copy failed: PSRAM allocation of %" PRIu32 " bytes", size);
         return false;
     }
     if (!read_logical(source, offset, copy, size)) {
-        heap_caps_free(copy);
+        bundle_free(copy);
         return false;
     }
     view_out->data = copy;
@@ -753,10 +772,9 @@ static bool acquire_verified_section(const micropixel_bundle_source_t* source,
     }
     const uint32_t actual_hash = fnv1a32(view_out->data, section->size);
     if (actual_hash != section->hash) {
-        ESP_LOGE(TAG,
-                 "Bundle section hash mismatch: kind=%" PRIu32 " id=%" PRIu32 " offset=%" PRIu32 " size=%" PRIu32
-                 " expected=%08" PRIx32 " actual=%08" PRIx32,
-                 section->kind, section->id, section->offset, section->size, section->hash, actual_hash);
+        BUNDLE_ERROR("Bundle section hash mismatch: kind=%" PRIu32 " id=%" PRIu32 " offset=%" PRIu32 " size=%" PRIu32
+                     " expected=%08" PRIx32 " actual=%08" PRIx32,
+                     section->kind, section->id, section->offset, section->size, section->hash, actual_hash);
         micropixel_bundle_mapping_release(view_out);
         return false;
     }
@@ -807,10 +825,10 @@ static bool read_package_metadata(const micropixel_bundle_source_t* source, cons
             section.reserved1 != 0U) {
             return false;
         }
-        uint8_t* payload = malloc(section.size + 1U);
+        uint8_t* payload = bundle_alloc(section.size + 1U);
         if (payload == NULL || !read_logical(source, section.offset, payload, section.size) ||
             fnv1a32(payload, section.size) != section.hash) {
-            free(payload);
+            bundle_free(payload);
             return false;
         }
         payload[section.size] = 0U;
@@ -822,7 +840,7 @@ static bool read_package_metadata(const micropixel_bundle_source_t* source, cons
             metadata.package_type = MICROPIXEL_BUNDLE_PACKAGE_APP;
             metadata.display_profile = MICROPIXEL_BUNDLE_DISPLAY_SQUARE;
         }
-        free(payload);
+        bundle_free(payload);
         if (!valid) {
             return false;
         }
@@ -879,7 +897,7 @@ static micropixel_bundle_section_t* read_toc(const micropixel_bundle_source_t* s
     const size_t toc_bytes = (size_t)header->section_count * sizeof(micropixel_bundle_section_t);
     micropixel_bundle_section_t* sections = malloc(toc_bytes);
     if (sections == NULL) {
-        ESP_LOGE(TAG, "Bundle TOC allocation failed: %u bytes", (unsigned)toc_bytes);
+        BUNDLE_ERROR("Bundle TOC allocation failed: %u bytes", (unsigned)toc_bytes);
         return NULL;
     }
     if (!read_logical(source, header->toc_offset, sections, (uint32_t)toc_bytes)) {
@@ -945,7 +963,8 @@ static uint32_t validate_app_toc(const micropixel_bundle_header_t* header,
                 section->height != 0U || section->stride != 0U || !valid_threading_flags ||
                 (section->reserved0 != MICROPIXEL_BUNDLE_AOT_TARGET_MASK_NONE &&
                  section->reserved0 != MICROPIXEL_BUNDLE_AOT_TARGET_MASK_RISCV32_ILP32F &&
-                 section->reserved0 != MICROPIXEL_BUNDLE_AOT_TARGET_MASK_XTENSA_ESP32S3)) {
+                 section->reserved0 != MICROPIXEL_BUNDLE_AOT_TARGET_MASK_XTENSA_ESP32S3 &&
+                 section->reserved0 != MICROPIXEL_BUNDLE_AOT_TARGET_MASK_RISCV32_ILP32D)) {
                 return UINT32_MAX;
             }
             aot_index = index;
@@ -1000,24 +1019,24 @@ static uint32_t validate_app_toc(const micropixel_bundle_header_t* header,
 
 /* Copies the AOT section into PSRAM and verifies its hash and relocatable form. */
 static uint8_t* copy_aot_payload(const micropixel_bundle_source_t* source, const micropixel_bundle_section_t* aot) {
-    uint8_t* payload = heap_caps_malloc(aot->size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    uint8_t* payload = bundle_alloc(aot->size);
     if (payload == NULL) {
-        ESP_LOGE(TAG, "AOT payload allocation failed: %" PRIu32 " bytes", aot->size);
+        BUNDLE_ERROR("AOT payload allocation failed: %" PRIu32 " bytes", aot->size);
         return NULL;
     }
     if (!read_logical(source, aot->offset, payload, aot->size)) {
-        free(payload);
+        bundle_free(payload);
         return NULL;
     }
     const uint32_t actual_hash = fnv1a32(payload, aot->size);
     if (actual_hash != aot->hash) {
-        ESP_LOGE(TAG, "AOT section hash mismatch: expected=%08" PRIx32 " actual=%08" PRIx32, aot->hash, actual_hash);
-        free(payload);
+        BUNDLE_ERROR("AOT section hash mismatch: expected=%08" PRIx32 " actual=%08" PRIx32, aot->hash, actual_hash);
+        bundle_free(payload);
         return NULL;
     }
     if (wasm_runtime_is_xip_file(payload, aot->size)) {
-        ESP_LOGE(TAG, "AOT section is an XIP image; only relocatable AOT is accepted");
-        free(payload);
+        BUNDLE_ERROR("AOT section is an XIP image; only relocatable AOT is accepted");
+        bundle_free(payload);
         return NULL;
     }
     return payload;
@@ -1057,6 +1076,7 @@ bool micropixel_read_bundle_metadata_for_locale(const micropixel_bundle_source_t
     return true;
 }
 
+#if !defined(MICROPIXEL_ORION_HOST)
 static uint16_t read_u16_le(const uint8_t* data) { return (uint16_t)data[0] | ((uint16_t)data[1] << 8U); }
 
 static uint32_t read_u32_le(const uint8_t* data) {
@@ -1185,6 +1205,8 @@ bool micropixel_validate_component_package(const micropixel_bundle_source_t* sou
     return true;
 }
 
+#endif
+
 bool micropixel_validate_app_package(const micropixel_bundle_source_t* source,
                                      micropixel_bundle_metadata_t* metadata_out) {
     micropixel_bundle_header_t header;
@@ -1208,10 +1230,9 @@ bool micropixel_validate_app_package(const micropixel_bundle_source_t* source,
         }
         valid = section_hash_matches(source, section, chunk);
         if (!valid) {
-            ESP_LOGE(TAG,
-                     "Bundle section hash mismatch during validation: index=%" PRIu32 " kind=%" PRIu32 " id=%" PRIu32
-                     " size=%" PRIu32,
-                     index, section->kind, section->id, section->size);
+            BUNDLE_ERROR("Bundle section hash mismatch during validation: index=%" PRIu32 " kind=%" PRIu32
+                         " id=%" PRIu32 " size=%" PRIu32,
+                         index, section->kind, section->id, section->size);
         }
     }
     free(chunk);
@@ -1219,7 +1240,7 @@ bool micropixel_validate_app_package(const micropixel_bundle_source_t* source,
         /* The same copy launch performs; an AOT that cannot be staged cannot run either. */
         uint8_t* payload = copy_aot_payload(source, &sections[aot_index]);
         valid = payload != NULL;
-        free(payload);
+        bundle_free(payload);
     }
     free(sections);
     if (!valid) {
@@ -1310,8 +1331,8 @@ bool micropixel_open_aot_package(const micropixel_bundle_source_t* source, micro
     }
     const uint32_t aot_index = validate_app_toc(&header, sections);
     if (aot_index == UINT32_MAX) {
-        ESP_LOGE(TAG, "Bundle TOC rejected: app=%.*s sections=%" PRIu32, (int)header.app_id_length,
-                 (const char*)header.app_id, header.section_count);
+        BUNDLE_ERROR("Bundle TOC rejected: app=%.*s sections=%" PRIu32, (int)header.app_id_length,
+                     (const char*)header.app_id, header.section_count);
         free(sections);
         return false;
     }
@@ -1333,10 +1354,11 @@ bool micropixel_open_aot_package(const micropixel_bundle_source_t* source, micro
     package_out->section_count = header.section_count;
     package_out->launch_asset_id = header.launch_asset_id;
     package_out->aot_flags = sections[aot_index].flags;
+    package_out->aot_target = sections[aot_index].reserved0;
     memcpy(package_out->app_id, header.app_id, header.app_id_length);
-    ESP_LOGI(TAG, "Bundle opened: app=%s bytes=%" PRIu32 " sections=%" PRIu32 " aot=%" PRIu32 " bytes, resources=%s",
-             package_out->app_id, header.bundle_size, header.section_count, package_out->payload_size,
-             package_out->bundle_mapping.data != NULL ? "whole-bundle-mapped" : "ram-copy");
+    BUNDLE_INFO("Bundle opened: app=%s bytes=%" PRIu32 " sections=%" PRIu32 " aot=%" PRIu32 " bytes, resources=%s",
+                package_out->app_id, header.bundle_size, header.section_count, package_out->payload_size,
+                package_out->bundle_mapping.data != NULL ? "whole-bundle-mapped" : "ram-copy");
     return true;
 }
 
@@ -1345,7 +1367,7 @@ void micropixel_close_aot_package(micropixel_aot_package_t* package) {
         return;
     }
     if (package->payload != NULL) {
-        free((void*)package->payload);
+        bundle_free((void*)package->payload);
     }
     micropixel_bundle_mapping_release(&package->bundle_mapping);
     free((void*)package->sections);
@@ -1403,6 +1425,7 @@ bool micropixel_bundle_open_font(const micropixel_aot_package_t* package, uint32
     return true;
 }
 
+#if !defined(MICROPIXEL_ORION_HOST)
 bool micropixel_bundle_open_component_font(const micropixel_bundle_source_t* source,
                                            micropixel_bundle_metadata_t* metadata_out,
                                            micropixel_bundle_font_mapping_t* mapping_out) {
@@ -1430,6 +1453,8 @@ bool micropixel_bundle_open_component_font(const micropixel_bundle_source_t* sou
     }
     return false;
 }
+
+#endif
 
 void micropixel_close_font_mapping(micropixel_bundle_font_mapping_t* mapping) {
     if (mapping == NULL) {

@@ -45,10 +45,18 @@ AOT_TARGET_FLAGS = {
         "--cpu-features=+m,+a,+f,+c,+zicsr,+zifencei",
     ),
     "xtensa": ("--target=xtensa", "--cpu=esp32s3"),
+    "riscv32-ilp32d": (
+        "--target=riscv32",
+        "--target-abi=ilp32d",
+        "--cpu=generic-rv32",
+        "--cpu-features=+m,+a,+f,+d,+c,+zicsr,+zifencei",
+        "--stack-bounds-checks=1",
+    ),
 }
 AOT_TARGET_MASKS = {
     "riscv32-ilp32f": 1,
     "xtensa": 2,
+    "riscv32-ilp32d": 4,
 }
 AOT_TARGET_NAMES = {value: key for key, value in AOT_TARGET_MASKS.items()}
 AOT_FLAG_THREADING_DECLARED = 1 << 0

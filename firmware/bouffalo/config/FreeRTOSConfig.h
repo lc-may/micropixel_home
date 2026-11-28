@@ -46,6 +46,7 @@
 #define configTICK_RATE_HZ ((TickType_t)1000)
 #define configMAX_PRIORITIES (32)
 #if defined(MICROPIXEL_ORION_HOST)
+#define configSTACK_ALLOCATION_FROM_SEPARATE_HEAP 1
 #define configMINIMAL_STACK_SIZE (256U)
 #define configTIMER_TASK_STACK_DEPTH (1536U)
 #else

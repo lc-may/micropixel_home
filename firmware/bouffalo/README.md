@@ -1,8 +1,8 @@
 # MicroPixel for Bouffalo
 
 MicroPixel runs WebAssembly Guests on the Bouffalo SDK using FreeRTOS and WAMR.
-The BL618DG Orion Host integrates a 480 × 480 touchscreen, audio, Wi-Fi and an
-embedded app catalog. The development-kit profiles provide smaller firmware
+The BL618DG Orion Host integrates a 480 × 480 touchscreen, audio, Wi-Fi, BLE and an
+installable App Store. The development-kit profiles provide smaller firmware
 images for validating the runtime and toolchain.
 
 ## Boards and build profiles
@@ -16,13 +16,13 @@ images for validating the runtime and toolchain.
 The DK profiles use the pinned public SDK. Orion uses a separate pinned Gitee
 revision with `bsp/board/bl618dg_orion`. The Orion board selects
 `CPU_MODEL=b1`. The full Orion Host uses the SDK's
-RV32 ILP32D ABI, including for its default AOT catalog. The independent audio
+RV32 ILP32D ABI, including for its default AOT Bundles. The independent audio
 test uses ILP32F. The display validation ABI depends on the panel mode.
 [SDK profiles](docs/sdk.md) · [Runtime validation](docs/runtime.md#validation-executable) · [Orion display profiles](docs/orion.zh-CN.md#单独验证显示驱动)
 
 ## Orion Host
 
-The default `HOST_PORT=1` profile enables Wi-Fi and AOT. The Home screen launches
+The default `HOST_PORT=1` profile enables Wi-Fi, BLE and AOT. The Home screen launches
 the independent Settings Guest, Clock and Alarm, Weather, NetEase Music and
 News. The catalog also includes four diagnostic Guests.
 [Catalog and Host composition](boards/bl618dg/orion/firmware_app.cpp)
@@ -32,7 +32,8 @@ News. The catalog also includes four diagnostic Guests.
 | Guest execution | Four Session slots share one WAMR runtime. Each active Session has its own module instance, linear memory, event queue and resource handles. Touch input goes to the foreground Session. Background Services can continue to update Home widgets. |
 | Display and input | ST7102 MIPI DSI panel, ST7123 touch, LVGL 9, retained Scene rendering, text input, dynamic textures and JPEG/PNG decoding. The Back control navigates to the previous page. A swipe from the bottom center returns to Home. |
 | Audio | JY6316 through SDK `xcodec_dev`, with tone synthesis and PCM streaming. A Host worker fetches and incrementally decodes MP3 over HTTPS for NetEase Music. Playback can continue while its Service runs in the background. |
-| Wi-Fi and Guest networking | The Settings Guest handles scans and connection. LittleFS remembers the last successful network for reconnect. DHCP obtains an address at connection time. Static IPv4 settings are persisted when static mode is selected. The Guest Network Service provides HTTPS GET, POST and response metadata. |
+| Wi-Fi and Guest networking | The Settings Guest handles manual scans and connection. The Host stores successful APs in LittleFS and scans for them at boot and when offline, trying available APs in order of most recent successful connection. DHCP obtains an address at connection time. Static IPv4 settings are saved per AP. The Guest Network Service provides HTTPS GET, POST and response metadata. |
+| Bluetooth LE | Settings scans for connectable peers, starts discovery mode and manages one BLE connection. Remote clients can read the Orion model through the GATT Device Information Service. |
 | Clock and persistent data | The Host refreshes its UTC reference through SNTP every 15 minutes after synchronization. LittleFS stores alarm schedules, the latest weather result and selected app settings. Weather and music Sessions publish their state to Home. |
 
 The production profile runs on the AP core with 16 MiB of PSRAM. The SDK copies
@@ -41,12 +42,12 @@ there. AOT Guest stop is cooperative. `ORION_AOT=0` builds an interpreter with a
 instruction budget and embeds Wasm in the firmware image.
 [Runtime contracts](docs/runtime.md) · [Memory and startup](docs/orion.zh-CN.md#内存与启动性能)
 
-The catalog is fixed at build time. Guest storage is available for selected
-applications and keys. On-device Bundle installation, general-purpose Guest
-KV storage and the Espressif OTA workflow are outside the current Orion Host
-feature set. `RADIO=ble` and `RADIO=dual` are experimental profiles. The default
-Wi-Fi profile focuses on Wi-Fi STA and lwIP.
-[Wireless profiles](docs/orion.zh-CN.md#wi-fi-与-ble) · [Orion Host guide](docs/orion.zh-CN.md#pc-host-移植)
+The production AOT Host provides an App Management page for up to 15 installed
+Bundles. The factory catalog includes Settings, Calendar and Reminders, Weather,
+NetEase Music, and News. A2DP-enabled builds also include Bluetooth Speaker.
+Default and later-installed apps use the same version checks, uninstall path,
+and per-AppId LittleFS storage.
+[App Management](docs/app-store.zh-CN.md) · [Wireless profiles](docs/orion.zh-CN.md#wi-fible-与经典蓝牙)
 
 ## Source layout
 
@@ -118,16 +119,16 @@ to use the pinned font from a local file.
 
 | Option | Purpose |
 | --- | --- |
-| `ORION_AOT=1` | Default production AOT catalog. Set `0` for the interpreter profile. |
-| `RADIO=wifi` | Default Wi-Fi profile. The board guide describes the experimental BLE and dual-radio profiles. |
+| `ORION_AOT=1` | Default production AOT App Store. Set `0` for the embedded interpreter validation profile. |
+| `RADIO=dual` | Default Wi-Fi, Classic Bluetooth (BR/EDR) and BLE coexistence profile. Select `RADIO=wifi` or `RADIO=ble` for a single radio. |
 | `AUDIO_TEST=1` | Independent audio validation firmware. Select this as its own profile. |
 | `DISPLAY_CONFIG=/path/to/panel.defconfig` | Independent display validation. Some panel buses also require `DISPLAY_GPIO_SOURCE`. |
 | `LCD_CONFIG=/path/to/lcd_conf_user.h` | Override the panel configuration for the full Host. |
 | `BUILD_DIR=build-other` | Use a separate build directory when changing profile options. |
 
 The default AOT Host produces
-`firmware/bouffalo/boards/bl618dg/build-orion-host-wifi/build_out/micropixel_orion_host_bl618dg_ap.bin`
-and `orion_apps.bin` at the root of the same build directory. The default
+`firmware/bouffalo/boards/bl618dg/build-orion-host-dual/build_out/micropixel_orion_host_bl618dg_ap.bin`
+and the factory image `orion_app_store.bin` at the root of the same build directory. The default
 runtime validation and standalone audio build use `build-orion/` and
 `build-orion-audio/` respectively. SDK profiles and exact pins are listed in
 [`sdk-source.json`](sdk-source.json).
@@ -154,16 +155,15 @@ make -C firmware/bouffalo/boards/bl618dg
 ## Orion Flash and UART
 
 The [8 MiB partition layout](boards/bl618dg/orion/config/partition_cfg_8M.toml)
-reserves two 3 MiB firmware slots, 868 KiB for image resources, 896 KiB for the
-AOT catalog and 128 KiB for LittleFS. Boot and factory data remain in reserved
-regions.
+reserves a 3812 KiB primary firmware slot, 128 KiB for settings, and a 4 MiB
+LittleFS App Store. Boot and factory data retain their addresses.
 [Partition map and migration](docs/orion.zh-CN.md#8-mib-flash-分区)
 
-The build emits a raw firmware image. Before flashing, verify the board and
-partition map, and post-process a copy of the image with the SDK and the
-appropriate RF parameters. The AOT Host checks the catalog against a digest
-embedded in the firmware. Use the matched firmware and catalog from the same
-build when updating either to a version with a different catalog digest.
+Prepare the flash image with `tools/prepare_orion_firmware.py` from this directory.
+It completes SDK certificate embedding when needed, adds the board's RF parameters,
+and checks that the finished image contains the certificate bundle. For initial provisioning, flash the factory App Store
+image to `mp_apps` at `0x400000`. Preserve that partition for normal Host
+updates so installed applications and versions persist.
 [Orion flashing procedure](docs/orion.zh-CN.md#pc-host-移植)
 
 The Orion console runs at 2 Mbps. Typical Host commands are shown below.
@@ -195,7 +195,7 @@ The Host tests cover SDK provenance, dependency checksums, the source-tree
 boundary, alarm persistence, MP3 input fragmentation and task stack depth
 conversion. For board validation, the runtime image reports WAMR execution and
 memory checks over UART. The standalone audio image runs a 1 kHz tone and PCM
-Guest, and the Orion Host logs its AOT catalog verification and each Guest's
+Guest, and the Orion Host logs its App Store status and each Guest's
 execution backend. The [runtime smoke guide](docs/runtime.md#validation-executable)
 and [audio test guide](docs/orion.zh-CN.md#音频) describe their expected output.
 

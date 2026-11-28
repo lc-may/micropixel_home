@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "app_id": "micropixel.bluetooth-speaker",
+  "version": "0.1.2",
+  "threading": "none",
+  "title": {
+    "default": "zh-CN",
+    "values": {"zh-CN": "蓝牙音箱", "en": "Bluetooth Speaker"}
+  },
+  "sources": ["main.cpp"],
+  "requirements": {
+    "schema_version": 2,
+    "display": {"layouts": ["square"], "min_width": 480, "min_height": 480},
+    "required": ["input.touch", "audio.output"],
+    "optional": [],
+    "any_of": [],
+    "services": {"graphics": 65536, "lifecycle": 65536},
+    "system_font": "zh-CN",
+    "components": {"activity": true, "service": true, "background": ["media"], "widgets": 0}
+  }
+}

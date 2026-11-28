@@ -39,6 +39,7 @@ FORMAT_UTF8 = 6
 AOT_TARGET_MASKS = {
     "riscv32-ilp32f": 1,
     "xtensa": 2,
+    "riscv32-ilp32d": 4,
 }
 AOT_FLAG_THREADING_DECLARED = 1 << 0
 AOT_FLAG_SHARED_MEMORY = 1 << 1

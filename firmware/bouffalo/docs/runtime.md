@@ -17,7 +17,7 @@ calling the smoke executable's `main()`.
   soft-double relocation helpers (`__adddf3`, `__divdf3`, etc.) used by RV32F
   Guests. The remaining SDK code may use the chip's D instructions.
 - The [Orion Host build](orion.zh-CN.md#pc-host-移植) uses the SDK's RV32D
-  ILP32D ABI for both WAMR and its AOT catalog. `ORION_AOT=0` embeds portable
+  ILP32D ABI for both WAMR and its AOT Bundles. `ORION_AOT=0` embeds portable
   Wasm and enables the fast interpreter with an instruction budget.
 - JIT, WASI, libc builtins, pthreads, thread manager, shared memory and SIMD
   are disabled in both builds. This port does not
@@ -103,5 +103,5 @@ configured UART baud rate. Restore the previous firmware after validation.
 
 The default runtime target verifies the FreeRTOS/WAMR platform over UART.
 The optional [Orion display build](orion.zh-CN.md#屏幕) adds a test pattern for
-panel bring-up. The Orion Host integrates the embedded app catalog, Guest Scene
+panel bring-up. The Orion Host integrates the installable App Store, Guest Scene
 graphics, touch and text input, audio, and selected app data in LittleFS.

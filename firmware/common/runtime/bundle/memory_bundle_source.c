@@ -8,8 +8,13 @@ typedef struct memory_source_state {
     uint32_t size;
 } memory_source_state_t;
 
-static_assert(sizeof(memory_source_state_t) <= sizeof(((micropixel_bundle_source_t*)0)->state),
-              "memory source state must fit inside the Bundle source state");
+#if defined(__cplusplus)
+static_assert(
+#else
+_Static_assert(
+#endif
+    sizeof(memory_source_state_t) <= sizeof(((micropixel_bundle_source_t*)0)->state),
+    "memory source state must fit inside the Bundle source state");
 
 static memory_source_state_t state_of(const micropixel_bundle_source_t* source) {
     memory_source_state_t state;

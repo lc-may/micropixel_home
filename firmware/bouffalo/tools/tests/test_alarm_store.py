@@ -36,17 +36,18 @@ using namespace bouffalo;
 std::vector<uint8_t> disk;
 bool fail_write;
 
-bool mpx_files_mount() { return true; }
-int mpx_file_read(const char* name, void* data, size_t capacity, size_t* size) {
-    assert(std::strcmp(name, "clock.alarms.v1") == 0);
+int mpx_app_data_read(const char* id, const char* key, void* data, size_t capacity, size_t* size) {
+    assert(std::strcmp(id, "micropixel.clock-alarm") == 0);
+    assert(std::strcmp(key, "@alarms.v1") == 0);
     if (disk.empty()) return LFS_ERR_NOENT;
     assert(disk.size() <= capacity);
     std::memcpy(data, disk.data(), disk.size());
     *size = disk.size();
     return 0;
 }
-int mpx_file_write(const char* name, const void* data, size_t size) {
-    assert(std::strcmp(name, "clock.alarms.v1") == 0);
+int mpx_app_data_write(const char* id, const char* key, const void* data, size_t size) {
+    assert(std::strcmp(id, "micropixel.clock-alarm") == 0);
+    assert(std::strcmp(key, "@alarms.v1") == 0);
     if (fail_write) return LFS_ERR_IO;
     auto* first = static_cast<const uint8_t*>(data);
     disk.assign(first, first + size);

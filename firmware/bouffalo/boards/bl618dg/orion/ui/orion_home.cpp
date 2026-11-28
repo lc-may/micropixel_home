@@ -33,7 +33,6 @@ static_assert(LCD_COLOR_DEPTH == LV_COLOR_DEPTH, "The panel framebuffer format m
 LV_FONT_DECLARE(font_orion_clock)
 LV_FONT_DECLARE(font_orion_temperature)
 LV_FONT_DECLARE(font_orion_home)
-LV_FONT_DECLARE(font_orion_home_value)
 
 namespace micropixel::bouffalo {
 namespace art = ui::material_art;
@@ -143,6 +142,10 @@ art::Symbol RoleIcon(HomeAppRole role) {
             return art::Symbol::Calendar;
         case HomeAppRole::kNews:
             return art::Symbol::News;
+        case HomeAppRole::kLightSequence:
+            return art::Symbol::Sunny;
+        case HomeAppRole::kCentralAc:
+            return art::Symbol::Snow;
         default:
             return art::Symbol::Apps;
     }
@@ -259,20 +262,22 @@ bool OrionHome::Initialize(Callbacks callbacks) {
     Icon(weather_button_, 25, 20, 34, unsigned(art::Symbol::Refresh));
 
     const auto& icon = layout::kCardIcon;
-    alarm_card_ = Card(home_, layout::kAlarm, "闹钟");
-    Icon(alarm_card_, icon.x, icon.y, icon.width, unsigned(art::Symbol::Alarm));
-    alarm_ = Label(alarm_card_, 24, 69, 279, "--:--", layout::kText, &lv_font_montserrat_32);
-    alarm_status_ = Label(alarm_card_, 24, 137, 279, "尚未设置", layout::kMuted);
-    agenda_card_ = Card(home_, layout::kAgenda, "日历与事项");
-    Icon(agenda_card_, icon.x, icon.y, icon.width, unsigned(art::Symbol::Calendar));
-    agenda_date_ = Label(agenda_card_, 24, 76, 279, "今天", layout::kText, &font_orion_home_value);
-    Label(agenda_card_, 24, 137, 279, "暂无待提醒事项", layout::kMuted);
+    const auto* card_font = &OrionFontFallback();
+    const auto make_shortcut = [&](layout::Bounds bounds, const char* category, const char* title, HomeAppRole role) {
+        auto* card = Card(home_, bounds, "");
+        Label(card, 24, 21, 220, category, layout::kMuted, card_font);
+        Icon(card, icon.x, icon.y, icon.width, unsigned(RoleIcon(role)));
+        Label(card, 24, 69, 279, title, layout::kText, card_font);
+        auto* status = Label(card, 24, 137, 279, "未安装", layout::kMuted, card_font);
+        lv_obj_add_state(card, LV_STATE_DISABLED);
+        return Shortcut{card, status};
+    };
+    light_shortcut_ = make_shortcut(layout::kAlarm, "灯光", "全屋灯光", HomeAppRole::kLightSequence);
+    ac_shortcut_ = make_shortcut(layout::kAgenda, "空调", "中央空调控制器", HomeAppRole::kCentralAc);
 
     music_card_ = Card(home_, layout::kMusic, "");
-    music_font_ = lv_font_montserrat_18;
-    music_font_.fallback = &OrionFontFallback();
-    Label(music_card_, 24, 17, 279, "音乐", layout::kMuted);
-    music_title_ = Label(music_card_, 24, 51, 279, "网易云音乐");
+    Label(music_card_, 24, 17, 279, "音乐", layout::kMuted, card_font);
+    music_title_ = Label(music_card_, 24, 51, 279, "网易云音乐", layout::kText, card_font);
     lv_obj_set_height(music_title_, Scale(36));
     music_status_ = Label(music_card_, 24, 127, 106, "选择音乐", layout::kMuted);
     auto* transport = lv_obj_create(music_card_);
@@ -330,6 +335,7 @@ bool OrionHome::Initialize(Callbacks callbacks) {
     lv_obj_set_style_bg_color(volume, lv_color_hex(layout::kText), LV_PART_KNOB);
     lv_obj_add_event_cb(volume, ChangeVolume, LV_EVENT_VALUE_CHANGED, this);
     lv_obj_set_flag(catalog_overlay_, LV_OBJ_FLAG_HIDDEN, true);
+    if (callbacks_.manage) InitializeManagement();
 
     lv_timer_handler();
 #if defined(LCD_BACKLIGHT_EN) && LCD_BACKLIGHT_EN
@@ -339,11 +345,112 @@ bool OrionHome::Initialize(Callbacks callbacks) {
     return true;
 }
 
+void OrionHome::InitializeManagement() {
+    auto* manage_button = Card(catalog_overlay_, {420, 12, 174, 60}, "");
+    Label(manage_button, 20, 16, 140, "应用管理", layout::kText, &OrionFontFallback());
+    lv_obj_add_event_cb(manage_button, OpenManagement, LV_EVENT_SHORT_CLICKED, this);
+
+    manage_ = lv_obj_create(home_);
+    Panel(manage_, {0, 0, layout::kExtent, layout::kExtent}, layout::kBg, 0);
+    Label(manage_, 24, 23, 540, "应用管理", layout::kText, &OrionFontFallback());
+    auto* close = Card(manage_, {612, 0, 84, 84}, "");
+    Icon(close, 25, 25, 34, unsigned(art::Symbol::Close));
+    lv_obj_add_event_cb(close, CloseManagement, LV_EVENT_SHORT_CLICKED, this);
+    manage_space_ = Label(manage_, 24, 62, 580, "", layout::kMuted, &OrionFontFallback());
+    manage_status_ = Label(manage_, 24, 116, 672, "", layout::kText, &OrionFontFallback());
+    confirm_ = Card(manage_, {24, 155, 142, 60}, "");
+    Label(confirm_, 19, 15, 110, "确认", layout::kText, &OrionFontFallback());
+    lv_obj_add_event_cb(confirm_, ConfirmManagement, LV_EVENT_SHORT_CLICKED, this);
+    cancel_ = Card(manage_, {182, 155, 142, 60}, "");
+    Label(cancel_, 19, 15, 110, "取消", layout::kText, &OrionFontFallback());
+    lv_obj_add_event_cb(cancel_, CancelManagement, LV_EVENT_SHORT_CLICKED, this);
+
+    managed_apps_ = lv_obj_create(manage_);
+    Panel(managed_apps_, {24, 235, 672, 460}, layout::kBg, 0);
+    lv_obj_add_flag(managed_apps_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(managed_apps_, LV_DIR_VER);
+    lv_obj_add_flag(manage_, LV_OBJ_FLAG_HIDDEN);
+    ManageStatus("通过 UART 导入 Bundle 以安装或升级", false, false);
+}
+
+void OrionHome::ClearApps() {
+    if (!catalog_) return;
+    lv_obj_clean(catalog_);
+    for (auto* card : {clock_card_, weather_card_, weather_button_, music_card_}) lv_obj_remove_event_cb(card, Launch);
+    for (const auto& shortcut : {light_shortcut_, ac_shortcut_}) {
+        lv_obj_remove_event_cb(shortcut.card, Launch);
+        lv_obj_add_state(shortcut.card, LV_STATE_DISABLED);
+        lv_obj_remove_flag(shortcut.status, LV_OBJ_FLAG_HIDDEN);
+    }
+    count_apps_ = 0;
+    lv_label_set_text_static(count_, "0");
+    if (managed_apps_) lv_obj_clean(managed_apps_);
+    managed_count_ = 0;
+}
+
+void OrionHome::AddManagedApp(uint32_t index, const char* title, const char* version) {
+    if (!managed_apps_) return;
+    auto* row = lv_obj_create(managed_apps_);
+    Panel(row, {0, static_cast<int>(managed_count_++ * 94), 672, 85}, layout::kSurface, 16);
+    Label(row, 18, 10, 483, title, layout::kText, &OrionFontFallback());
+    Label(row, 18, 44, 483, version, layout::kMuted);
+    auto* remove = Card(row, {515, 12, 140, 62}, "");
+    Label(remove, 22, 16, 96, "卸载", layout::kText, &OrionFontFallback());
+    lv_obj_add_event_cb(remove, RemoveManagedApp, LV_EVENT_SHORT_CLICKED, &apps_[index]);
+}
+
+void OrionHome::ManageStatus(const char* text, bool confirm, bool cancel) {
+    if (!manage_status_) return;
+    lv_label_set_text(manage_status_, text);
+    lv_obj_set_flag(confirm_, LV_OBJ_FLAG_HIDDEN, !confirm);
+    lv_obj_set_flag(cancel_, LV_OBJ_FLAG_HIDDEN, !cancel);
+}
+
+void OrionHome::ManageSpace(uint32_t count, uint32_t limit, size_t free_bytes) {
+    if (manage_space_)
+        lv_label_set_text_fmt(manage_space_, "%lu / %lu 个应用  ·  剩余约 %lu KiB", static_cast<unsigned long>(count),
+                              static_cast<unsigned long>(limit), static_cast<unsigned long>(free_bytes / 1024));
+}
+
+void OrionHome::OpenManagement(lv_event_t* event) {
+    auto& home = *static_cast<OrionHome*>(lv_event_get_user_data(event));
+    lv_obj_remove_flag(home.manage_, LV_OBJ_FLAG_HIDDEN);
+    home.callbacks_.manage(home.callbacks_.context, ManageAction::kOpen, 0);
+}
+
+void OrionHome::CloseManagement(lv_event_t* event) {
+    auto& home = *static_cast<OrionHome*>(lv_event_get_user_data(event));
+    lv_obj_add_flag(home.manage_, LV_OBJ_FLAG_HIDDEN);
+}
+
+void OrionHome::RemoveManagedApp(lv_event_t* event) {
+    auto& tile = *static_cast<AppTile*>(lv_event_get_user_data(event));
+    const auto& callbacks = tile.owner->callbacks_;
+    callbacks.manage(callbacks.context, ManageAction::kRemove, tile.app);
+}
+
+void OrionHome::ConfirmManagement(lv_event_t* event) {
+    const auto& callbacks = static_cast<OrionHome*>(lv_event_get_user_data(event))->callbacks_;
+    callbacks.manage(callbacks.context, ManageAction::kConfirm, 0);
+}
+
+void OrionHome::CancelManagement(lv_event_t* event) {
+    const auto& callbacks = static_cast<OrionHome*>(lv_event_get_user_data(event))->callbacks_;
+    callbacks.manage(callbacks.context, ManageAction::kCancel, 0);
+}
+
 void OrionHome::Bind(lv_obj_t* object, AppTile& app) {
     lv_obj_add_event_cb(object, Launch, LV_EVENT_SHORT_CLICKED, &app);
 }
 
+void OrionHome::BindShortcut(const Shortcut& shortcut, AppTile& app) {
+    Bind(shortcut.card, app);
+    lv_obj_remove_state(shortcut.card, LV_STATE_DISABLED);
+    lv_obj_add_flag(shortcut.status, LV_OBJ_FLAG_HIDDEN);
+}
+
 void OrionHome::AddApp(uint32_t index, const char* title, HomeAppRole role) {
+    if (!catalog_) return;
     auto& entry = apps_[index];
     entry = {this, index};
     auto* tile = lv_button_create(catalog_);
@@ -352,7 +459,7 @@ void OrionHome::AddApp(uint32_t index, const char* title, HomeAppRole role) {
     Panel(badge, {16, 24, 52, 52}, layout::kRaised, 26);
     lv_obj_remove_flag(badge, LV_OBJ_FLAG_CLICKABLE);
     Icon(tile, 25, 33, 34, unsigned(RoleIcon(role)));
-    Label(tile, 84, 22, 224, title);
+    Label(tile, 84, 22, 224, title, layout::kText, &OrionFontFallback());
     Label(tile, 84, 56, 224, "点击打开", layout::kMuted);
     Bind(tile, entry);
     lv_label_set_text_fmt(count_, "%u", static_cast<unsigned>(count_apps_));
@@ -360,8 +467,6 @@ void OrionHome::AddApp(uint32_t index, const char* title, HomeAppRole role) {
     switch (role) {
         case HomeAppRole::kClock:
             Bind(clock_card_, entry);
-            Bind(alarm_card_, entry);
-            Bind(agenda_card_, entry);
             break;
         case HomeAppRole::kWeather:
             Bind(weather_card_, entry);
@@ -370,12 +475,18 @@ void OrionHome::AddApp(uint32_t index, const char* title, HomeAppRole role) {
         case HomeAppRole::kMusic:
             Bind(music_card_, entry);
             break;
+        case HomeAppRole::kLightSequence:
+            BindShortcut(light_shortcut_, entry);
+            break;
+        case HomeAppRole::kCentralAc:
+            BindShortcut(ac_shortcut_, entry);
+            break;
         default:
             break;
     }
 }
 
-void OrionHome::Update(const micropixel_wall_time_t& wall, uint64_t next_alarm) {
+void OrionHome::Update(const micropixel_wall_time_t& wall) {
     const uint64_t minute = wall.valid ? wall.utc / 60 : 0;
     if (last_minute_ != minute || last_offset_ != wall.offset_minutes) {
         last_minute_ = minute;
@@ -385,17 +496,9 @@ void OrionHome::Update(const micropixel_wall_time_t& wall, uint64_t next_alarm) 
             const auto day = calendar::LocalDate(wall.utc, wall.offset_minutes);
             constexpr const char* kWeekday[] = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
             lv_label_set_text_fmt(date_, "%u月%u日  %s", day.month, day.day, kWeekday[calendar::Weekday(day)]);
-            lv_label_set_text_fmt(agenda_date_, "%u月%u日", day.month, day.day);
         } else {
             lv_label_set_text_static(date_, "请同步时间");
-            lv_label_set_text_static(agenda_date_, "今天");
         }
-        last_alarm_ = UINT64_MAX;
-    }
-    if (last_alarm_ != next_alarm) {
-        last_alarm_ = next_alarm;
-        TimeLabel(alarm_, next_alarm, wall.offset_minutes);
-        lv_label_set_text_static(alarm_status_, next_alarm ? "下次提醒" : "尚未设置");
     }
 }
 
@@ -435,7 +538,6 @@ void OrionHome::UpdateMusic(MediaWidgets& widgets) {
     const bool has_track = music_.data.value != 0 || music_.data.auxiliary != 0;
     const bool playing = music_online_ && (music_.data.flags & MICROPIXEL_WIDGET_PLAYING);
     const bool active = music_online_ && has_track && !pending;
-    lv_obj_set_style_text_font(music_title_, has_track ? &music_font_ : &font_orion_home, 0);
     lv_label_set_text(music_title_, music_.data.title);
     lv_label_set_text_static(music_status_, !music_online_ ? "应用已停止"
                                             : playing      ? "正在播放"

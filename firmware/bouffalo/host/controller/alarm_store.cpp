@@ -11,7 +11,6 @@
 namespace micropixel::bouffalo {
 namespace {
 
-constexpr char kAlarmFile[] = "clock.alarms.v1";
 constexpr uint32_t kAlarmSlots = 8;
 
 struct StoredAlarm final {
@@ -35,12 +34,8 @@ ATTR_NOINIT_PSRAM_SECTION StoredAlarms file;
 }  // namespace
 
 void RestoreClockAlarms(host::AlarmScheduler& alarms, host::SystemClock& clock, uint32_t app) {
-    if (!mpx_files_mount()) {
-        std::puts("MicroPixel alarm filesystem unavailable");
-        return;
-    }
     size_t bytes = 0;
-    const int result = mpx_file_read(kAlarmFile, &file, sizeof(file), &bytes);
+    const int result = mpx_app_data_read(MPX_CLOCK_APP_ID, MPX_CLOCK_ALARMS_KEY, &file, sizeof(file), &bytes);
     if (result == LFS_ERR_NOENT) return;
     if (result || bytes != sizeof(file) || file.clock_enabled > 1 ||
         !clock.Restore({file.offset_minutes, file.clock_enabled != 0, file.correction})) {
@@ -66,7 +61,7 @@ bool SaveClockAlarms(const host::AlarmScheduler& alarms, const host::SystemClock
         auto& entry = file.entries[id - 1];
         entry = record ? StoredAlarm{record->plan, record->last_occurrence} : StoredAlarm{};
     }
-    return mpx_file_write(kAlarmFile, &file, sizeof(file)) == 0;
+    return mpx_app_data_write(MPX_CLOCK_APP_ID, MPX_CLOCK_ALARMS_KEY, &file, sizeof(file)) == 0;
 }
 
 }  // namespace micropixel::bouffalo

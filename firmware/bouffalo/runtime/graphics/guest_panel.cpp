@@ -13,6 +13,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "lvgl.h"
+#include "misc/cache/instance/lv_image_cache.h"
 #include "mm.h"
 #include "platform/graphics/app_surface_compositor.hpp"
 #include "platform/lvgl/fonts/bitmap_font_rasterizer.hpp"
@@ -152,7 +153,22 @@ bool GuestPanel::Initialize(uint16_t canvas_extent) {
 }
 
 void GuestPanel::SetVisible(bool visible) {
-    if (storage_ && storage_->image_view) lv_obj_set_flag(storage_->image_view, LV_OBJ_FLAG_HIDDEN, !visible);
+    if (visible || !storage_) return;
+    auto& state = *storage_;
+    if (state.image_view) {
+        lv_obj_delete(state.image_view);
+        lv_image_cache_drop(&state.image);
+    }
+    xSemaphoreTake(state.lock, portMAX_DELAY);
+    // The retained scene is sufficient to reconstruct the image on foregrounding.
+    kfree(state.destination.pixels);
+    state.destination.pixels = nullptr;
+    state.image.data = nullptr;
+    state.compositor.Reset();
+    state.dirty = state.has_frame.load(std::memory_order_acquire);
+    state.displayed = false;
+    state.allocation_failed = false;
+    xSemaphoreGive(state.lock);
 }
 
 void GuestPanel::Release() {

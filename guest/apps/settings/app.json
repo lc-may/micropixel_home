@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "app_id": "micropixel.settings",
-  "version": "0.1.2",
+  "version": "0.1.6",
   "threading": "none",
   "title": {
     "default": "zh-CN",

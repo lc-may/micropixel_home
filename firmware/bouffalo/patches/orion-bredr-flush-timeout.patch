@@ -1,0 +1,189 @@
+diff --git a/components/wireless/bluetooth/blestack/src/host/l2cap_br.c b/components/wireless/bluetooth/blestack/src/host/l2cap_br.c
+index a29e22ad..0bcea78e 100644
+--- a/components/wireless/bluetooth/blestack/src/host/l2cap_br.c
++++ b/components/wireless/bluetooth/blestack/src/host/l2cap_br.c
+@@ -923,28 +923,27 @@ static void l2cap_br_send_reject(struct bt_conn *conn, uint8_t ident,
+ 	bt_l2cap_send(conn, BT_L2CAP_CID_BR_SIG, buf);
+ }
+ 
+-static uint16_t l2cap_br_conf_opt_mtu(struct bt_l2cap_chan *chan,
+-				   struct net_buf *buf, size_t len)
++static uint16_t l2cap_br_conf_opt_mtu(uint16_t *tx_mtu,
++				    const struct bt_l2cap_conf_opt *opt)
+ {
+ 	uint16_t mtu, result = BT_L2CAP_CONF_SUCCESS;
+ 
+ 	/* Core 4.2 [Vol 3, Part A, 5.1] MTU payload length */
+-	if (len != 2) {
+-		BT_ERR("tx MTU length %zu invalid", len);
++	if (opt->len != sizeof(mtu)) {
++		BT_ERR("tx MTU length %u invalid", opt->len);
+ 		result = BT_L2CAP_CONF_REJECT;
+ 		goto done;
+ 	}
+ 
+-	/* pulling MTU value moves buf data to next option item */
+-	mtu = net_buf_pull_le16(buf);
++	mtu = sys_get_le16(opt->data);
+ 	if (mtu < L2CAP_BR_MIN_MTU) {
+ 		result = BT_L2CAP_CONF_UNACCEPT;
+-		BR_CHAN(chan)->tx.mtu = L2CAP_BR_MIN_MTU;
++		*tx_mtu = L2CAP_BR_MIN_MTU;
+ 		BT_DBG("tx MTU %u invalid", mtu);
+ 		goto done;
+ 	}
+ 
+-	BR_CHAN(chan)->tx.mtu = mtu;
++	*tx_mtu = mtu;
+ 	BT_DBG("tx MTU %u", mtu);
+ done:
+ 	return result;
+@@ -955,19 +954,20 @@ static void l2cap_br_conf_req(struct bt_l2cap_br *l2cap, uint8_t ident,
+ {
+ 	struct bt_conn *conn = l2cap->chan.chan.conn;
+ 	struct bt_l2cap_chan *chan;
+-	struct bt_l2cap_conf_req *req;
++	const struct bt_l2cap_conf_req *req;
+ 	struct bt_l2cap_sig_hdr *hdr;
+ 	struct bt_l2cap_conf_rsp *rsp;
+-	struct bt_l2cap_conf_opt *opt = NULL;
++	const struct bt_l2cap_conf_opt *opt = NULL;
++	const uint8_t *options;
+ 
+-	uint16_t flags, dcid, opt_len, hint, result = BT_L2CAP_CONF_SUCCESS;
++	uint16_t flags, dcid, opt_len, tx_mtu, result = BT_L2CAP_CONF_SUCCESS;
+ 
+-	if (buf->len < sizeof(*req)) {
++	if (len < sizeof(*req)) {
+ 		BT_ERR("Too small L2CAP conf req packet size");
+ 		return;
+ 	}
+ 
+-	req = net_buf_pull_mem(buf, sizeof(*req));
++	req = (const void *)buf->data;
+ 	flags = sys_le16_to_cpu(req->flags);
+ 	dcid = sys_le16_to_cpu(req->dcid);
+ 	opt_len = len - sizeof(*req);
+@@ -986,44 +986,42 @@ static void l2cap_br_conf_req(struct bt_l2cap_br *l2cap, uint8_t ident,
+ 		return;
+ 	}
+ 
+-	if (!opt_len) {
+-		BT_DBG("tx default MTU %u", L2CAP_BR_DEFAULT_MTU);
+-		BR_CHAN(chan)->tx.mtu = L2CAP_BR_DEFAULT_MTU;
+-		goto send_rsp;
++	tx_mtu = L2CAP_BR_DEFAULT_MTU;
++	if (atomic_test_bit(BR_CHAN(chan)->flags, L2CAP_FLAG_CONN_RCONF_DONE)) {
++		tx_mtu = BR_CHAN(chan)->tx.mtu;
+ 	}
+ 
+-	while (buf->len >= sizeof(*opt)) {
+-		opt = net_buf_pull_mem(buf, sizeof(*opt));
+-
+-		/* make sure opt object can get safe dereference in iteration */
+-		if (buf->len < opt->len) {
++	options = req->data;
++	while (opt_len) {
++		opt = (const void *)options;
++		if (opt_len < sizeof(*opt) || opt_len - sizeof(*opt) < opt->len) {
+ 			BT_ERR("Received too short option data");
+ 			result = BT_L2CAP_CONF_REJECT;
+ 			break;
+ 		}
+-
+-		hint = opt->type & BT_L2CAP_CONF_HINT;
++		opt_len -= sizeof(*opt) + opt->len;
++		options += sizeof(*opt) + opt->len;
+ 
+ 		switch (opt->type & BT_L2CAP_CONF_MASK) {
+ 		case BT_L2CAP_CONF_OPT_MTU:
+-			/* getting MTU modifies buf internals */
+-			result = l2cap_br_conf_opt_mtu(chan, buf, opt->len);
+-			/*
+-			 * MTU is done. For now bailout the loop but later on
+-			 * there can be a need to continue checking next options
+-			 * that are after MTU value and then goto is not proper
+-			 * way out here.
+-			 */
+-			goto send_rsp;
++			result = l2cap_br_conf_opt_mtu(&tx_mtu, opt);
++			if (result != BT_L2CAP_CONF_SUCCESS) {
++				goto send_rsp;
++			}
++			break;
++		case BT_L2CAP_CONF_OPT_FLUSH_TIMEOUT:
++			/* The peer specifies the timeout for its own transmissions. */
++			if (opt->len != sizeof(uint16_t) || !sys_get_le16(opt->data)) {
++				result = BT_L2CAP_CONF_REJECT;
++				goto send_rsp;
++			}
++			break;
+ 		default:
+-			if (!hint) {
++			if (!(opt->type & BT_L2CAP_CONF_HINT)) {
+ 				BT_DBG("option %u not handled", opt->type);
+-                result = BT_L2CAP_CONF_UNKNOWN_OPTIONS;
++				result = BT_L2CAP_CONF_UNKNOWN_OPTIONS;
+ 				goto send_rsp;
+ 			}
+-
+-			/* Update buffer to point at next option */
+-			net_buf_pull(buf, opt->len);
+ 			break;
+ 		}
+ 	}
+@@ -1037,25 +1035,28 @@ send_rsp:
+ 	rsp = net_buf_add(buf, sizeof(*rsp));
+ 	(void)memset(rsp, 0, sizeof(*rsp));
+ 
+-	rsp->result = sys_cpu_to_le16(result);
+ 	rsp->scid = sys_cpu_to_le16(BR_CHAN(chan)->tx.cid);
+     if(flags)
+         rsp->flags = 1;
+ 
+-	/*
+-	 * TODO: If options other than MTU bacame meaningful then processing
+-	 * the options chain need to be modified and taken into account when
+-	 * sending back to peer.
+-	 */
+ 	if (result == BT_L2CAP_CONF_UNACCEPT) {
+-		l2cap_br_conf_add_mtu(buf, BR_CHAN(chan)->tx.mtu);
++		l2cap_br_conf_add_mtu(buf, tx_mtu);
+ 	}
+ 
+-    if(result == BT_L2CAP_CONF_UNKNOWN_OPTIONS){
+-        uint8_t opt_len = 2 + opt->len;//size:opt->type, opt->len, opt->data
+-        net_buf_add(buf, opt_len);
+-        memcpy(rsp->data, opt, opt_len);
+-    }
++	if (result == BT_L2CAP_CONF_UNKNOWN_OPTIONS) {
++		size_t size = sizeof(*opt) + opt->len;
++
++		if (size <= net_buf_tailroom(buf)) {
++			net_buf_add_mem(buf, opt, size);
++		} else {
++			result = BT_L2CAP_CONF_REJECT;
++		}
++	}
++
++	if (result == BT_L2CAP_CONF_SUCCESS) {
++		BR_CHAN(chan)->tx.mtu = tx_mtu;
++	}
++	rsp->result = sys_cpu_to_le16(result);
+ 	hdr->len = sys_cpu_to_le16(buf->len - sizeof(*hdr));
+ 
+ 	bt_l2cap_send(conn, BT_L2CAP_CID_BR_SIG, buf);
+diff --git a/components/wireless/bluetooth/blestack/src/host/l2cap_internal.h b/components/wireless/bluetooth/blestack/src/host/l2cap_internal.h
+index dd89ef9f..3eb8e9d1 100644
+--- a/components/wireless/bluetooth/blestack/src/host/l2cap_internal.h
++++ b/components/wireless/bluetooth/blestack/src/host/l2cap_internal.h
+@@ -98,8 +98,8 @@ struct bt_l2cap_conf_rsp {
+ 	u8_t  data[0];
+ } __packed;
+ 
+-/* Option type used by MTU config request data */
+ #define BT_L2CAP_CONF_OPT_MTU		0x01
++#define BT_L2CAP_CONF_OPT_FLUSH_TIMEOUT	0x02
+ /* Options bits selecting most significant bit (hint) in type field */
+ #define BT_L2CAP_CONF_HINT		0x80
+ #define BT_L2CAP_CONF_MASK		0x7f

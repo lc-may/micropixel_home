@@ -6,7 +6,31 @@
     "bl618dg_orion": {
       "repository": "https://gitee.com/bouffalolab/bouffalo_sdk.git",
       "commit": "9e34f621e6e3b0acef296fc5cedd0ed8c33d4464",
-      "patches": []
+      "patches": [
+        {
+          "path": "patches/orion-bt-standalone-spdt.patch",
+          "sha256": "56d40d3306bc19f613e5ea9238f8924d0f1325001d08074666c954aea779523f",
+          "files": [
+            "bsp/board/bl618dg_orion/CMakeLists.txt",
+            "bsp/board/bl618dgdk/board_rf.c"
+          ]
+        },
+        {
+          "path": "patches/orion-bredr-flush-timeout.patch",
+          "sha256": "53a92dceb4139c3797d928f5668d76930204f3fbd1905b4d3f09cbca23f79c6e",
+          "files": [
+            "components/wireless/bluetooth/blestack/src/host/l2cap_br.c",
+            "components/wireless/bluetooth/blestack/src/host/l2cap_internal.h"
+          ]
+        },
+        {
+          "path": "patches/orion-exception-entry-long-call.patch",
+          "sha256": "993d942548920603a83d7fdd9271f62cffd8ea30f4020830b7010ae41da554df",
+          "files": [
+            "drivers/soc/bl618dg/std/startup/mn/vector.S"
+          ]
+        }
+      ]
     }
   },
   "toolchains": {

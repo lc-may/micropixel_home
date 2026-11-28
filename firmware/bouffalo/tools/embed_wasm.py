@@ -32,10 +32,11 @@ def main():
         binary = aot.read_bytes()
         if binary[:8] != b"\0aot\x06\0\0\0":
             parser.error(f"{aot} is not a WAMR AOT v6 module")
-    packed = lzma.compress(binary, format=lzma.FORMAT_XZ, check=lzma.CHECK_CRC32)
     if args.wamrc:
-        args.output.write_bytes(packed)
+        if args.output != aot:
+            args.output.write_bytes(binary)
         return
+    packed = lzma.compress(binary, format=lzma.FORMAT_XZ, check=lzma.CHECK_CRC32)
     rows = [", ".join(f"0x{byte:02x}" for byte in packed[offset : offset + 16])
             for offset in range(0, len(packed), 16)]
     args.output.write_text(

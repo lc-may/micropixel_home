@@ -34,7 +34,13 @@ struct GuestContext final {
 
 [[nodiscard]] bool InitializeGuestRuntime();
 int32_t RunGuest(GuestContext& context, std::span<const uint8_t> binary, uint32_t unpacked_size = 0,
-                 const char* launch_name = nullptr);
+                 const char* launch_name = nullptr, uint32_t linear_growth_pages = 0);
+// Takes ownership of the mutable image allocated from the WAMR heap.
+int32_t RunGuestImage(GuestContext& context, std::span<uint8_t> image, const char* launch_name,
+                      uint32_t linear_growth_pages, uint64_t started_us);
+#if WASM_ENABLE_AOT && defined(MICROPIXEL_ORION_HOST)
+[[nodiscard]] bool ValidateGuestAot(std::span<uint8_t> image);
+#endif
 void ShutdownGuestRuntime();
 
 }  // namespace micropixel::bouffalo

@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 SDK_DEMO_PATH := $(abspath .)
 BOARD := bl618dgdk
-RADIO ?= wifi
+RADIO ?= dual
 CPU_MODEL := b0
 ifeq ($(BOARD),bl618dg_orion)
 CPU_MODEL := b1
 BL_SDK_BASE ?= $(abspath ../../../../../bouffalo_sdk)
-BUILD_DIR ?= $(if $(filter 1,$(HOST_PORT)),build-orion-host-$(RADIO)$(if $(strip $(LCD_CONFIG)),-lcd),$(if $(filter 1,$(AUDIO_TEST)),build-orion-audio,$(if $(strip $(DISPLAY_CONFIG)),build-orion-display,build-orion)))
+BUILD_DIR ?= $(if $(filter 1,$(HOST_PORT)),build-orion-host-$(RADIO)$(if $(filter 1,$(ORION_BLE_PROFILES)),-profiles)$(if $(filter 1,$(ORION_BLE_SMOKE)),-smoke)$(if $(strip $(LCD_CONFIG)),-lcd),$(if $(filter 1,$(AUDIO_TEST)),build-orion-audio,$(if $(strip $(DISPLAY_CONFIG)),build-orion-display,build-orion)))
 cmake_definition += -DMPX_SDK_BOARD=$(BOARD)
 ifneq ($(strip $(DISPLAY_GPIO_SOURCE)),)
 cmake_definition += -DMPX_DISPLAY_GPIO_SOURCE="$(abspath $(DISPLAY_GPIO_SOURCE))"
@@ -34,6 +34,15 @@ ifneq ($(strip $(filter 1,$(AUDIO_TEST)) $(DISPLAY_CONFIG)),)
 $(error Select one of HOST_PORT, AUDIO_TEST or DISPLAY_CONFIG)
 endif
 cmake_definition += -DMPX_HOST_PORT=ON
+ORION_BLE_SMOKE ?= 0
+ORION_BLE_PROFILES ?= 0
+ifneq ($(filter 1,$(ORION_BLE_SMOKE) $(ORION_BLE_PROFILES)),)
+ifeq ($(filter $(RADIO),ble dual),)
+$(error BLE diagnostics require RADIO=ble or RADIO=dual)
+endif
+endif
+cmake_definition += -DMPX_ORION_BLE_SMOKE=$(ORION_BLE_SMOKE)
+cmake_definition += -DMPX_ORION_BLE_PROFILES=$(ORION_BLE_PROFILES)
 ORION_AOT ?= 1
 cmake_definition += -DMPX_ORION_AOT=$(ORION_AOT)
 ORION_RUNTIME_OPT ?= -O2

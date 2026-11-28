@@ -17,7 +17,7 @@ class AlarmHost final {
    public:
     bool Initialize(uint32_t clock_app);
     bool SetUtc(uint64_t utc, uint64_t now_ms, uint32_t fractional_ms = 0);
-    void ReadClock(uint64_t now_ms, uint32_t app, micropixel_wall_time_t& wall, uint64_t& next_alarm);
+    micropixel_wall_time_t ReadClock(uint64_t now_ms);
     void Process(uint64_t now_ms, platform::audio::AudioEngine& audio);
     int32_t Call(uint32_t app, bool can_set_time, uint32_t method, const uint8_t* request, uint32_t length,
                  uint8_t* response, uint32_t capacity, uint32_t& size);
