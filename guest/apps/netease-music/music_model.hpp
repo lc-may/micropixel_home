@@ -3,6 +3,7 @@
 #include "client.hpp"
 #include "login.hpp"
 #include "music_state.hpp"
+#include "playback_checkpoint.hpp"
 #include "sdk/micropixel.hpp"
 #include "view_text.hpp"
 namespace netease {
@@ -11,7 +12,12 @@ using namespace micropixel::literals;
 class MusicModel final {
    public:
     explicit MusicModel(Application& app)
-        : app_(app), account_(app), client_(app, account_), play_client_(app, account_), login_(app, account_) {}
+        : app_(app),
+          account_(app),
+          client_(app, account_),
+          play_client_(app, account_),
+          login_(app, account_),
+          checkpoint_(app) {}
     template <class F>
     decltype(auto) WithPlayback(F&& fn) {
         ComponentContext context(app_, service_token_);
@@ -25,7 +31,7 @@ class MusicModel final {
         }
         if (const char* song = app_.launch_arguments().FindValue("--song")) {
             for (const char* p = song; *p; ++p) {
-                if (*p < '0' || *p > '9' || initial_song_ > (9007199254740991ULL - uint64_t(*p - '0')) / 10) {
+                if (*p < '0' || *p > '9' || initial_song_ > (SavedPlayback::kMaxId - uint64_t(*p - '0')) / 10) {
                     initial_song_ = 0;
                     break;
                 }
@@ -45,7 +51,7 @@ class MusicModel final {
             StartInitial();
         Draw();
         app_.log().Info("NETEASE_GUEST started: SDK Scene + Network HTTP + Audio URL");
-        app_.log().Info("NETEASE_GUEST version: 0.8.0");
+        app_.log().Info("NETEASE_GUEST version: 0.8.1");
         initialized_ = true;
     }
 
@@ -67,10 +73,15 @@ class MusicModel final {
     }
     void StartInitial() {
         initial_started_ = true;
+        if (!initial_song_ && !explicit_query_) {
+            resume_ = checkpoint_.Load(account_.verified() ? account_.user_id : 0);
+            if (resume_) initial_song_ = resume_->track;
+        }
         if (initial_song_) {
             current_.id = initial_song_;
             play_stage_ = PlayStage::kDetail;
             state_.screen = MusicScreen::kPlayer;
+            state_.loading = false;
             Message("正在读取歌曲…");
         } else
             Browse(account_.verified() && !explicit_query_ ? MusicContent::kPlaylists : MusicContent::kSearch);
@@ -97,6 +108,8 @@ class MusicModel final {
         if (!initial_started_) StartInitial();
     }
     void ClearPrivate() {
+        resume_.reset();
+        checkpoint_.Clear();
         client_.ClearLibrary();
         WithPlayback([&] {
             play_client_.Cancel();
@@ -232,6 +245,7 @@ class MusicModel final {
     }
     void StartTrack(Track track, bool open = true) {
         StopEditing();
+        resume_.reset();
         WithPlayback([&] {
             play_client_.Cancel();
             playback_.Close();
@@ -350,12 +364,18 @@ class MusicModel final {
                 Step(1);
                 break;
             case MusicActionKind::kToggle:
-                if (playback_.valid() && (media_.phase == MediaPhase::kPlaying || media_.phase == MediaPhase::kPaused))
+                if (resume_)
+                    resume_->playing = !resume_->playing;
+                else if (playback_.valid() &&
+                         (media_.phase == MediaPhase::kPlaying || media_.phase == MediaPhase::kPaused))
                     WithPlayback([&] { (void)playback_.Pause(media_.phase == MediaPhase::kPlaying); });
-                else if (!playback_.valid() && current_.id)
+                else if (current_.id && (!playback_.valid() || media_.phase == MediaPhase::kFailed ||
+                                         media_.phase == MediaPhase::kFinished))
                     StartTrack(current_, state_.screen == MusicScreen::kPlayer);
                 break;
             case MusicActionKind::kStop:
+                checkpoint_.Clear();
+                resume_.reset();
                 if (client_.operation() == Operation::kResolve || client_.operation() == Operation::kDetail ||
                     client_.operation() == Operation::kCover)
                     client_.Cancel();
@@ -369,8 +389,10 @@ class MusicModel final {
                 Message("已停止");
                 break;
             case MusicActionKind::kSeek:
-                if (playback_.valid() && WithPlayback([&] { return playback_.Seek(action.value); }))
+                if (playback_.valid() && !resume_ && WithPlayback([&] { return playback_.Seek(action.value); })) {
+                    SavePlayback(media_.phase, action.value, true);
                     app_.log().Info(("NETEASE_GUEST seek: " + Decimal(action.value)).c_str());
+                }
                 break;
             case MusicActionKind::kEditQuery:
                 state_.editing = true;
@@ -520,6 +542,37 @@ class MusicModel final {
         Pump();
         if (changed) Draw();
     }
+    void SavePlayback(MediaPhase phase, uint32_t position, bool immediate = false) {
+        if (resume_ || (phase != MediaPhase::kPlaying && phase != MediaPhase::kPaused)) return;
+        checkpoint_.Save(
+            {current_.id, account_.verified() ? account_.user_id : 0, position, phase == MediaPhase::kPlaying},
+            immediate);
+    }
+    void FlushPlayback() {
+        if (!playback_.valid()) return;
+        const auto state = playback_.State();
+        if (state) SavePlayback(state->phase, state->position_ms, true);
+    }
+    void ResumePlayback() {
+        if (!resume_ || (media_.phase != MediaPhase::kPlaying && media_.phase != MediaPhase::kPaused)) return;
+        if (resume_->position_ms && !resume_seek_started_) {
+            if (media_.duration_ms && resume_->position_ms >= media_.duration_ms) {
+                // A changed media source can be shorter than the saved track.
+                resume_->position_ms = 0;
+            } else if (playback_.Seek(resume_->position_ms)) {
+                resume_seek_started_ = true;
+                return;
+            } else {
+                return;
+            }
+        }
+        if (!playback_.Pause(!resume_->playing)) return;
+        media_.phase = resume_->playing ? MediaPhase::kPlaying : MediaPhase::kPaused;
+        app_.log().Info(("NETEASE_GUEST restored: track=" + Decimal(current_.id) +
+                         " position_ms=" + Decimal(media_.position_ms) + " playing=" + Decimal(resume_->playing))
+                            .c_str());
+        resume_.reset();
+    }
     void TickPlayback() {
         bool changed = false;
         const auto operation = play_client_.Poll();
@@ -534,6 +587,7 @@ class MusicModel final {
                 changed |= media_.position_ms != media->position_ms || media_.phase != media->phase ||
                            media_.duration_ms != media->duration_ms;
                 media_ = *media;
+                ResumePlayback();
                 const auto phase = uint16_t(media_.phase);
                 if (last_phase_ != phase) {
                     last_phase_ = phase;
@@ -543,9 +597,15 @@ class MusicModel final {
                             : media_.phase == MediaPhase::kFailed   ? media_.message
                                                                     : "正在下载并解码…",
                             media_.phase == MediaPhase::kFailed);
-                    if (media_.phase == MediaPhase::kFinished) Step(1);
+                    if (media_.phase == MediaPhase::kFailed) resume_.reset();
+                    if (media_.phase == MediaPhase::kFinished) {
+                        checkpoint_.Clear();
+                        resume_.reset();
+                        Step(1);
+                    }
                     changed = true;
                 }
+                SavePlayback(media_.phase, media_.position_ms);
             }
         }
         if (changed) Draw();
@@ -557,6 +617,7 @@ class MusicModel final {
             return;
         }
         if (!play_client_.error.empty()) {
+            resume_.reset();
             Message(play_client_.error, true);
             return;
         }
@@ -575,9 +636,15 @@ class MusicModel final {
             auto opened = app_.audio().OpenUrl(play_client_.url);
             if (opened) {
                 playback_ = std::move(*opened);
+                if (resume_) {
+                    resume_seek_started_ = false;
+                    (void)playback_.Pause(true);
+                }
                 Message(trial_ ? "仅可试听" : "正在下载音频…");
-            } else
+            } else {
+                resume_.reset();
                 Message("暂时无法播放这首歌", true);
+            }
         }
     }
     void Tick() {
@@ -622,7 +689,9 @@ class MusicModel final {
         else if (message.type == static_cast<uint16_t>(AppAction::kSetPlaying)) {
             const auto value = message.U32();
             if (!value || *value > 1) return -1;
-            if (*value) {
+            if (resume_) {
+                resume_->playing = *value;
+            } else if (*value) {
                 if (playback_.valid() && media_.phase != MediaPhase::kFinished && media_.phase != MediaPhase::kFailed)
                     (void)playback_.Pause(false);
                 else if (current_.id && !play_client_.busy() && play_stage_ == PlayStage::kNone)
@@ -653,7 +722,10 @@ class MusicModel final {
             const bool started = play_stage_ == PlayStage::kDetail ? play_client_.Detail(current_.id)
                                                                    : play_client_.Resolve(current_.id);
             play_stage_ = PlayStage::kNone;
-            if (!started) Message(play_client_.error, true);
+            if (!started) {
+                resume_.reset();
+                Message(play_client_.error, true);
+            }
             return;
         }
     }
@@ -663,6 +735,7 @@ class MusicModel final {
     Client client_;
     Client play_client_;
     Login login_;
+    PlaybackCheckpoint checkpoint_;
     uint32_t service_token_{}, activity_token_{}, dirty_{1}, avatar_revision_{}, cover_revision_{};
     std::vector<uint8_t> avatar_image_, cover_image_;
     bool initialized_{}, destroy_test_done_{};
@@ -674,6 +747,8 @@ class MusicModel final {
     MusicScreen return_screen_{MusicScreen::kSearch};
     MediaPlayback playback_;
     MediaState media_{};
+    std::optional<SavedPlayback> resume_;
+    bool resume_seek_started_{};
     Track current_;
     std::vector<Track> queue_;
     int selected_{-1};

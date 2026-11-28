@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>中央空调墙面面板 · 可交互设计原型</title>
+<style>
+:root{--ink:#172841;--muted:#455c76;--line:#d6e0ec;--blue:#234c96;--blue-soft:#e6effe;--panel:#f8fbff;--bg:#f1f5fa;--green:#175945;--green-bg:#e4f4eb;--warn:#744b15;--warn-bg:#fff0d8;--paper:#fff;--frame:#e4ebf3;font-family:system-ui,"Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg);font-synthesis:none}
+*{box-sizing:border-box}body{margin:0;min-width:0}button,select{font:inherit;color:inherit}button{cursor:pointer}button:disabled{cursor:default}a{color:inherit}button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid #245ac6;outline-offset:3px}[hidden]{display:none!important}.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+header.top{background:var(--paper);border-bottom:1px solid var(--line)}.top-inner{max-width:1152px;margin:auto;padding:15px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:650;white-space:nowrap}.brand-mark{width:26px;height:26px;color:var(--blue);background:var(--blue-soft);border:1px solid #c5d6ee;display:grid;place-items:center;border-radius:7px}.brand-mark .icon{width:17px;height:17px}.top nav{display:flex;gap:19px;flex-wrap:wrap;font-size:13px;color:var(--muted)}.top nav a{text-decoration:none;padding:5px 0}.top nav a:hover{text-decoration:underline;color:var(--blue)}
+main{max-width:1152px;margin:auto;padding:33px 28px 36px}.hero{display:flex;justify-content:space-between;align-items:end;gap:18px;margin:0 0 23px}.eyebrow{color:var(--blue);font-size:12px;font-weight:650;letter-spacing:.12em;margin:0 0 8px}h1{font-size:clamp(27px,4.8vw,40px);font-weight:680;line-height:1.18;letter-spacing:-.035em;margin:0 0 9px}h2{font-size:24px;letter-spacing:-.02em;margin:0 0 7px}h3,p{margin:0}.summary,.section-heading p{color:var(--muted);font-size:14px;line-height:1.6}.meta{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-size:12px;color:var(--muted)}.meta span{white-space:nowrap;border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:5px 8px}
+.prototype-grid{display:grid;grid-template-columns:minmax(0,1.52fr) minmax(0,1fr);align-items:stretch;gap:16px}.stage,.lab,.graphic-card,.asset{background:var(--paper);border:1px solid var(--line);border-radius:16px;min-width:0}.stage{padding:16px 22px;background:#eaf0f6}.stage-top{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:12px;margin-bottom:12px}.stage-top span:first-child{font-weight:650;color:#3c5675}.housing{width:100%;max-width:456px;margin:auto;border-radius:27px;background:var(--frame);padding:10px;border:1px solid #bac9db;box-shadow:0 2px 0 #c3d0df}.screen{container-type:inline-size;position:relative;isolation:isolate;aspect-ratio:1;background:#fcfdff;border:1px solid #bfcfe2;border-radius:19px;overflow:hidden}.device-mark{display:flex;align-items:center;justify-content:center;gap:5px;min-height:18px;color:#48617e;font-size:10px;margin:6px 0 -3px;letter-spacing:.08em}.device-mark::before{content:"";width:5px;height:5px;border-radius:50%;background:#6d8aae}.icon{width:21px;height:21px;display:inline-block;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.home{position:absolute;inset:0;padding:5%;display:grid;grid-template-rows:auto minmax(0,1fr) auto 29px;gap:clamp(5px,2cqw,10px)}.room-head{display:flex;justify-content:space-between;gap:5px;align-items:flex-start}.room-title{font-size:clamp(17px,5.6cqw,26px);line-height:1.07;font-weight:650}.room-sub{display:block;font-size:clamp(11px,3.1cqw,14px);color:var(--muted);margin-top:4px}.badge{display:inline-flex;align-items:center;gap:5px;background:var(--green-bg);color:var(--green);border-radius:30px;padding:4px 8px;font-size:clamp(11px,2.9cqw,13px);white-space:nowrap;line-height:1.25}.badge::before{content:"";width:6px;height:6px;background:currentColor;border-radius:50%}.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.temp-card{min-height:0;display:grid;place-items:center;padding:5px 9px;border-radius:14px;background:#edf4fe}.temp-card[data-tone="heat"]{background:#fff1e4}.temp-card[data-tone="muted"]{background:#edf1f5}.temp-grid{width:100%;display:grid;grid-template-columns:clamp(44px,16cqw,67px) minmax(0,1fr) clamp(44px,16cqw,67px);gap:3px;align-items:center}.temp-copy{text-align:center;min-width:0}.temp-copy span.temp-label,.temp-copy span.room-temp{display:block;color:#425d7d;font-size:clamp(11px,3.2cqw,15px);line-height:1.22}.temperature{display:flex;align-items:flex-start;justify-content:center;color:var(--ink);font-size:clamp(35px,21cqw,90px);font-weight:560;line-height:1.08;letter-spacing:-.055em;font-variant-numeric:tabular-nums;white-space:nowrap}.temperature.is-text{font-size:clamp(17px,7.8cqw,33px);line-height:1.55;letter-spacing:0}.unit{font-size:clamp(13px,6cqw,23px);margin:.26em 0 0 .15em;letter-spacing:0}.step{aspect-ratio:1;padding:0;border:1px solid #bacdea;background:#fcfdff;border-radius:50%;display:grid;place-items:center;color:var(--blue);font-size:clamp(23px,7.8cqw,33px);line-height:1}.step:hover:not(:disabled){background:#dceaff}.step:disabled{color:#7d8da2;border-color:#d5deea;background:#f5f7fa}
+.controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(3px,1.45cqw,7px)}.control{min-height:clamp(46px,17cqw,75px);padding:4px 1px;display:grid;align-content:center;justify-items:center;gap:2px;background:#f2f6fb;border:1px solid #cbd9ed;border-radius:10px;min-width:0}.control .icon{width:clamp(15px,5cqw,22px);height:clamp(15px,5cqw,22px);color:#2c5492}.control .control-label{font-size:clamp(10px,2.8cqw,13px);color:var(--muted);line-height:1.12}.control strong{font-size:clamp(10px,3.15cqw,14px);font-weight:650;line-height:1.14;white-space:nowrap}.control.selected{background:#e6efff;border-color:#8fabdd}.control:hover:not(:disabled){background:#dceaff}.control:disabled{background:#f2f5f8;border-color:#d5deea;color:#5e6e83}.control:disabled .icon{color:#687b93}.status-line{display:flex;align-items:center;justify-content:space-between;gap:4px;min-width:0;color:#425b77;font-size:clamp(11px,2.95cqw,13px);line-height:1.2}.status-line[data-tone="warn"]{color:var(--warn)}.refresh-button{padding:3px 5px;min-height:28px;background:#eaf2ff;border:1px solid #b1c6e8;border-radius:6px;color:var(--blue);white-space:nowrap;font-size:clamp(11px,2.95cqw,13px)}
+.overlay{position:absolute;inset:0;z-index:1;padding:6%;background:#f8fbff;display:flex;flex-direction:column;overflow:auto}.overlay-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}.overlay-head h3{font-size:clamp(17px,6.4cqw,27px)}.overlay p{color:var(--muted);font-size:clamp(11px,3.35cqw,15px);line-height:1.4}.options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(5px,2cqw,10px);margin:clamp(8px,3cqw,16px) 0 8px}.overlay button{min-height:44px;border:1px solid #c8d8ed;border-radius:9px;background:#fff;font-size:clamp(11px,3.5cqw,15px);padding:4px 8px;line-height:1.25}.overlay button:hover:not(:disabled),.overlay button[aria-pressed="true"],.overlay .save{color:var(--blue);background:#dceaff;border-color:#92afe1}.overlay button:disabled{color:#6a7889;background:#edf1f5}.overlay-actions{margin-top:auto;display:flex;gap:7px}.overlay-actions button{flex:1}
+.lab{padding:20px;display:flex;flex-direction:column;gap:11px}.lab-head{display:flex;justify-content:space-between;align-items:center;gap:7px}.lab h3{font-size:18px}.pill{display:inline-flex;align-items:center;background:#eaf2ff;color:var(--blue);font-size:11px;border-radius:30px;padding:4px 8px;white-space:nowrap}.lab label{font-size:13px;font-weight:650;margin:1px 0 -6px}.lab select{width:100%;min-height:40px;padding:7px 10px;background:#fff;border:1px solid #bfcfe4;border-radius:8px;font-size:14px}.lab-tip{min-height:42px;padding:9px 10px;border-left:3px solid #8eade4;background:#f0f5fe;color:#3b5678;font-size:13px;line-height:1.6}.design-keys{list-style:none;padding:0;margin:1px 0;display:grid;gap:0}.design-keys li{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:start;gap:7px;border-top:1px solid #e1e8f2;padding:9px 0}.design-keys b{font-size:13px}.design-keys p{color:var(--muted);font-size:12px;line-height:1.55}.design-keys .key-n{color:var(--blue);font-size:12px;font-variant-numeric:tabular-nums;margin-top:2px}.lab-foot{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-top:auto}.lab-foot small{color:var(--muted);font-size:11px}.plain-button,.svg-download{min-height:34px;padding:5px 9px;border:1px solid #c7d6e9;border-radius:7px;color:#274d87;background:#f7faff;white-space:nowrap;font-size:12px}.plain-button:hover,.svg-download:hover{background:#e8f1ff}
+.section{margin-top:38px;scroll-margin-top:12px}.section-heading{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:0 0 13px}.section-heading .eyebrow{margin-bottom:3px}.asset-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.asset{margin:0;overflow:hidden}.asset-art{background:#ebf1f8;padding:10px 17px;display:flex;justify-content:center}.asset-art svg{width:min(100%,250px);height:auto;display:block}.asset figcaption{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px 12px}.asset figcaption b{display:block;font-size:14px}.asset figcaption small{display:block;font-size:11px;color:var(--muted);line-height:1.35;margin-top:3px}.graphic-card{padding:16px}.flow-scroll{overflow-x:auto}.flow{width:100%;min-width:630px;height:auto;display:block}.flow-note{padding:9px 11px;margin-top:10px;color:#415a76;background:#f0f5fe;border-radius:8px;font-size:13px;line-height:1.6}.foot{border-top:1px solid var(--line);margin-top:29px;padding-top:14px;color:var(--muted);font-size:12px;line-height:1.7}
+@media(max-width:800px){.asset-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.stage{padding:14px}.lab{padding:16px}.hero{align-items:start;flex-direction:column;gap:8px}}@media(max-width:620px){.top-inner,main{padding-left:14px;padding-right:14px}.top-inner{align-items:start;flex-direction:column;gap:6px;padding-top:10px;padding-bottom:9px}.top nav{gap:16px}main{padding-top:24px}.prototype-grid{grid-template-columns:minmax(0,1fr)}.stage{padding:10px}.housing{padding:8px}.section{margin-top:30px}.section-heading{align-items:start}.graphic-card{padding:9px}}@media(max-width:380px){.asset-grid{grid-template-columns:minmax(0,1fr)}.asset-art svg{max-width:230px}.section-heading{flex-wrap:wrap}}@container(max-width:335px){.home{padding:4%;gap:5px;grid-template-rows:auto minmax(0,1fr) auto 27px}.overlay{padding:5%}.overlay-head{margin-bottom:5px}.overlay button{min-height:36px}.options{margin-top:7px;margin-bottom:5px}}
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" class="sr" aria-hidden="true"><defs>
+<symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7 12h4m-2-2v4m5-2h3m-9 5h8"/></symbol>
+<symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v9m-5-6a8 8 0 1 0 10 0"/></symbol>
+<symbol id="i-cool" viewBox="0 0 24 24"><path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M9 4l3 2 3-2m-6 16 3-2 3 2"/></symbol>
+<symbol id="i-heat" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2m0-14-2 2M7 17l-2 2"/></symbol>
+<symbol id="i-fan" viewBox="0 0 24 24"><path d="M4 8h12a2.5 2.5 0 1 0-2.5-2.5M3 12h16a2 2 0 1 1-2 2M5 16h6a2.5 2.5 0 1 1-2.5 2.5"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></symbol>
+</defs></svg>
+<header class="top"><div class="top-inner"><div class="brand"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-panel"/></svg></span>住宅温控 · 设计原型</div><nav aria-label="页面导航"><a href="#prototype">可点击面板</a><a href="#gallery">界面图集</a><a href="#ux">UX 流程</a></nav></div></header>
+<main>
+<section id="prototype" aria-labelledby="main-title">
+<div class="hero"><div><p class="eyebrow">01 / 可交互原型</p><h1 id="main-title">中央空调墙面控制面板</h1><p class="summary">欧瑞博产品参考 · 住宅单房间温控概念设计</p></div><div class="meta" aria-label="原型规格"><span>4 英寸设计基准</span><span>480 × 480 设计画布</span><span>离线演示</span></div></div>
+<div class="prototype-grid">
+<div class="stage"><div class="stage-top"><span>墙面温控 · 正面</span><span>可直接点按屏幕</span></div><div class="housing"><div class="screen" id="screen">
+<div class="home" id="home">
+<div class="room-head"><div><div class="room-title">客厅</div><span class="room-sub">中央空调</span></div><span class="badge" id="link-badge">设备在线</span></div>
+<div class="temp-card" id="temp-card"><div class="temp-grid"><button class="step" type="button" id="minus" aria-label="降低设定温度">−</button><div class="temp-copy"><span class="temp-label" id="temp-label">设定温度</span><div class="temperature" id="temperature"><span id="temp-value">24</span><span class="unit" id="unit">°C</span></div><span class="room-temp" id="room-temp">室温 26 °C</span></div><button class="step" type="button" id="plus" aria-label="提高设定温度">+</button></div></div>
+<div class="controls"><button class="control selected" type="button" id="power" aria-label="空调电源" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#i-power"/></svg><span class="control-label">电源</span><strong id="power-value">已开启</strong></button><button class="control selected" type="button" id="mode" aria-label="选择模式" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use id="mode-icon" href="#i-cool"/></svg><span class="control-label">模式</span><strong id="mode-value">制冷</strong></button><button class="control" type="button" id="fan" aria-label="选择风速" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-fan"/></svg><span class="control-label">风速</span><strong id="fan-value">自动</strong></button><button class="control" type="button" id="timer" aria-label="定时关机" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span class="control-label">定时</span><strong id="timer-value">未设置</strong></button></div>
+<div class="status-line" id="status-line"><span id="status" role="status" aria-live="polite">设备已开启 · 制冷模式</span><button class="refresh-button" id="refresh" type="button" hidden>刷新状态</button></div>
+</div>
+<section class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-help" hidden><div class="overlay-head"><h3 id="dialog-title">选择模式</h3><button type="button" id="back" aria-label="返回主屏">返回</button></div><p id="dialog-help"></p><div class="options" id="options"></div><div class="overlay-actions" id="actions"></div></section>
+</div><div class="device-mark" aria-hidden="true">温控面板 · 概念样机</div></div></div>
+<aside class="lab" id="lab"><div class="lab-head"><h3>场景模拟</h3><span class="pill">不连接真实设备</span></div><label for="scenario">模拟条件</label><select id="scenario" aria-describedby="scenario-tip"><option value="normal">正常联机</option><option value="local">互联网断开 · 本地联机</option><option value="offline">空调控制链路断开</option><option value="restricted">集中控制限制制热</option><option value="timeout">指令确认超时</option></select><p class="lab-tip" id="scenario-tip">点按 + 将 24 °C 调到 25 °C，再观察设备确认反馈。</p>
+<ol class="design-keys"><li><span class="key-n">01</span><div><b>设定温度和实际室温分开</b><p>大字显示设定值，实测室温另列；送风时不显示可调设定值。</p></div></li><li><span class="key-n">02</span><div><b>开关与调温不跳页</b><p>模式、风速和一次性定时关机在面板内完成。</p></div></li><li><span class="key-n">03</span><div><b>明确区分写入与确认</b><p>设备状态回读后再更新；超时先读状态，不自动重发。</p></div></li></ol>
+<div class="lab-foot"><small>设置仅在当前页面演示</small><button type="button" class="plain-button" id="reset">重置演示</button></div></aside>
+</div><noscript><p class="flow-note">此原型需要浏览器允许 JavaScript 才能点按和显示界面图集。</p></noscript>
+</section>
+
+<section class="section" id="gallery" aria-labelledby="gallery-title"><div class="section-heading"><div><p class="eyebrow">02 / 界面图集</p><h2 id="gallery-title">关键界面与状态</h2><p>12 张配套示意图与页面一同离线打开，每张均可另存为 SVG。</p></div></div><div class="asset-grid" id="asset-grid"></div></section>
+
+<section class="section" id="ux" aria-labelledby="ux-title"><div class="section-heading"><div><p class="eyebrow">03 / 用户体验流程</p><h2 id="ux-title">从触控到设备确认</h2><p>入口不同，命令提交后的状态确认规则一致。</p></div><button type="button" class="svg-download" id="download-flow">下载流程 SVG</button></div>
+<div class="graphic-card"><div class="flow-scroll"><svg class="flow" id="ux-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 415" width="880" height="415" role="img" aria-labelledby="flow-title flow-desc">
+<title id="flow-title">中央空调面板 UX 流程图</title><desc id="flow-desc">主屏的三条操作路径汇合为提交指令、回读设备状态、显示确认结果。链路断开时不可下发，回读超时后仅刷新读取。</desc>
+<defs><marker id="flow-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#5c789e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="0" y="0" width="880" height="415" rx="12" fill="#f8fbff" stroke="#d6e0ec"/>
+<g font-family="system-ui, Microsoft YaHei, sans-serif">
+<text x="30" y="31" fill="#405d80" font-size="14" font-weight="650">A / 主屏入口</text>
+<g fill="none" stroke="#5c789e" stroke-width="1.1" marker-end="url(#flow-arrow)"><path d="M440 81V99H164V119"/><path d="M440 81V119"/><path d="M440 99H716V119"/><path d="M232 272H310"/><path d="M511 266H550V243H617"/><path d="M511 279H550V308H617"/></g>
+<g text-anchor="middle">
+<rect x="350" y="27" width="180" height="54" rx="9" fill="#e6effe" stroke="#8daed9"/><text x="440" y="50" fill="#183b65" font-size="16" font-weight="650">温控主屏</text><text x="440" y="68" fill="#455c76" font-size="12">查看设定温度与室温</text>
+<rect x="69" y="120" width="190" height="57" rx="9" fill="#fff" stroke="#b4c7e0"/><text x="164" y="144" fill="#183b65" font-size="15" font-weight="650">调温 / 电源</text><text x="164" y="163" fill="#455c76" font-size="12">主屏直接操作</text>
+<rect x="345" y="120" width="190" height="57" rx="9" fill="#fff" stroke="#b4c7e0"/><text x="440" y="144" fill="#183b65" font-size="15" font-weight="650">模式 / 风速</text><text x="440" y="163" fill="#455c76" font-size="12">选中即提交</text>
+<rect x="621" y="120" width="190" height="57" rx="9" fill="#fff" stroke="#b4c7e0"/><text x="716" y="144" fill="#183b65" font-size="15" font-weight="650">定时关机</text><text x="716" y="163" fill="#455c76" font-size="12">选择时长后保存</text></g>
+<path d="M30 201H850" fill="none" stroke="#bbcce1" stroke-dasharray="4 4"/><text x="30" y="224" fill="#405d80" font-size="14" font-weight="650">B / 各入口共用的确认规则</text>
+<g text-anchor="middle">
+<rect x="45" y="247" width="187" height="52" rx="9" fill="#e6effe" stroke="#8daed9"/><text x="138.5" y="269" fill="#183b65" font-size="15" font-weight="650">提交指令</text><text x="138.5" y="287" fill="#455c76" font-size="12">提示「等待设备确认」</text>
+<rect x="312" y="247" width="199" height="52" rx="9" fill="#e6effe" stroke="#8daed9"/><text x="411.5" y="269" fill="#183b65" font-size="15" font-weight="650">回读设备状态</text><text x="411.5" y="287" fill="#455c76" font-size="12">核对操作是否生效</text>
+<rect x="619" y="217" width="215" height="52" rx="9" fill="#e4f4eb" stroke="#91bfaa"/><text x="726.5" y="239" fill="#175945" font-size="15" font-weight="650">状态匹配</text><text x="726.5" y="257" fill="#2b6251" font-size="12">更新主屏，显示已确认</text>
+<rect x="619" y="282" width="215" height="52" rx="9" fill="#fff0d8" stroke="#d6ab73"/><text x="726.5" y="304" fill="#744b15" font-size="15" font-weight="650">超时，结果未知</text><text x="726.5" y="322" fill="#744b15" font-size="12">刷新只读，不自动重发</text></g>
+<g font-size="13" fill="#405d80"><path d="M30 353H850" fill="none" stroke="#d6e0ec"/><text x="30" y="377">集中控制限制 → 禁用对应选项并说明原因</text><text x="30" y="398">设备链路断开 → 停止下发，隐藏无法确认的设备状态</text></g></g></svg></div>
+<p class="flow-note">「设备已开启」表示设备确认电源状态，不承诺压缩机已运行。若接入链路无法回读，只能显示「已发送」，不能显示「已生效」。</p></div></section>
+<footer class="foot">概念设计，非欧瑞博官方原版界面。功能参考 T10W1；4 英寸、480 × 480 画布参考 MixPad 4。两者并非同一设备。本页面内嵌图标、所有设计图与脚本，无需联网。</footer>
+</main>
+<script>
+'use strict';
+(() => {
+  const $ = id => document.getElementById(id);
+  const initial = () => ({ on:true, setpoint:24, mode:'制冷', fan:'自动', until:0 });
+  const capability = { min:10, max:30, modes:['制冷','制热','送风'], fans:['自动','低风','中风','高风'], durations:[30,60,120] };
+  const descriptions = {
+    normal:'点按 + 或 − 调整设定温度，观察设备确认反馈。',
+    local:'互联网断开，但本地控制链路可用。试试调温或开关。',
+    offline:'空调设备无法回读，写入被禁用；重新选择「正常联机」恢复演示。',
+    restricted:'打开「模式」查看制热禁用及原因；制冷、送风仍可选。',
+    timeout:'调整一次温度后点「刷新状态」。此示例模拟设备已执行、但首次回读超时。'
+  };
+  const modeIcons = { '制冷':'cool','制热':'heat','送风':'fan' };
+  let device=initial(), shown=initial(), scene='normal', pending=null, uncertain=false, reading=false, notice='', page='', draft=0, opener=null, epoch=0;
+  const left = (until, now=Date.now()) => until ? Math.max(0, Math.ceil((until-now)/60000)) : 0;
+  const gate = () => scene==='offline'||uncertain||reading||Boolean(pending);
+  function render() {
+    const offline=scene==='offline', unknown=offline||uncertain, disabled=gate();
+    const adjustable=shown.on&&shown.mode!=='送风', nextTemp=pending&&pending.key==='setpoint';
+    const text=unknown?'—':!shown.on?'已关机':!adjustable?'送风':String(nextTemp?pending.value:shown.setpoint);
+    const timer=left(shown.until);
+    $('link-badge').textContent=offline?'设备离线':uncertain?'待确认':scene==='local'?'本地可控':'设备在线';
+    $('link-badge').classList.toggle('warn',unknown);
+    $('temp-card').dataset.tone=unknown||!shown.on?'muted':shown.mode==='制热'?'heat':'cool';
+    $('temp-label').textContent=offline?'设备状态':uncertain?'当前设定未确认':nextTemp?'目标设定 · 待确认':adjustable?'设定温度':'空调状态';
+    $('temp-value').textContent=text;
+    $('temperature').classList.toggle('is-text',!unknown&&!adjustable);
+    $('unit').hidden=unknown||!adjustable;
+    $('room-temp').textContent=offline?'室温不可用':'室温 26 °C';
+    $('minus').disabled=disabled||!adjustable||shown.setpoint<=capability.min;
+    $('plus').disabled=disabled||!adjustable||shown.setpoint>=capability.max;
+    $('power').disabled=disabled;
+    $('mode').disabled=disabled||!shown.on;
+    $('fan').disabled=disabled||!shown.on;
+    $('timer').disabled=disabled||(!shown.on&&!timer);
+    $('power').setAttribute('aria-pressed',unknown?'mixed':String(shown.on));
+    $('power').classList.toggle('selected',shown.on&&!unknown);
+    $('mode').classList.toggle('selected',shown.on&&!unknown);
+    $('timer').classList.toggle('selected',timer>0&&!unknown);
+    $('power-value').textContent=unknown?'—':shown.on?'已开启':'已关闭';
+    $('mode-value').textContent=unknown?'—':shown.mode;
+    $('fan-value').textContent=unknown?'—':shown.fan;
+    $('timer-value').textContent=unknown?'—':timer?`${timer} 分钟`:'未设置';
+    $('mode-icon').setAttribute('href','#i-'+(unknown?'cool':modeIcons[shown.mode]));
+    $('status-line').dataset.tone=unknown?'warn':'normal';
+    $('status').textContent=offline?'请检查空调控制链路':reading?'正在读取设备状态…':uncertain?'指令超时，结果未知':pending?'正在等待设备确认…':notice||(shown.on?'设备已开启 · '+shown.mode+'模式':'设备已关闭');
+    $('refresh').hidden=offline||!uncertain;
+    $('refresh').disabled=reading;
+    $('scenario').disabled=Boolean(pending)||reading;
+    $('scenario-tip').textContent=descriptions[scene];
+  }
+  function apply(key,value) {
+    if(key==='timer') device.until=value?Date.now()+value*60000:0;
+    else if(key==='on') { device.on=value; if(!value)device.until=0; }
+    else device[key]=value;
+  }
+  function command(key,value,confirmation) {
+    if(gate()||(key==='mode'&&value==='制热'&&scene==='restricted')) return;
+    const token=epoch, timesOut=scene==='timeout';
+    pending={key,value}; notice=''; render();
+    setTimeout(() => {
+      if(token!==epoch)return;
+      apply(key,value); pending=null;
+      if(timesOut) uncertain=true;
+      else { shown={...device}; notice=confirmation; }
+      render();
+    },timesOut?820:410);
+  }
+  function closeDialog(restore=true) {
+    if(!page)return;
+    $('overlay').hidden=true; $('home').inert=false; $('lab').inert=false; page='';
+    if(restore&&opener&&!opener.disabled)opener.focus();
+  }
+  function openDialog(key) {
+    if(gate())return;
+    page=key; opener=$(key); draft=left(shown.until); drawDialog();
+    $('overlay').hidden=false; $('home').inert=true; $('lab').inert=true; $('back').focus();
+  }
+  function button(text, action) {
+    const el=document.createElement('button'); el.type='button'; el.textContent=text; el.addEventListener('click', action); return el;
+  }
+  function drawDialog() {
+    const isTimer=page==='timer', isMode=page==='mode';
+    const options=$('options'), actions=$('actions'), help=$('dialog-help');
+    $('dialog-title').textContent=isTimer?'定时关机':isMode?'选择模式':'选择风速';
+    help.textContent=isTimer?'一次性关机；选择时长后点「保存」。':isMode&&scene==='restricted'?'制热不可用：当前受集中控制限制。':isMode?'选择后提交；回读确认后生效。':'可选档位随空调型号变化。';
+    const items=isTimer?capability.durations:isMode?capability.modes:capability.fans;
+    options.replaceChildren(); actions.replaceChildren();
+    for(const value of items){
+      const b=button(isTimer?`${value} 分钟`:value,()=>{
+        if(isTimer){draft=value; [...options.children].forEach((x,i)=>x.setAttribute('aria-pressed',String(items[i]===draft))); $('save').disabled=false;return;}
+        const key=page; closeDialog(); if(shown[key]!==value) command(key,value,`已确认 · ${value}`);
+      });
+      b.setAttribute('aria-pressed',String((isTimer?draft:shown[page])===value));
+      b.disabled=(isMode&&value==='制热'&&scene==='restricted')||(isTimer&&!shown.on);
+      options.append(b);
+    }
+    if(!isTimer)return;
+    if(left(shown.until)) actions.append(button('取消定时',()=>{closeDialog();command('timer',0,'定时已取消');}));
+    const save=button('保存',()=>{if(!capability.durations.includes(draft))return;closeDialog(); command('timer',draft,`已确认 · ${draft} 分钟后关机`);});
+    save.className='save'; save.id='save'; save.disabled=!shown.on||!capability.durations.includes(draft); actions.append(save);
+  }
+  const step=change=>{const value=shown.setpoint+change;if(shown.on&&shown.mode!=='送风'&&value>=capability.min&&value<=capability.max)command('setpoint',value,`设定温度已确认：${value} °C`);};
+  $('minus').onclick=()=>step(-1); $('plus').onclick=()=>step(1);
+  $('power').onclick=()=>command('on',!shown.on,shown.on?'设备已关闭':'设备已开启');
+  for(const key of ['mode','fan','timer']) $(key).onclick=()=>openDialog(key);
+  $('back').onclick=()=>closeDialog();
+  $('overlay').addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();closeDialog();return;}
+    if(e.key!=='Tab')return;
+    const nodes=[...$('overlay').querySelectorAll('button:not(:disabled)')];
+    if(e.shiftKey&&document.activeElement===nodes[0]){e.preventDefault();nodes.at(-1).focus();}
+    else if(!e.shiftKey&&document.activeElement===nodes.at(-1)){e.preventDefault();nodes[0].focus();}
+  });
+  $('scenario').onchange=e=>{
+    const wasOffline=scene==='offline'; scene=e.target.value; notice='';
+    if(wasOffline&&scene!=='offline'&&!uncertain)shown={...device};
+    render();
+  };
+  $('refresh').onclick=()=>{
+    if(!uncertain||reading||scene==='offline')return;
+    const token=epoch;
+    reading=true; render();
+    setTimeout(()=>{if(token!==epoch)return;shown={...device};uncertain=false;reading=false;notice='已读取最新设备状态';render();$('scenario').focus();},410);
+  };
+  $('reset').onclick=()=>{
+    epoch++; closeDialog(false); device=initial(); shown={...device}; scene='normal'; pending=null; uncertain=false; reading=false; notice=''; $('scenario').value=scene; render();
+  };
+  setInterval(()=>{
+    if(device.until&&Date.now()>=device.until){
+      apply('on',false);
+      if(scene!=='offline'&&!uncertain){shown={...device};notice='定时已到 · 设备已关闭';if(page)closeDialog(false);render();}
+    } else if(shown.until&&scene!=='offline'&&!uncertain&&!page)render();
+  },1000);
+  render();
+
+  const swatches={ink:'#172841', muted:'#455c76', blue:'#244f93', line:'#c5d4e7', paper:'#fbfdff', surface:'#f2f6fb', picked:'#e6effe', green:'#175945', gbg:'#e4f4eb', warn:'#744b15', wbg:'#fff0d8'};
+  const gallery=[
+    {id:'home',name:'正常主屏',note:'设定温度与室温分层显示',kind:'home'},
+    {id:'mode',name:'模式选择',note:'点选制冷、制热或送风',kind:'dialog',title:'选择模式',help:'选择后提交；设备确认后生效。',items:['制冷','制热','送风'],pick:0},
+    {id:'fan',name:'风速选择',note:'自动 / 低风 / 中风 / 高风',kind:'dialog',title:'选择风速',help:'可选档位随空调型号变化。',items:['自动','低风','中风','高风'],pick:0},
+    {id:'timer',name:'定时关机',note:'选择时长后保存',kind:'dialog',title:'定时关机',help:'一次性关机；选好时长后保存。',items:['30 分钟','60 分钟','120 分钟'],pick:1,save:true},
+    {id:'heating',name:'制热主屏',note:'暖色提示配合「制热」文字',kind:'home',state:'heat'},
+    {id:'ventilation',name:'送风主屏',note:'仅送风，不显示可调温度',kind:'home',state:'vent'},
+    {id:'power-off',name:'已关机',note:'调温禁用，保留开机入口',kind:'home',state:'off'},
+    {id:'pending',name:'等待确认',note:'区分请求值与已确认状态',kind:'home',state:'pending'},
+    {id:'local',name:'本地可控',note:'互联网断开，本地控制仍可用',kind:'home',state:'local'},
+    {id:'restricted',name:'集中控制限制',note:'禁用制热并显示原因',kind:'dialog',title:'选择模式',help:'制热不可用：当前受集中控制限制。',items:['制冷','制热','送风'],pick:0,disabled:1},
+    {id:'offline',name:'设备离线',note:'停止下发，不显示过时状态',kind:'home',state:'offline'},
+    {id:'timeout',name:'确认超时',note:'显示结果未知，仅刷新读取',kind:'home',state:'timeout'}
+  ];
+  const glyphs=Object.fromEntries(['power','cool','heat','fan','clock'].map(key=>[key,$('i-'+key).innerHTML]));
+  const rect=(x,y,w,h,fill,stroke='none',rx=8)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${stroke}"/>`;
+  const label=(x,y,t,size=13,fill=swatches.ink,anchor='start',weight=400)=>`<text x="${x}" y="${y}" fill="${fill}" font-size="${size}" text-anchor="${anchor}" font-weight="${weight}">${t}</text>`;
+  const glyph=(x,y,g)=>`<g transform="translate(${x} ${y}) scale(0.8)" fill="none" stroke="${swatches.blue}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyphs[g]}</g>`;
+  function assetMarkup(a){
+    const s=swatches;
+    let body=rect(0,0,288,288,'#e4ebf3','#bbcada',18)+rect(8,8,272,272,s.paper,'#bdcde0',14);
+    if(a.kind==='dialog'){
+      body+=label(24,45,a.title,20,s.ink,'start',650)+rect(219,24,45,28,s.paper,s.line,6)+label(241.5,43,'返回',12,s.blue,'middle')+label(24,70,a.help,12,s.muted);
+      a.items.forEach((item,i)=>{const x=24+(i%2)*123,y=89+Math.floor(i/2)*49, disabled=i===a.disabled;body+=rect(x,y,116,42,disabled?'#edf1f5':i===a.pick?s.picked:s.paper,i===a.pick?'#8faee0':s.line,8)+label(x+58,y+26,item,14,disabled?'#68798d':s.blue,'middle',i===a.pick?650:400);});
+      if(a.save)body+=rect(24,224,240,35,s.picked,'#8faee0',8)+label(144,247,'保存',14,s.blue,'middle',650);
+    } else {
+      const off=a.state==='off', local=a.state==='local', offline=a.state==='offline', timeout=a.state==='timeout', heat=a.state==='heat', vent=a.state==='vent', waiting=a.state==='pending';
+      const u=offline||timeout, caps=off||u||vent||waiting, numerical=!u&&!off&&!vent, mode=heat?'制热':vent?'送风':'制冷';
+      body+=label(23,39,'客厅',20,s.ink,'start',650)+label(23,56,'中央空调',12,s.muted)+rect(199,28,64,21,u?s.wbg:s.gbg,'none',11)+`<circle cx="207" cy="38.5" r="2.5" fill="${u?s.warn:s.green}"/>`+label(214,42,offline?'设备离线':timeout?'待确认':local?'本地可控':'设备在线',11,u?s.warn:s.green);
+      body+=rect(23,64,242,122,off||u?'#edf1f5':heat?'#fff1e4':'#edf4fe','none',11)+label(144,90,offline?'设备状态':timeout?'当前设定未确认':off||vent?'空调状态':waiting?'目标设定 · 待确认':'设定温度',12,s.muted,'middle');
+      for(const [x,c] of [[51,'−'],[237,'+']])body+=`<circle cx="${x}" cy="125" r="19" fill="${caps?'#f5f7fa':s.paper}" stroke="${s.line}"/>`+label(x,132,c,23,caps?'#798ba1':s.blue,'middle');
+      body+=label(numerical?137:144,143,u?'—':off?'已关机':vent?'送风':waiting?'25':'24',off||vent?24:55,s.ink,'middle',550);
+      if(numerical)body+=label(172,113,'°C',16,s.ink,'start',550);
+      body+=label(144,167,offline?'室温不可用':'室温 26 °C',12,s.muted,'middle');
+      [['电源',off?'已关闭':'已开启','power'],['模式',mode,modeIcons[mode]],['风速','自动','fan'],['定时','未设置','clock']].forEach(([title,value,g],i)=>{const x=23+i*61.5;body+=rect(x,194,57.5,52,!off&&!u&&!waiting&&i<2?s.picked:s.surface,s.line,7)+glyph(x+19,196,g)+label(x+28.75,226,title,10,s.muted,'middle')+label(x+28.75,240,u?'—':value,11,s.ink,'middle',650);});
+      const status=offline?'请检查空调控制链路':timeout?'指令超时，结果未知':off?'设备已关闭':waiting?'正在等待设备确认…':'设备已开启 · '+mode+'模式';
+      body+=label(24,263,status,11,u?s.warn:s.muted);
+      if(timeout)body+=rect(206,250,57,20,s.picked,s.line,5)+label(234.5,264,'刷新状态',10,s.blue,'middle');
+    }
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 288 288" width="288" height="288" role="img" aria-label="${a.name}"><title>${a.name}</title><desc>${a.note}</desc><g font-family="system-ui, Microsoft YaHei, sans-serif">${body}</g></svg>`;
+  }
+  function download(svg,name){
+    const data=new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml;charset=utf-8'});
+    const url=URL.createObjectURL(data), a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  gallery.forEach((a,i)=>{
+    const f=document.createElement('figure');f.className='asset';
+    f.innerHTML=`<div class="asset-art">${assetMarkup(a)}</div><figcaption><div><b>${String(i+1).padStart(2,'0')} / ${a.name}</b><small>${a.note}</small></div></figcaption>`;
+    const save=button('下载 SVG',()=>download(f.querySelector('svg'),`orvibo-ac-${a.id}.svg`));save.className='svg-download';save.setAttribute('aria-label',`下载 ${a.name} SVG`);f.querySelector('figcaption').append(save);$('asset-grid').append(f);
+  });
+  $('download-flow').onclick=()=>download($('ux-svg'),'orvibo-ac-ux-flow.svg');
+})();
+</script>
+</body>
+</html>

@@ -181,6 +181,7 @@ class PlaybackService final : public micropixel::AppService {
         model_.PublishWidget(true);
     }
     void OnStop(micropixel::ComponentContext&) override {
+        model_.FlushPlayback();
         model_.play_client_.Cancel();
         model_.playback_.Close();
         timer_.reset();

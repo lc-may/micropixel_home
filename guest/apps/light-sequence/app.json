@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "app_id": "micropixel.light-sequence",
+  "version": "0.1.2",
+  "threading": "none",
+  "title": "全屋灯光",
+  "sources": ["main.cpp"],
+  "asset_manifest": "assets/manifest.json",
+  "requirements": {
+    "schema_version": 2,
+    "display": {"layouts": ["square"], "min_width": 480, "min_height": 480},
+    "required": ["input.touch"],
+    "optional": [],
+    "any_of": [],
+    "services": {"lifecycle": 65536, "resource": 65537, "storage": 65536},
+    "components": {"activity": true, "service": false, "background": [], "widgets": 0}
+  }
+}

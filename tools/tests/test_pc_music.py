@@ -162,6 +162,7 @@ def main():
                     while log_path.read_text(errors="replace").count("Audio playing:") < 2 and time.monotonic() < deadline:
                         time.sleep(.05)
                     assert log_path.read_text(errors="replace").count("Audio playing:") >= 2
+                    click(650, 40)  # A subsequent launch should open search after an explicit stop.
                     close_home_app(click, escape); time.sleep(.3); click(100, 566); wait_for("NETEASE_GUEST search: 2 tracks")
                     before=Handler.hits.count("/weapi/search/get")
                     click(200, 170)
@@ -176,6 +177,21 @@ def main():
                              ["--music-song", "101", *guest_args, *rv32_args], drive, seconds=18)
                 (cache / "interaction.log").write_text((output / "navigation.log").read_text())
                 assert any(pcm.read_bytes()), "No actual PCM output"
+
+                def pause_before_restart(click, event, wait_for, log_path, process, escape):
+                    wait_for("Audio playing:")
+                    time.sleep(.8)
+                    click(360, 326)
+                    wait_for("已暂停")
+                    escape()
+
+                navigate_x11(env, output, ["--music-song", "101", *guest_args, *rv32_args],
+                             pause_before_restart, seconds=6)
+                _, log = run("--headless", "--music", "--seconds", 3, name="resumed-pause", disk=True)
+                paused = re.search(r"NETEASE_GUEST restored: track=101 position_ms=(\d+) playing=0", log)
+                assert paused and 500 <= int(paused.group(1)) < 8000, log
+                assert not any((output / "resumed-pause.pcm").read_bytes()), "Paused playback produced sound"
+
                 Handler.mode = "slowmedia"
 
                 def cancel(click, event, wait_for, log_path, process, escape):
@@ -208,6 +224,10 @@ def main():
             samples = array("h"); samples.frombytes((output / "player.pcm").read_bytes())
             assert sum(abs(x) > 100 for x in samples) > 5000, "MP3 was silent"
             assert sum(abs(samples[i] - samples[i + 1]) > 100 for i in range(0, len(samples)-1, 2)) > 1000, "Stereo channels were collapsed"
+            _, log = run("--headless", "--music", "--seconds", 3, name="resumed-player", disk=True)
+            resumed = re.search(r"NETEASE_GUEST restored: track=101 position_ms=(\d+) playing=1", log)
+            assert resumed and 500 <= int(resumed.group(1)) < 8000, log
+            assert any((output / "resumed-player.pcm").read_bytes()), "Restored playback was silent"
             for name in ("search", "player"):
                 with Image.open(output / f"{name}.png") as image: assert image.size == (720, 720)
                 shutil.copyfile(output / f"{name}.png", cache / f"{name}.png")

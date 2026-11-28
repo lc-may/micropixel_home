@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "assets": [
+    {"name": "surfaces", "format": "png", "path": "surfaces.png"},
+    {"name": "lighting", "format": "png", "path": "lighting.png"},
+    {"name": "icons", "format": "png", "path": "icons.png"},
+    {"name": "text_navigation", "format": "png", "path": "text_navigation.png"},
+    {"name": "text_detail", "format": "png", "path": "text_detail.png"},
+    {"name": "text_power", "format": "png", "path": "text_power.png"}
+  ]
+}

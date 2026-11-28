@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="光序，480×480 智能灯控触屏交互原型。">
+<title>光序｜480 × 480 灯控面板</title>
+<style>
+:root {
+  color-scheme:dark;
+  --bg:#14161a; --panel:#1e2025; --edge:#303238; --deep:#16181c;
+  --ink:#f8f4ed; --sub:#adaaa5; --quiet:#92918f;
+  --gold:#f8cc90; --gold-ink:#2d2114; --gold-edge:#746049;
+  --sans:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",system-ui,sans-serif;
+  --fit:1;
+}
+* { box-sizing:border-box; }
+html,body { margin:0; width:100%; height:100%; }
+body {
+  display:grid; place-items:center; overflow:hidden;
+  background:radial-gradient(ellipse at 50% 42%,#2b2c30 0%,#17191d 53%,#101216 100%);
+  color:var(--ink); font:15px/1.4 var(--sans);
+  -webkit-tap-highlight-color:transparent;
+}
+button,input { font:inherit; }
+button {
+  appearance:none; border:0; color:inherit; background:none; padding:0;
+  cursor:pointer; touch-action:manipulation;
+}
+button:disabled { cursor:default; }
+button:focus-visible,input:focus-visible {
+  outline:2px solid #ffe1b8; outline-offset:2px; z-index:2;
+}
+h1,h2,p { margin:0; }
+h1:focus { outline:none; }
+svg { display:block; }
+.symbol { width:24px; height:24px; flex:none; }
+.frame { width:calc(480px * var(--fit)); height:calc(480px * var(--fit)); }
+.panel {
+  position:relative; width:480px; height:480px; overflow:hidden; isolation:isolate;
+  background:var(--bg);
+  transform:scale(var(--fit)); transform-origin:top left;
+  border-radius:26px; box-shadow:0 24px 92px #07080b80,0 0 0 1px #ffffff13;
+}
+@media (max-width:480px), (max-height:480px) {
+  .panel { border-radius:0; box-shadow:none; }
+}
+.screen { width:100%; height:100%; padding:18px 20px; display:flex; flex-direction:column; }
+.mast { display:flex; flex:0 0 38px; align-items:center; justify-content:space-between; }
+.brand { display:flex; align-items:center; gap:9px; font-size:16px; font-weight:650; letter-spacing:.06em; }
+.brand .mark {
+  display:grid; place-items:center; width:30px; height:30px; border-radius:9px;
+  border:1px solid #594835; background:#322820; color:var(--gold);
+}
+.brand .mark .symbol { width:19px; height:19px; }
+.brand .english { font-size:10px; font-weight:650; letter-spacing:.18em; color:var(--quiet); }
+.demo {
+  display:flex; gap:6px; align-items:center; padding:4px 9px; border:1px solid var(--edge);
+  border-radius:20px; color:var(--sub); font-size:11px; white-space:nowrap;
+}
+.demo::before { content:""; width:5px; height:5px; border-radius:50%; background:#a5a6a8; }
+.intro { flex:0 0 80px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 1px 13px; }
+.intro h1 { font-size:34px; line-height:1.06; letter-spacing:.015em; font-weight:730; }
+.intro p { margin-top:6px; font-size:13px; color:var(--sub); }
+.summary-count {
+  display:flex; gap:7px; align-items:center; font-size:13px; color:var(--sub);
+  padding:0 1px 3px 0; white-space:nowrap;
+}
+.summary-count .symbol { width:17px; height:17px; color:var(--gold); }
+.summary-count b { color:var(--ink); font-variant-numeric:tabular-nums; font-size:15px; font-weight:700; }
+.room-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-rows:140px; gap:12px; }
+.room {
+  position:relative; isolation:isolate; border-radius:18px;
+  background:linear-gradient(147deg,#23252b,#1d1f24 76%);
+  border:1px solid #33353b; overflow:hidden;
+}
+.room[data-warm="true"] {
+  background:radial-gradient(ellipse at 7% 6%,#3b3025 0%,#282523 54%,#222226 100%);
+  border-color:#4e4034;
+}
+.room::after {
+  content:""; position:absolute; z-index:-1; pointer-events:none; right:-30px; top:-47px;
+  width:136px; height:136px; border:1px solid #ffffff0b; border-radius:50%;
+  box-shadow:0 0 0 12px #ffffff05,0 0 0 27px #ffffff04;
+}
+.room[data-warm="true"]::after { border-color:#f8cc901a; box-shadow:0 0 0 12px #f8cc9009,0 0 0 27px #f8cc9005; }
+.room-open { position:absolute; inset:0; border-radius:17px; display:block; text-align:left; }
+.room-open:focus-visible { outline-offset:-4px; }
+.room-icon {
+  position:absolute; top:13px; left:14px; width:45px; height:45px; border-radius:13px;
+  display:grid; place-items:center; color:#c7c7cc; background:#ffffff0a; border:1px solid #ffffff0d;
+}
+.room-icon .symbol { width:25px; height:25px; }
+.room[data-warm="true"] .room-icon { color:#ffdbab; background:#f8cc9012; border-color:#f8cc901c; }
+.room-arrow { position:absolute; top:17px; right:14px; color:#c1b8ae; }
+.room-arrow .symbol { width:17px; height:17px; }
+.room-title { position:absolute; left:14px; right:70px; bottom:43px; font-size:22px; font-weight:690; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.room-note {
+  position:absolute; left:14px; right:65px; bottom:16px; color:var(--sub);
+  font-size:12px; white-space:nowrap; font-variant-numeric:tabular-nums;
+}
+.power {
+  display:flex; flex:none; align-items:center; justify-content:center; gap:6px;
+  color:#e5e2de; background:#282a30; border:1px solid #42444c; border-radius:13px;
+  font-size:13px; line-height:1; white-space:nowrap;
+}
+.power .symbol { width:17px; height:17px; }
+.power[data-on="true"] { color:var(--gold); background:#4a3727; border-color:#7a5d3f; }
+.power[data-active="true"] { color:var(--gold-ink); background:var(--gold); border-color:#ffdbab; }
+.power:disabled { color:#a5a4a2; background:#222329; border-color:#33353a; opacity:.82; }
+.room-power { position:absolute; z-index:3; right:12px; bottom:11px; width:49px; height:54px; flex-direction:column; gap:5px; font-size:11px; }
+.footnote { flex:1; min-height:32px; display:flex; align-items:flex-end; justify-content:space-between; font-size:12px; color:var(--sub); padding:0 1px 0 2px; }
+.footnote .gesture { display:flex; gap:6px; align-items:center; }
+.footnote .symbol { width:14px; height:14px; color:var(--quiet); }
+.footnote .tag { letter-spacing:.08em; color:var(--quiet); font-size:11px; font-variant-numeric:tabular-nums; }
+.subheader { flex:0 0 58px; display:flex; align-items:center; gap:12px; }
+.back {
+  display:grid; place-items:center; width:50px; height:50px; flex:none;
+  border:1px solid var(--edge); border-radius:14px; background:#202228; color:var(--ink);
+}
+.back .symbol { width:22px; height:22px; }
+.heading { flex:1; min-width:0; }
+.heading h1 { font-size:26px; line-height:1.14; font-weight:720; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.heading p { color:var(--sub); margin-top:4px; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.header-power { width:93px; height:50px; }
+.room-status {
+  flex:0 0 70px; display:flex; align-items:center; gap:8px; padding:8px 10px 8px 13px;
+  margin-top:8px; border:1px solid #504236; border-radius:17px;
+  background:linear-gradient(116deg,#32291f 0%,#252324 64%,#212226 100%);
+}
+.status-body { flex:1; min-width:0; display:flex; align-items:center; gap:10px; }
+.status-medallion {
+  display:grid; place-items:center; width:37px; height:37px; flex:none; border-radius:50%;
+  color:var(--gold); background:#f8cc9013; border:1px solid #f8cc9020;
+}
+.status-medallion .symbol { width:21px; height:21px; }
+.status-copy { min-width:0; }
+.status-copy b { display:block; font-size:15px; font-weight:680; white-space:nowrap; }
+.status-copy p { color:#c0b6a9; font-size:12px; margin-top:3px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.batch { height:48px; width:66px; gap:4px; }
+.batch .symbol { width:15px; height:15px; }
+.tabs {
+  flex:0 0 50px; display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:0 3px;
+  margin-top:10px; border-radius:14px; background:#111317; border:1px solid #2e3035;
+}
+.tab {
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  border-radius:11px; min-width:0; color:#bab9b6; font-size:15px;
+}
+.tab .symbol { width:17px; height:17px; }
+.tab .tab-number { color:var(--sub); font-size:12px; font-variant-numeric:tabular-nums; }
+.tab[aria-pressed="true"] { background:#302d2a; color:#ffe0b5; box-shadow:inset 0 0 0 1px #594a3a; font-weight:660; }
+.tab:disabled { opacity:.55; }
+.section-ledger {
+  flex:0 0 48px; margin-top:5px; display:flex; align-items:center; justify-content:space-between; padding:0 2px;
+}
+.section-ledger h2 { font-size:16px; font-weight:690; }
+.section-ledger span { color:var(--sub); font-size:12px; }
+.device-list {
+  flex:1 1 auto; min-height:0; margin-top:10px; overflow:auto;
+  display:flex; flex-direction:column; gap:7px; overscroll-behavior:contain;
+  scrollbar-width:thin; scrollbar-color:#54565d transparent;
+}
+.section-ledger + .device-list { margin-top:0; }
+.device {
+  flex:0 0 54px; min-height:54px; display:flex; align-items:stretch; gap:3px;
+  border:1px solid #303238; border-radius:13px; background:#202227;
+}
+.device-open {
+  flex:1; min-width:0; display:flex; align-items:center; gap:9px; text-align:left;
+  padding:0 0 0 8px; border-radius:12px;
+}
+.device-open:focus-visible { outline-offset:-3px; }
+.device-icon {
+  display:grid; place-items:center; flex:none; width:35px; height:35px;
+  border-radius:10px; background:#2c2e35; color:#c8c8cc;
+}
+.device-icon .symbol { width:19px; height:19px; }
+.device[data-on="true"] .device-icon { color:#ffdfa9; background:#413429; }
+.device-name { display:flex; flex:1; min-width:0; flex-direction:column; gap:1px; line-height:1.2; }
+.device-name b { font-size:15px; font-weight:620; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.device-name small { font-size:11px; color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+.device-name .offline-text { color:#e4bd9a; }
+.device-arrow { color:#99999f; }
+.device-arrow .symbol { width:15px; height:15px; }
+.light-switch { flex:0 0 60px; display:grid; place-items:center; min-height:52px; border-radius:12px; }
+.light-switch:focus-visible { outline-offset:-3px; }
+.switch-track {
+  display:flex; align-items:center; width:38px; height:23px; padding:2px;
+  border-radius:15px; background:#34363e; border:1px solid #585a61;
+}
+.switch-dot { width:15px; height:15px; border-radius:50%; background:#bcbcc4; }
+.light-switch[aria-checked="true"] .switch-track { justify-content:flex-end; background:var(--gold); border-color:#ffdda8; }
+.light-switch[aria-checked="true"] .switch-dot { background:#39291c; }
+.light-switch:disabled { color:#b2a49a; }
+.light-switch:disabled .symbol { width:19px; height:19px; }
+.row-batch { flex:0 0 60px; margin:1px 3px 1px 0; border-radius:10px; font-size:12px; }
+.row-batch .symbol { width:15px; height:15px; }
+.empty { display:grid; place-items:center; color:var(--sub); font-size:14px; height:108px; border:1px dashed var(--edge); border-radius:14px; }
+.preview {
+  position:relative; isolation:isolate; overflow:hidden; flex:0 0 86px;
+  margin-top:10px; padding:10px 14px 10px 18px; border-radius:17px; border:1px solid var(--edge);
+  background:#242529; display:flex; align-items:center; gap:17px;
+}
+.preview:before {
+  content:""; position:absolute; z-index:-1; inset:0;
+  background:radial-gradient(ellipse at 11% 50%,var(--ambient,#9a704654) 0%,transparent 70%);
+}
+.preview[data-lit="false"]:before { opacity:.12; }
+.orb {
+  display:grid; place-items:center; position:relative; flex:none; width:59px; height:59px;
+  border:1px solid #ffffff32; border-radius:50%;
+  background:radial-gradient(circle at 37% 30%,#fff7e8bd,transparent 52%),var(--beam,#ffc580);
+  box-shadow:0 0 0 5px #ffffff0c,0 0 30px var(--ambient,#6f5037);
+}
+.orb .symbol { width:24px; height:24px; color:#2d2114; opacity:.75; }
+.preview[data-lit="false"] .orb { background:#2d3037; box-shadow:0 0 0 5px #ffffff08; }
+.preview[data-lit="false"] .orb .symbol { color:#bbb8b2; }
+.preview-copy { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.preview-copy p { color:#c3b9ae; font-size:12px; font-weight:510; }
+.preview-copy strong { font-size:27px; font-variant-numeric:tabular-nums; font-weight:735; line-height:1.23; white-space:nowrap; }
+.preview[data-lit="false"] .preview-copy strong { font-size:22px; }
+.preview-tag {
+  display:flex; gap:5px; align-items:center; padding:5px 8px;
+  font-size:11px; color:#e2d9cf; background:#ffffff0b; border:1px solid #ffffff19;
+  border-radius:20px; white-space:nowrap;
+}
+.preview-tag .symbol { width:13px; height:13px; }
+.control { border:1px solid var(--edge); border-radius:16px; background:#202227; }
+.brightness { flex:0 0 75px; margin-top:10px; padding:6px 13px 0; }
+.control-title { display:flex; align-items:center; justify-content:space-between; gap:5px; min-width:0; height:20px; }
+.control-title label { display:flex; align-items:center; gap:6px; font-size:14px; font-weight:615; white-space:nowrap; }
+.control-title .symbol { width:16px; height:16px; color:#c3b8aa; }
+.control-title output { color:#fff0d9; font-size:14px; font-weight:675; font-variant-numeric:tabular-nums; white-space:nowrap; }
+input[type="range"] {
+  --pct:0%; --thumb:#fff0d9; --fill:#f0be82;
+  appearance:none; -webkit-appearance:none; display:block; width:100%; height:46px;
+  margin:0; padding:0; border:0; background:transparent; color:var(--thumb);
+  outline-offset:-1px; border-radius:10px; cursor:pointer; touch-action:pan-y;
+}
+input[type="range"]:disabled { opacity:.5; cursor:default; }
+input[type="range"]::-webkit-slider-runnable-track {
+  height:11px; border-radius:7px;
+  background:var(--track,linear-gradient(to right,var(--fill) 0 var(--pct),#43454e var(--pct) 100%));
+}
+input[type="range"]::-moz-range-track {
+  height:11px; border-radius:7px;
+  background:var(--track,linear-gradient(to right,var(--fill) 0 var(--pct),#43454e var(--pct) 100%));
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance:none; -webkit-appearance:none; width:24px; height:24px; margin-top:-6.5px;
+  border:2px solid #fff8ec; border-radius:50%; background:var(--thumb); box-shadow:0 1px 5px #000a;
+}
+input[type="range"]::-moz-range-thumb {
+  width:20px; height:20px; border:2px solid #fff8ec;
+  border-radius:50%; background:var(--thumb); box-shadow:0 1px 5px #000a;
+}
+#temp { --track:linear-gradient(to right,#eaac67,#f5ecd9 48%,#a7c6f8); }
+#hue { --track:linear-gradient(to right,#ff5252,#ffee62,#61e875,#5ce9f0,#666cfb,#e871f5,#ff5252); }
+#sat { --track:linear-gradient(to right,#f4efeb,var(--hue-color,#ff9743)); }
+.mode-tabs { flex-basis:48px; margin-top:9px; }
+.settings { flex:0 0 139px; margin-top:9px; padding:8px 13px 9px; }
+.settings .control-title { height:23px; }
+.settings .control-title output { font-size:13px; }
+.temp-presets {
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin-top:3px;
+}
+.temp-preset {
+  height:48px; border:1px solid #3d3f46; border-radius:10px;
+  background:#282a31; color:#e6e1db; display:flex; align-items:center; justify-content:center; gap:6px;
+  font-size:13px;
+}
+.temp-preset span { font-size:10px; color:#c2b7a8; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.temp-preset[aria-pressed="true"] { border-color:#8e6d49; color:#ffe1b5; background:#473629; }
+.temp-preset:disabled,.swatch:disabled { opacity:.5; }
+.rgb-adjust { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.rgb-adjust section { min-width:0; }
+.swatches {
+  display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px;
+  border-top:1px solid #34363e; margin-top:1px; padding-top:3px;
+}
+.swatch { height:48px; display:grid; place-items:center; border-radius:9px; }
+.swatch-disc {
+  display:grid; place-items:center; width:26px; height:26px; border-radius:50%;
+  background:var(--swatch); color:#2c2220; border:1px solid #ffffff55;
+}
+.swatch-disc .symbol { width:15px; height:15px; }
+.swatch[aria-pressed="true"] .swatch-disc { outline:2px solid #ffebd3; outline-offset:3px; }
+.capability {
+  display:flex; align-items:center; gap:10px; color:var(--sub);
+  padding:12px 13px; margin-top:10px; border:1px solid #2d2f35; border-radius:13px;
+  font-size:13px;
+}
+.capability .symbol { width:18px; height:18px; color:#c7b49c; }
+.toast {
+  position:absolute; z-index:4; bottom:16px; left:50%; transform:translateX(-50%); max-width:426px;
+  display:flex; align-items:center; gap:7px; padding:9px 13px; border:1px solid #705d47;
+  border-radius:12px; background:#2f271f; color:#fff0dc; box-shadow:0 5px 18px #0007;
+  font-size:13px; white-space:nowrap; pointer-events:none;
+}
+.toast:empty { display:none; }
+.toast .symbol { width:16px; height:16px; color:var(--gold); }
+@media (hover:hover) {
+  .back:hover,.device-open:hover { background:#ffffff09; }
+  .room-open:hover { background:#fbebd306; }
+  .power:not(:disabled):hover,.temp-preset:not(:disabled):hover { filter:brightness(1.13); }
+  .tab:not(:disabled):hover,.swatch:not(:disabled):hover { box-shadow:inset 0 0 0 1px #a692735c; }
+}
+button:active:not(:disabled) { filter:brightness(1.15); }
+</style>
+</head>
+<body>
+<div class="frame"><main class="panel" id="app" aria-label="光序灯光控制面板">
+  <div id="view" class="screen"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+</main></div>
+<noscript>需要启用 JavaScript 才能体验灯控原型。</noscript>
+<!-- 设计参考：欧瑞博 MixPad 4 / M5 的小屏触控产品形态。界面、图标及交互均为原创。
+     https://global.orvibo.com/products/mixpad-4/
+     https://global.orvibo.com/en/product/m5.html -->
+<script>
+
+"use strict";
+
+// 示例设备与灯组。灯组成员只引用同一份设备状态，不复制状态。
+const rooms = [
+  {id:"living", name:"客厅", icon:"sofa", lamps:["living-main","living-strip","spot-left","spot-right"], groups:["spots","ambience"]},
+  {id:"bedroom", name:"主卧", icon:"bed", lamps:["bed-main","bed-read","bed-wall"], groups:["bedside"]},
+  {id:"dining", name:"餐厅", icon:"dine", lamps:["dine-main","dine-cabinet"], groups:[]},
+  {id:"entry", name:"玄关", icon:"door", lamps:["entry-main","entry-cabinet"], groups:[]}
+];
+const groups = {
+  spots:{name:"射灯组", lamps:["spot-left","spot-right"]},
+  ambience:{name:"氛围灯组", lamps:["living-strip","spot-right"]},
+  bedside:{name:"床头灯组", lamps:["bed-read","bed-wall"]}
+};
+const lights = {
+  "living-main":  {name:"客厅主灯", icon:"ceiling", type:"white", on:true, level:68, kelvin:3800, min:2700, max:6500},
+  "living-strip": {name:"氛围灯带", icon:"strip", type:"rgbw", on:true, level:46, kelvin:3000, min:2700, max:6500, hue:28, sat:76, mode:"rgb"},
+  "spot-left":    {name:"左射灯", icon:"spot", type:"dim", on:false, level:60},
+  "spot-right":   {name:"右射灯", icon:"spot", type:"dim", on:false, level:60},
+  "bed-main":     {name:"主卧吸顶灯", icon:"ceiling", type:"white", on:false, level:54, kelvin:3200, min:2200, max:5000},
+  "bed-read":     {name:"阅读壁灯", icon:"spot", type:"dim", on:false, level:40},
+  "bed-wall":     {name:"床头灯带", icon:"strip", type:"white", on:false, level:32, kelvin:2700, min:2700, max:5500},
+  "dine-main":    {name:"餐桌吊灯", icon:"dine", type:"white", on:true, level:72, kelvin:3000, min:2700, max:5000},
+  "dine-cabinet": {name:"餐边柜灯", icon:"strip", type:"dim", online:false, on:false, level:42},
+  "entry-main":   {name:"玄关顶灯", icon:"ceiling", type:"switch", on:true},
+  "entry-cabinet":{name:"鞋柜灯", icon:"strip", type:"switch", on:true}
+};
+const typeNames = {switch:"开关灯",dim:"亮度可调",white:"冷暖调光",rgb:"彩色调光",rgbw:"彩色 + 冷暖调光"};
+const presets = [
+  {name:"琥珀橙", h:28, s:76}, {name:"珊瑚红", h:4, s:73},
+  {name:"叶绿", h:140, s:61}, {name:"湖蓝", h:200, s:65}, {name:"暮紫", h:268, s:61}
+];
+const strokes = {
+  logo:'<path d="M4 16h16M7 12a5 5 0 0 1 10 0M12 3v2M4.2 7l1.5 1.5M19.8 7l-1.5 1.5M8 20h8"/>',
+  sofa:'<path d="M4 12V9a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v3M4 12a2 2 0 0 0-2 2v3a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-3a2 2 0 0 0-4 0v1H6v-1a2 2 0 0 0-2-2ZM5 18v2m14-2v2"/>',
+  bed:'<path d="M3 18V6m18 12v-5a2 2 0 0 0-2-2H3m0 5h18M6 11V9a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2"/>',
+  dine:'<path d="M12 2v5M12 7c-3.7 0-6.6 3-7 7h14c-.4-4-3.3-7-7-7ZM10 17a2 2 0 0 0 4 0M7 18l-1.5 2M17 18l1.5 2"/>',
+  door:'<path d="M4 21h16M7 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16m-4-9h1"/>',
+  arrow:'<path d="m10 6 6 6-6 6"/>',
+  back:'<path d="M19 12H5m6 6-6-6 6-6"/>',
+  power:'<path d="M12 2.5v9M7 5.5a8 8 0 1 0 10 0"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19m0-14-1.4 1.4M6.4 17.6 5 19"/>',
+  bulb:'<path d="M9 17v-2.7a5.6 5.6 0 1 1 6 0V17m-6 0h6m-5 3h4"/>',
+  ceiling:'<path d="M5 7h14M6 7l-2 5h16l-2-5M8 15l-2 3m6-3v4m4-4 2 3"/>',
+  strip:'<path d="M4 9h16a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Zm3 3h.1m4.9 0h.1m4.9 0h.1"/>',
+  spot:'<path d="M5 5h14M8 5l2 7h4l2-7M10 15l-3 4m5-4v5m2-5 3 4"/>',
+  layers:'<path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/>',
+  moon:'<path d="M19.8 14.1A7.8 7.8 0 0 1 9.9 4.2a8 8 0 1 0 9.9 9.9Z"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/>',
+  offline:'<path d="m4 4 16 16M3 9a14 14 0 0 1 3.4-2.2m3.4-.8A14 14 0 0 1 21 9M6 13a9 9 0 0 1 4.1-1.8m5.2.5A9 9 0 0 1 18 13m-9 3a4 4 0 0 1 5.4-.1M12 20h.01"/>',
+  temp:'<path d="M10 14.3V5a2 2 0 0 1 4 0v9.3a4 4 0 1 1-4 0Z"/><path d="M12 11v6m5-10h2m-2 4h2"/>',
+  color:'<circle cx="9" cy="8" r="4"/><circle cx="15" cy="8" r="4"/><circle cx="12" cy="14" r="4"/>',
+  check:'<path d="m5 12 4 4L19 6"/>'
+};
+function icon(name) {
+  return `<svg class="symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${strokes[name] || strokes.bulb}</svg>`;
+}
+const view=document.getElementById("view"), toast=document.getElementById("toast");
+const lampIds=Object.keys(lights), roomOf=id=>rooms.find(r=>r.id===id);
+const hasCT=l=>l.type==="white" || l.type==="rgbw";
+const hasColor=l=>l.type==="rgb" || l.type==="rgbw";
+const hasLevel=l=>l.type!=="switch";
+const onLine=l=>l.online!==false;
+const clamp=(x,lo,hi)=>Math.min(hi,Math.max(lo,x));
+function num(raw,lo,hi,backup,step=1) {
+  return typeof raw==="number" && Number.isFinite(raw) ? clamp(lo+Math.round((raw-lo)/step)*step,lo,hi) : backup;
+}
+const storageKey="light-sequence-480-demo-v1";
+let saved={};
+try { saved=JSON.parse(localStorage.getItem(storageKey) || "{}") || {}; }
+catch (_) { /* 文件隐私模式：仍可使用会话内状态。 */ }
+for (const id of lampIds) {
+  const l=lights[id], s=saved[id] || {};
+  l.on=onLine(l) && (typeof s.on==="boolean" ? s.on : Boolean(l.on));
+  l.level=num(s.level,1,100,l.level ?? 100);
+  if (hasCT(l)) l.kelvin=num(s.kelvin,l.min,l.max,l.kelvin,100);
+  if (hasColor(l)) {
+    l.hue=num(s.hue,0,359,l.hue ?? 28);
+    l.sat=num(s.sat,0,100,l.sat ?? 76);
+    l.mode=s.mode==="white" && hasCT(l) ? "white" : s.mode==="rgb" || !hasCT(l) ? "rgb" : l.mode;
+  }
+}
+function storeLights() {
+  try {
+    localStorage.setItem(storageKey,JSON.stringify(Object.fromEntries(lampIds.map(id=>{
+      const {on,level,kelvin,hue,sat,mode}=lights[id]; return [id,{on,level,kelvin,hue,sat,mode}];
+    }))));
+  } catch (_) { /* 不依赖存储权限。 */ }
+}
+function stats(ids) {
+  const online=ids.filter(id=>onLine(lights[id]));
+  return {total:ids.length,online:online.length,on:online.filter(id=>lights[id].on).length,offline:ids.length-online.length};
+}
+function countNote(s) {
+  return `${s.on}/${s.total} 已亮${s.offline ? " · "+s.offline+" 离线" : ""}`;
+}
+const stack=[{page:"home",scroll:0}];
+const here=()=>stack[stack.length-1];
+let toastTimer;
+function clearToast() { clearTimeout(toastTimer); toast.textContent=""; }
+function notify(message) {
+  clearToast();
+  toast.innerHTML=icon("info")+"<span></span>";
+  toast.querySelector("span").textContent=message;
+  toastTimer=setTimeout(()=>{toast.textContent="";},2200);
+}
+function render(focus="") {
+  const p=here();
+  view.dataset.page=p.page;
+  view.innerHTML=p.page==="home"?home():p.page==="room"?roomPage(p):p.page==="group"?groupPage(p):lightPage(p);
+  const list=view.querySelector(".device-list");
+  if (list) list.scrollTop=p.scroll || 0;
+  if (focus==="heading") view.querySelector("h1").focus({preventScroll:true});
+  else if (focus) {
+    const button=[...view.querySelectorAll("[data-key]")].find(x=>x.dataset.key===focus);
+    if (button && !button.disabled) button.focus({preventScroll:true});
+    else view.querySelector("h1").focus({preventScroll:true});
+  }
+}
+function saveScroll() { here().scroll=view.querySelector(".device-list")?.scrollTop || 0; }
+function openPage(p,key) {
+  saveScroll(); here().returnFocus=key; clearToast();
+  stack.push({...p,scroll:0}); render("heading");
+}
+function back() {
+  if (stack.length===1) return;
+  clearToast(); stack.pop(); render(here().returnFocus || "heading");
+}
+
+function home() {
+  const total=stats(lampIds);
+  return `
+    <div class="mast">
+      <div class="brand"><span class="mark">${icon("logo")}</span>光序 <span class="english">LIGHT SEQUENCE</span></div>
+      <span class="demo">演示模式</span>
+    </div>
+    <div class="intro">
+      <div><h1 tabindex="-1">灯光</h1><p>按区域控制全屋灯光</p></div>
+      <div class="summary-count">${icon("sun")}<span><b>${total.on} / ${total.total}</b> 盏已亮</span></div>
+    </div>
+    <div class="room-grid">${rooms.map(roomCard).join("")}</div>
+    <div class="footnote"><span class="gesture">${icon("info")}点卡片查看 · 点电源控制本区</span><span class="tag">480 × 480</span></div>`;
+}
+function roomCard(r) {
+  const s=stats(r.lamps), turnOn=s.on===0, label=turnOn?"全开":"全关";
+  return `<article class="room" data-warm="${s.on>0}">
+    <button class="room-open" data-act="room" data-id="${r.id}" data-key="room-${r.id}" aria-label="进入${r.name}，${countNote(s)}">
+      <span class="room-icon">${icon(r.icon)}</span><span class="room-arrow">${icon("arrow")}</span>
+      <span class="room-title">${r.name}</span><span class="room-note">${countNote(s)}</span>
+    </button>
+    <button class="power room-power" data-on="${s.on>0}" data-active="${s.on>0 && s.on===s.total}" data-act="batch-room"
+      data-id="${r.id}" data-to="${turnOn}" data-key="br-${r.id}" aria-label="${r.name}${s.online?label:"离线"}" ${s.online ? "" : "disabled"}>
+      ${icon(s.online?"power":"offline")}<span>${s.online?label:"离线"}</span>
+    </button>
+  </article>`;
+}
+function header(name,context,action="") {
+  return `<header class="subheader">
+    <button class="back" data-act="back" data-key="back" aria-label="返回">${icon("back")}</button>
+    <div class="heading"><h1 tabindex="-1">${name}</h1><p>${context}</p></div>${action}
+  </header>`;
+}
+function ribbon(ids,id,forGroup) {
+  const s=stats(ids), name=forGroup?groups[id].name:roomOf(id).name, act=forGroup?"batch-group":"batch-room";
+  const buttons=[true,false].map(on=>{
+    const label=on?"全开":"全关";
+    return `<button class="power batch" data-act="${act}" data-key="${act}-${on}" data-id="${id}" data-to="${on}"
+      data-active="${s.online>0 && (on ? s.on===0 : s.on>0)}" aria-label="${name}${label}" ${s.online?"":"disabled"}>
+      ${icon(on?"sun":"moon")}${label}
+    </button>`;
+  }).join("");
+  return `<section class="room-status" aria-label="${forGroup?"组内":"本区"}灯光状态">
+    <span class="status-body">
+      <span class="status-medallion">${icon(forGroup?"layers":"sun")}</span>
+      <span class="status-copy"><b>${forGroup?"组内灯光":"本区灯光"}</b><p>${countNote(s)}</p></span>
+    </span>${buttons}
+  </section>`;
+}
+function roomPage(p) {
+  const r=roomOf(p.room), isGroup=p.tab==="groups";
+  return header(r.name,"灯光 / 区域控制") + ribbon(r.lamps,r.id,false) + `
+    <div class="tabs" role="group" aria-label="选择灯具范围">
+      <button class="tab" data-act="room-tab" data-id="lamps" data-key="tab-lamps" aria-pressed="${!isGroup}">
+        ${icon("bulb")}单灯 <span class="tab-number">${r.lamps.length}</span>
+      </button>
+      <button class="tab" data-act="room-tab" data-id="groups" data-key="tab-groups" aria-pressed="${isGroup}">
+        ${icon("layers")}灯组 <span class="tab-number">${r.groups.length}</span>
+      </button>
+    </div>
+    <div class="device-list" aria-label="${isGroup?"灯组列表":"单灯列表"}">${isGroup ?
+      (r.groups.map(groupRow).join("") || '<div class="empty">此区域尚未配置灯组</div>') :
+      r.lamps.map(lampRow).join("")}</div>`;
+}
+function groupPage(p) {
+  const g=groups[p.group], r=roomOf(p.room);
+  return header(g.name,r.name+" / 灯组控制")+ribbon(g.lamps,p.group,true)+`
+    <div class="section-ledger"><h2>组内灯具</h2><span>${g.lamps.length} 盏</span></div>
+    <div class="device-list" aria-label="组内灯具列表">${g.lamps.map(lampRow).join("")}</div>`;
+}
+function lampStatus(l) {
+  if (!onLine(l)) return "离线 · 无法控制";
+  if (!l.on) return "已关闭 · "+typeNames[l.type];
+  if (!hasLevel(l)) return "已开启";
+  if (hasColor(l) && l.mode==="rgb") return l.level+"% · 彩光";
+  if (hasCT(l)) return l.level+"% · "+l.kelvin+" K";
+  return l.level+"% · 亮度";
+}
+function lampRow(id) {
+  const l=lights[id], online=onLine(l), label=lampStatus(l);
+  return `<article class="device" data-on="${online && l.on}">
+    <button class="device-open" data-act="lamp" data-id="${id}" data-key="lamp-${id}" aria-label="查看${l.name}，${label}">
+      <span class="device-icon">${icon(l.icon)}</span>
+      <span class="device-name"><b>${l.name}</b><small class="${online?"":"offline-text"}">${label}</small></span>
+      <span class="device-arrow">${icon("arrow")}</span>
+    </button>
+    <button class="light-switch" data-act="toggle" data-id="${id}" data-key="sw-${id}"
+      role="switch" aria-label="${l.name}${online?"开关":"离线"}" aria-checked="${online && l.on}" ${online?"":"disabled"}>
+      ${online?'<span class="switch-track"><span class="switch-dot"></span></span>':icon("offline")}
+    </button>
+  </article>`;
+}
+function groupRow(id) {
+  const g=groups[id], s=stats(g.lamps), turnOn=s.on===0, label=turnOn?"全开":"全关";
+  return `<article class="device" data-on="${s.on>0}">
+    <button class="device-open" data-act="group" data-id="${id}" data-key="group-${id}" aria-label="查看${g.name}，${countNote(s)}">
+      <span class="device-icon">${icon("layers")}</span>
+      <span class="device-name"><b>${g.name}</b><small>${countNote(s)}</small></span>
+      <span class="device-arrow">${icon("arrow")}</span>
+    </button>
+    <button class="power row-batch" data-act="batch-group" data-id="${id}" data-to="${turnOn}" data-key="bg-${id}"
+      data-on="${s.on>0}" data-active="${s.on>0 && s.on===s.total}" aria-label="${g.name}${s.online?label:"离线"}" ${s.online?"":"disabled"}>
+      ${icon(s.online?"power":"offline")}${s.online?label:"离线"}
+    </button>
+  </article>`;
+}
+
+
+// UI 预览为示意光色，不用于显示器或灯具色度标定。
+function rgbComponents(h,s) {
+  const c=s/100, x=c*(1-Math.abs((h/60)%2-1)), m=1-c;
+  const q=[[c,x,0],[x,c,0],[0,c,x],[0,x,c],[x,0,c],[c,0,x]][Math.floor(h/60)];
+  return q.map(n=>Math.round((n+m)*255));
+}
+function mix(a,b,t) { return a.map((x,i)=>Math.round(x+(b[i]-x)*t)); }
+function whiteComponents(kelvin) {
+  if (kelvin<=4000) return mix([255,163,79],[255,232,195],clamp((kelvin-2200)/1800,0,1));
+  return mix([255,232,195],[190,219,255],clamp((kelvin-4000)/2500,0,1));
+}
+const cssRGB=c=>`rgb(${c.join(",")})`;
+const cssHex=c=>"#"+c.map(v=>v.toString(16).padStart(2,"0")).join("").toUpperCase();
+const inRGB=l=>hasColor(l) && l.mode==="rgb";
+const isLit=l=>onLine(l) && l.on;
+function lightAppearance(l) {
+  const c=inRGB(l)?rgbComponents(l.hue,l.sat):hasCT(l)?whiteComponents(l.kelvin):[255,212,160];
+  const a=isLit(l)?0.23+l.level/250:0;
+  const beam=mix([49,39,35],c,.50+l.level/200);
+  let label=inRGB(l)?cssHex(c):hasCT(l)?l.kelvin.toLocaleString("en-US")+" K":hasLevel(l)?l.level+"%":"已开启";
+  if (!onLine(l)) label="设备离线";
+  else if (!l.on) label="灯光已关闭";
+  let status=!onLine(l)?"连接恢复后可控制":!l.on?"开灯恢复上次设置":"灯光预览";
+  return {c,beam:cssRGB(beam),ambient:`rgba(${c.join(",")},${a})`,label,status};
+}
+function lightPage(p) {
+  const l=lights[p.lamp], r=roomOf(p.room), online=onLine(l), enabled=isLit(l), appearance=lightAppearance(l);
+  const powerLabel=online?(l.on?"关灯":"开灯"):"离线";
+  const action=`<button class="power header-power" data-act="toggle" data-id="${p.lamp}" data-key="detail-power"
+    data-on="${enabled}" data-active="${enabled}" aria-label="${online?(l.on?"关闭":"开启")+l.name:l.name+"离线"}" ${online?"":"disabled"}>
+    ${icon(online?"power":"offline")}${powerLabel}</button>`;
+  const preview=`<section class="preview" id="light-preview" aria-label="示意光色" data-lit="${enabled}"
+    style="--beam:${appearance.beam};--ambient:${appearance.ambient}">
+    <span class="orb">${icon(l.icon)}</span>
+    <span class="preview-copy"><p>${appearance.status}</p><strong id="preview-value">${appearance.label}</strong></span>
+    <span class="preview-tag">${icon(enabled?(inRGB(l)?"color":"sun"):(online?"moon":"offline"))}${enabled?(inRGB(l)?"彩光":hasCT(l)?"白光":"已开"):(online?"已关":"离线")}</span>
+  </section>`;
+  const brightness=hasLevel(l)?`<div class="control brightness">
+    ${range("level","亮度","sun",l.level,1,100,1,"%",enabled)}
+  </div>`:"";
+  const mode=hasCT(l) && hasColor(l)?`<div class="tabs mode-tabs" role="group" aria-label="选择灯光模式">
+    <button class="tab" data-act="mode" data-id="white" data-key="mode-white" aria-pressed="${!inRGB(l)}" ${enabled?"":"disabled"}>${icon("sun")}白光</button>
+    <button class="tab" data-act="mode" data-id="rgb" data-key="mode-rgb" aria-pressed="${inRGB(l)}" ${enabled?"":"disabled"}>${icon("color")}彩光</button>
+  </div>`:"";
+  let settings=inRGB(l)?colorControls(l,enabled):hasCT(l)?whiteControls(l,enabled):`
+    <div class="capability">${icon("info")}此灯${hasLevel(l)?"仅支持开关与亮度":"仅支持开关"}</div>`;
+  return header(l.name,r.name+" / "+typeNames[l.type],action)+preview+brightness+mode+settings;
+}
+function range(id,label,glyph,value,min,max,step,unit,enabled,extra="") {
+  const val=value+unit.trimEnd();
+  return `<div class="control-title">
+    <label for="${id}">${glyph?icon(glyph):""}${label}</label><output id="${id}-read" for="${id}">${val}</output>
+  </div>
+  <input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"
+    aria-valuetext="${val}" data-unit="${unit}" style="--pct:${100*(value-min)/(max-min)}%;${extra}" ${enabled?"":"disabled"}>`;
+}
+function cctPresets(l) {
+  return [
+    ["暖白",l.min],["自然",clamp(4000,l.min+100,l.max-100)],["冷白",l.max]
+  ];
+}
+function whiteControls(l,enabled) {
+  return `<section class="control settings" aria-label="白光色温">
+    ${range("temp","色温","temp",l.kelvin,l.min,l.max,100," K",enabled,"--thumb:"+cssRGB(whiteComponents(l.kelvin))+";")}
+    <div class="temp-presets" role="group" aria-label="色温预设">
+      ${cctPresets(l).map(([label,k])=>`<button class="temp-preset" data-act="temp" data-id="${k}" data-key="temp-${k}"
+        aria-pressed="${l.kelvin===k}" ${enabled?"":"disabled"}>${label}<span>${k} K</span></button>`).join("")}
+    </div>
+  </section>`;
+}
+function colorControls(l,enabled) {
+  const hueColor=cssRGB(rgbComponents(l.hue,100)), satColor=cssRGB(rgbComponents(l.hue,l.sat));
+  return `<section class="control settings" aria-label="彩光色彩">
+    <div class="rgb-adjust">
+      <section>${range("hue","色相",null,l.hue,0,359,1,"°",enabled,"--thumb:"+hueColor+";")}</section>
+      <section>${range("sat","饱和度",null,l.sat,0,100,1,"%",enabled,"--hue-color:"+hueColor+";--thumb:"+satColor+";")}</section>
+    </div>
+    <div class="swatches" role="group" aria-label="彩光预设">
+      ${presets.map((p,i)=>{
+        const selected=l.hue===p.h && l.sat===p.s;
+        return `<button class="swatch" data-act="swatch" data-id="${i}" data-key="swatch-${i}"
+          aria-label="${p.name}" title="${p.name}" aria-pressed="${selected}" ${enabled?"":"disabled"}>
+          <span class="swatch-disc" style="--swatch:${cssRGB(rgbComponents(p.h,p.s))}">${selected?icon("check"):""}</span>
+        </button>`;
+      }).join("")}
+    </div>
+  </section>`;
+}
+function updateRange(id,value,properties={}) {
+  const field=document.getElementById(id);
+  if (!field) return;
+  if (field.valueAsNumber!==value) field.value=value;
+  const label=value+field.dataset.unit.trimEnd();
+  field.setAttribute("aria-valuetext",label);
+  field.style.setProperty("--pct",100*(value-Number(field.min))/(Number(field.max)-Number(field.min))+"%");
+  for (const [key,v] of Object.entries(properties)) field.style.setProperty(key,v);
+  document.getElementById(id+"-read").textContent=label;
+}
+function paintLight(l) {
+  const a=lightAppearance(l), preview=document.getElementById("light-preview");
+  preview.style.setProperty("--beam",a.beam); preview.style.setProperty("--ambient",a.ambient);
+  document.getElementById("preview-value").textContent=a.label;
+  updateRange("level",l.level);
+  if (inRGB(l)) {
+    const c=cssRGB(rgbComponents(l.hue,100));
+    updateRange("hue",l.hue,{"--thumb":c});
+    updateRange("sat",l.sat,{"--hue-color":c,"--thumb":cssRGB(a.c)});
+    for (const b of view.querySelectorAll(".swatch")) {
+      const p=presets[Number(b.dataset.id)], selected=l.hue===p.h && l.sat===p.s;
+      if (b.getAttribute("aria-pressed")!==String(selected)) {
+        b.setAttribute("aria-pressed",selected);
+        b.querySelector(".swatch-disc").innerHTML=selected?icon("check"):"";
+      }
+    }
+  } else if (hasCT(l)) {
+    updateRange("temp",l.kelvin,{"--thumb":cssRGB(a.c)});
+    for (const b of view.querySelectorAll(".temp-preset")) b.setAttribute("aria-pressed",l.kelvin===Number(b.dataset.id));
+  }
+}
+function batch(ids,target,key) {
+  const s=stats(ids);
+  if (!s.online) return;
+  let changed=0;
+  for (const id of ids) {
+    if (onLine(lights[id]) && lights[id].on!==target) {
+      lights[id].on=target; changed++;
+    }
+  }
+  storeLights(); saveScroll(); render(key);
+  const result=changed?`已${target?"开":"关"} ${changed} 盏灯`:`在线灯已${target?"全部开启":"全部关闭"}`;
+  notify(result+(s.offline?` · 跳过 ${s.offline} 盏离线`:""));
+}
+view.addEventListener("click",ev=>{
+  const btn=ev.target.closest("button[data-act]");
+  if (!btn || btn.disabled) return;
+  const {act,id,key,to}=btn.dataset, p=here();
+  switch(act) {
+    case "back": back(); break;
+    case "room": openPage({page:"room",room:id,tab:"lamps"},key); break;
+    case "room-tab":
+      if (p.tab!==id) { p.tab=id; p.scroll=0; clearToast(); render(key); } break;
+    case "group": openPage({page:"group",room:p.room,group:id},key); break;
+    case "lamp": openPage({page:"light",room:p.room,lamp:id},key); break;
+    case "batch-room": batch(roomOf(id).lamps,to==="true",key); break;
+    case "batch-group": batch(groups[id].lamps,to==="true",key); break;
+    case "toggle":
+      if (!onLine(lights[id])) return;
+      lights[id].on=!lights[id].on;
+      clearToast(); storeLights(); saveScroll(); render(key); break;
+    case "mode": {
+      const l=lights[p.lamp];
+      if (isLit(l) && hasColor(l) && hasCT(l) && l.mode!==id) {
+        l.mode=id; storeLights(); render(key);
+      }
+      break;
+    }
+    case "temp": {
+      const l=lights[p.lamp];
+      if (isLit(l) && hasCT(l)) { l.kelvin=Number(id); storeLights(); paintLight(l); }
+      break;
+    }
+    case "swatch": {
+      const l=lights[p.lamp], color=presets[Number(id)];
+      if (isLit(l) && inRGB(l)) { l.hue=color.h; l.sat=color.s; storeLights(); paintLight(l); }
+      break;
+    }
+  }
+});
+view.addEventListener("input",ev=>{
+  const p=here(), field=ev.target;
+  if (p.page!=="light" || field.type!=="range" || field.disabled) return;
+  const l=lights[p.lamp];
+  if (!isLit(l)) return;
+  const value=field.valueAsNumber;
+  if (field.id==="level") l.level=value;
+  if (field.id==="temp") l.kelvin=value;
+  if (field.id==="hue") l.hue=value;
+  if (field.id==="sat") l.sat=value;
+  paintLight(l);
+});
+view.addEventListener("change",ev=>{ if (ev.target.type==="range") storeLights(); });
+window.addEventListener("keydown",ev=>{ if (ev.key==="Escape" && stack.length>1) { ev.preventDefault(); back(); } });
+function fit() {
+  const scale=Math.max(0.01,Math.min(1,innerWidth/480,innerHeight/480));
+  document.documentElement.style.setProperty("--fit",scale);
+}
+window.addEventListener("resize",fit,{passive:true});
+fit(); render();
+</script>
+</body>
+</html>

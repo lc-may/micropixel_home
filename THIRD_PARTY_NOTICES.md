@@ -23,6 +23,8 @@ PC market text uses LVGL's existing Tiny TTF/stb renderer and locally installed 
 redistributed by this target; Noto CJK installations retain their SIL OFL notices in the system package.
 The Guest panel numeral atlas is a Noto Sans SemiBold subset under SIL OFL 1.1; its notice is retained in
 [`guest/sdk/ui/NotoSans-OFL.txt`](guest/sdk/ui/NotoSans-OFL.txt). Its generator is `tools/fonts/build_panel_numerals.py`.
+The Light Sequence Guest includes rasterized text from Noto Sans CJK SC under SIL OFL 1.1.
+The font notice is in [the Light Sequence assets](guest/apps/light-sequence/assets/NotoSansCJK-OFL.txt).
 Panel icons derive from Google's Material Symbols Rounded, commit `10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7`,
 under Apache-2.0, copyright Google LLC. Source SVGs and attribution are in
 [`guest/sdk/ui/icons/`](guest/sdk/ui/icons/README.md); `tools/build_panel_icons.py` applies the panel palette.
